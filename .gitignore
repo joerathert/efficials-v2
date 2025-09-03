@@ -1,0 +1,108 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+pubspec.lock
+
+# Flutter build artifacts
+build/
+android/app/build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+
+# Android
+android/.gradle/
+android/app/src/main/gen/
+android/app/src/main/assets/flutter_assets
+android/local.properties
+*.iml
+*.log
+*.tmp
+*.swp
+*.swo
+
+# iOS
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets
+ios/Pods/
+ios/.generated/
+
+# macOS
+macos/.symlinks/
+macos/Flutter/App.framework
+macos/Flutter/Flutter.framework
+macos/Flutter/Generated.xcconfig
+macos/Flutter/app.flx
+macos/Flutter/app.zip
+macos/Flutter/flutter_assets
+macos/Pods/
+macos/.generated/
+
+# Windows
+windows/.symlinks/
+windows/Flutter/App.framework
+windows/Flutter/Flutter.framework
+windows/Flutter/Generated.xcconfig
+windows/Flutter/app.flx
+windows/Flutter/app.zip
+windows/Flutter/flutter_assets
+windows/Pods/
+windows/.generated/
+
+# Linux
+linux/.symlinks/
+linux/Flutter/App.framework
+linux/Flutter/Flutter.framework
+linux/Flutter/Generated.xcconfig
+linux/Flutter/app.flx
+linux/Flutter/app.zip
+linux/Flutter/flutter_assets
+linux/Pods/
+linux/.generated/
+
+# Web
+web/index.html
+web/favicon.png
+web/icons/
+web/manifest.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.iws
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node.js (for functions)
+functions/node_modules/
+functions/npm-debug.log*
+functions/yarn-debug.log*
+functions/yarn-error.log*
