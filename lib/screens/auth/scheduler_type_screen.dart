@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 
 class SchedulerTypeScreen extends StatefulWidget {
   const SchedulerTypeScreen({super.key});
@@ -66,18 +68,27 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.yellow,
-          size: 32,
+        backgroundColor: colorScheme.surface,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -88,7 +99,7 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              const Text.rich(
+              Text.rich(
                 TextSpan(
                   children: [
                     TextSpan(text: 'What Type of Scheduler\n'),
@@ -98,7 +109,8 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.yellow,
+                  color: colorScheme
+                      .onBackground, // Dark text for light mode readability
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -167,8 +179,6 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
                 child: ElevatedButton(
                   onPressed: _handleContinue,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow,
-                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

@@ -24,6 +24,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
   String? _selectedSport;
   String? _selectedGrade;
   String? _selectedGender;
+  bool _isSchoolAffiliated = false;
 
   final List<String> sports = [
     'Baseball',
@@ -34,7 +35,8 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
     'Volleyball'
   ];
 
-  final List<String> grades = [
+  // Age-based competition levels (current system)
+  final List<String> ageBasedGrades = [
     '6U',
     '7U',
     '8U',
@@ -50,6 +52,24 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
     '18U',
     'Adult'
   ];
+
+  // School grade-based competition levels
+  final List<String> schoolBasedGrades = [
+    '3rd Grade',
+    '4th Grade',
+    '5th Grade',
+    '6th Grade',
+    '7th Grade',
+    '8th Grade',
+    'Freshmen',
+    'Sophomore',
+    'JV',
+    'Varsity'
+  ];
+
+  // Get current grade options based on school affiliation
+  List<String> get grades =>
+      _isSchoolAffiliated ? schoolBasedGrades : ageBasedGrades;
 
   List<String> genders = ['Boys', 'Girls', 'Co-ed'];
 
@@ -72,12 +92,33 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
 
   void _updateGenderOptions(String? grade) {
     setState(() {
-      if (grade == 'Adult') {
-        genders = ['Men', 'Women', 'Co-ed'];
+      if (_isSchoolAffiliated) {
+        // School-based system: Freshmen, Sophomore, JV, Varsity are typically high school
+        if (grade == 'Freshmen' ||
+            grade == 'Sophomore' ||
+            grade == 'JV' ||
+            grade == 'Varsity') {
+          genders = ['Boys', 'Girls', 'Co-ed'];
+        } else {
+          genders = ['Boys', 'Girls', 'Co-ed'];
+        }
       } else {
-        genders = ['Boys', 'Girls', 'Co-ed'];
+        // Age-based system: Adult teams have different gender options
+        if (grade == 'Adult') {
+          genders = ['Men', 'Women', 'Co-ed'];
+        } else {
+          genders = ['Boys', 'Girls', 'Co-ed'];
+        }
       }
       _selectedGender = null; // Reset gender selection
+    });
+  }
+
+  void _onSchoolAffiliationChanged(bool isAffiliated) {
+    setState(() {
+      _isSchoolAffiliated = isAffiliated;
+      _selectedGrade = null; // Reset grade selection when switching systems
+      _updateGenderOptions(null); // Update gender options for new system
     });
   }
 
@@ -303,7 +344,10 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
                           labelText: 'Sport',
-                          hintText: 'Select your sport',
+                        ),
+                        hint: const Text(
+                          'Select your sport',
+                          style: TextStyle(color: Colors.white),
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
@@ -325,11 +369,63 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                       ),
                       const SizedBox(height: 20),
 
+                      // School Affiliation Toggle
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Is this team affiliated with a school?',
+                            style: TextStyle(
+                              color: Colors.grey[300],
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Switch(
+                                value: _isSchoolAffiliated,
+                                onChanged: _onSchoolAffiliationChanged,
+                                activeThumbColor: Colors.yellow,
+                                activeTrackColor:
+                                    Colors.yellow.withOpacity(0.3),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _isSchoolAffiliated ? 'Yes' : 'No',
+                                style: TextStyle(
+                                  color: Colors.grey[300],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _isSchoolAffiliated
+                                ? 'Using school grade levels (3rd Grade - Varsity)'
+                                : 'Using age-based levels (6U - 18U, Adult)',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
                       // Level of Competition Dropdown
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
                           labelText: 'Level of Competition',
-                          hintText: 'Select level',
+                        ),
+                        hint: Text(
+                          _isSchoolAffiliated
+                              ? 'Select grade level'
+                              : 'Select age level',
+                          style: const TextStyle(color: Colors.white),
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
@@ -357,7 +453,10 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
                           labelText: 'Gender',
-                          hintText: 'Select gender',
+                        ),
+                        hint: const Text(
+                          'Select gender',
+                          style: TextStyle(color: Colors.white),
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],

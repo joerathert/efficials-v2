@@ -1,73 +1,83 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'providers/theme_provider.dart';
+import 'app_theme.dart';
 import 'screens/auth/role_selection_screen.dart';
 import 'screens/auth/basic_profile_screen.dart';
 import 'screens/auth/scheduler_type_screen.dart';
 import 'screens/auth/athletic_director_profile_screen.dart';
 import 'screens/auth/coach_profile_screen.dart';
+import 'screens/auth/assigner_profile_screen.dart';
 import 'screens/home/athletic_director_home_screen.dart';
+import 'screens/home/coach_home_screen.dart';
+import 'screens/home/assigner_home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Firebase with error handling for hot restart
+  try {
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow; // Re-throw if it's not a duplicate app error
+    }
+    // If it's a duplicate app error, continue - Firebase is already initialized
+  }
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
-  runApp(const MyApp());
+
+  // Initialize theme provider and load saved theme preference
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadThemeMode();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Efficials v2.0',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.grey[900],
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          labelStyle: const TextStyle(color: Colors.white),
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          filled: true,
-          fillColor: Colors.grey[700],
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.yellow),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey[600]!),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.yellow, width: 2),
-          ),
-        ),
-        textSelectionTheme: const TextSelectionThemeData(
-          cursorColor: Colors.yellow,
-          selectionColor: Colors.yellow,
-          selectionHandleColor: Colors.yellow,
-        ),
-      ),
-      home: const MyHomePage(),
-      routes: {
-        '/role-selection': (context) => const RoleSelectionScreen(),
-        '/basic-profile': (context) => const BasicProfileScreen(),
-        '/scheduler-type': (context) => const SchedulerTypeScreen(),
-        '/athletic-director-profile': (context) =>
-            const AthleticDirectorProfileScreen(),
-        '/athletic-director-home': (context) =>
-            const AthleticDirectorHomeScreen(),
-        '/coach-profile': (context) => const CoachProfileScreen(),
-        // TODO: Add other routes as we create them
-        // '/assigner-profile': (context) => const AssignerProfileScreen(),
-        // '/official-profile': (context) => const OfficialProfileScreen(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Efficials v2.0',
+          theme: themeProvider.themeData,
+          darkTheme: AppTheme.dark,
+          themeMode: themeProvider.themeMode,
+          home: const MyHomePage(),
+          routes: {
+            '/role-selection': (context) => const RoleSelectionScreen(),
+            '/basic-profile': (context) => const BasicProfileScreen(),
+            '/scheduler-type': (context) => const SchedulerTypeScreen(),
+            '/athletic-director-profile': (context) =>
+                const AthleticDirectorProfileScreen(),
+            '/athletic-director-home': (context) =>
+                const AthleticDirectorHomeScreen(),
+            '/coach-home': (context) => const CoachHomeScreen(),
+            '/coach-profile': (context) => const CoachProfileScreen(),
+            '/assigner-profile': (context) => const AssignerProfileScreen(),
+            '/assigner-home': (context) => const AssignerHomeScreen(),
+            // TODO: Add other routes as we create them
+            // '/official-profile': (context) => const OfficialProfileScreen(),
+          },
+        );
       },
     );
   }
@@ -77,16 +87,41 @@ class MyHomePage extends StatelessWidget {
   const MyHomePage({super.key});
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.yellow,
-          size: 32,
+        backgroundColor: colorScheme.surface,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
+        actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  themeProvider.toggleTheme();
+                },
+                tooltip: 'Toggle theme',
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Padding(
@@ -94,21 +129,22 @@ class MyHomePage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'Welcome to Efficials v2.0',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.yellow,
+                  color: colorScheme
+                      .onBackground, // Dark text for light mode readability
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Sports Officials Scheduling Platform',
                 style: TextStyle(
                   fontSize: 18,
-                  color: Colors.grey,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -122,8 +158,6 @@ class MyHomePage extends StatelessWidget {
                     Navigator.pushNamed(context, '/role-selection');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow,
-                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -144,15 +178,14 @@ class MyHomePage extends StatelessWidget {
               // Sign In Button (placeholder)
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
+                child: ElevatedButton(
                   onPressed: () {
                     // TODO: Navigate to sign in screen
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Sign In - Coming Soon!')),
                     );
                   },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.yellow),
+                  style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -163,7 +196,6 @@ class MyHomePage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.yellow,
                     ),
                   ),
                 ),
@@ -171,10 +203,11 @@ class MyHomePage extends StatelessWidget {
 
               const SizedBox(height: 48),
 
-              const Text(
+              Text(
                 'Firebase Initialized & Ready!',
                 style: TextStyle(
-                  color: Colors.green,
+                  color: colorScheme
+                      .onBackground, // Proper contrast instead of yellow
                   fontSize: 14,
                 ),
               ),

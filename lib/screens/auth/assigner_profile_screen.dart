@@ -4,27 +4,35 @@ import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../providers/theme_provider.dart';
 
-class AthleticDirectorProfileScreen extends StatefulWidget {
-  const AthleticDirectorProfileScreen({super.key});
+class AssignerProfileScreen extends StatefulWidget {
+  const AssignerProfileScreen({super.key});
 
   @override
-  State<AthleticDirectorProfileScreen> createState() =>
-      _AthleticDirectorProfileScreenState();
+  State<AssignerProfileScreen> createState() => _AssignerProfileScreenState();
 }
 
-class _AthleticDirectorProfileScreenState
-    extends State<AthleticDirectorProfileScreen> {
+class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _schoolNameController = TextEditingController();
+  final _organizationNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _zipController = TextEditingController();
-  final _teamNameController = TextEditingController();
 
   Map<String, dynamic>? profileData;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
+
+  String? _selectedSport;
+
+  final List<String> sports = [
+    'Baseball',
+    'Basketball',
+    'Football',
+    'Soccer',
+    'Softball',
+    'Volleyball'
+  ];
 
   @override
   void didChangeDependencies() {
@@ -35,12 +43,11 @@ class _AthleticDirectorProfileScreenState
 
   @override
   void dispose() {
-    _schoolNameController.dispose();
+    _organizationNameController.dispose();
     _addressController.dispose();
     _cityController.dispose();
     _stateController.dispose();
     _zipController.dispose();
-    _teamNameController.dispose();
     super.dispose();
   }
 
@@ -74,6 +81,13 @@ class _AthleticDirectorProfileScreenState
     return null;
   }
 
+  String? _validateDropdown(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return 'Please select a $fieldName';
+    }
+    return null;
+  }
+
   Future<void> _handleCreateAccount() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -92,7 +106,7 @@ class _AthleticDirectorProfileScreenState
     });
 
     try {
-      print('DEBUG: Starting account creation process');
+      print('DEBUG: Starting assigner account creation process');
       print('DEBUG: Profile data keys: ${profileData?.keys}');
 
       // Create profile data
@@ -103,15 +117,21 @@ class _AthleticDirectorProfileScreenState
       );
       print('DEBUG: Profile created successfully');
 
-      // Create scheduler profile
-      final fullAddress =
-          '${_addressController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim().toUpperCase()} ${_zipController.text.trim()}';
-      final schedulerProfile = SchedulerProfile.athleticDirector(
-        schoolName: _schoolNameController.text.trim(),
-        teamName: _teamNameController.text.trim(),
-        schoolAddress: fullAddress,
+      // Create address data for assigner
+      final homeAddress = AddressData(
+        address: _addressController.text.trim(),
+        city: _cityController.text.trim(),
+        state: _stateController.text.trim().toUpperCase(),
+        zipCode: _zipController.text.trim(),
       );
-      print('DEBUG: Scheduler profile created successfully');
+
+      // Create assigner profile
+      final assignerProfile = SchedulerProfile.assigner(
+        organizationName: _organizationNameController.text.trim(),
+        sport: _selectedSport!,
+        homeAddress: homeAddress,
+      );
+      print('DEBUG: Assigner profile created successfully');
 
       // Create user account
       print('DEBUG: Calling signUpWithEmailAndPassword...');
@@ -120,7 +140,7 @@ class _AthleticDirectorProfileScreenState
         password: profileData!['password'],
         profile: profile,
         role: 'scheduler',
-        schedulerProfile: schedulerProfile,
+        schedulerProfile: assignerProfile,
       );
       print(
           'DEBUG: SignUp result - success: ${result.success}, error: ${result.error}');
@@ -135,10 +155,10 @@ class _AthleticDirectorProfileScreenState
             ),
           );
 
-          // Navigate to Athletic Director home
+          // Navigate to Assigner home
           Navigator.pushNamedAndRemoveUntil(
             context,
-            '/athletic-director-home',
+            '/assigner-home',
             (route) => false,
           );
         }
@@ -153,13 +173,13 @@ class _AthleticDirectorProfileScreenState
         }
       }
     } catch (e) {
-      print('DEBUG: Full error details: $e'); // Add detailed logging
+      print('DEBUG: Full error details: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating account: $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5), // Show longer to read
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -208,7 +228,7 @@ class _AthleticDirectorProfileScreenState
               children: [
                 const SizedBox(height: 20),
                 const Text(
-                  'School Information',
+                  'Assigner Setup',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -218,7 +238,7 @@ class _AthleticDirectorProfileScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tell us about your school',
+                  'Set up your organization information to get started',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[400],
@@ -243,21 +263,68 @@ class _AthleticDirectorProfileScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // School Name Field
+                      // Organization Name Field
                       TextFormField(
-                        controller: _schoolNameController,
+                        controller: _organizationNameController,
                         decoration: InputDecoration(
-                          labelText: 'School Name',
-                          hintText: 'e.g., Edwardsville High School',
-                          prefixIcon:
-                              const Icon(Icons.school, color: Colors.grey),
-                          helperText: 'Official school name for records',
+                          labelText: 'Organization Name',
+                          hintText: 'e.g., Metro Basketball League',
+                          helperText:
+                              'The league or association you assign officials for',
                         ),
                         style: const TextStyle(color: Colors.white),
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
                         validator: (value) =>
-                            _validateRequired(value, 'School name'),
+                            _validateRequired(value, 'Organization name'),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Sport Dropdown
+                      DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          labelText: 'Primary Sport',
+                        ),
+                        hint: const Text(
+                          'Select your primary sport',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: Colors.grey[800],
+                        iconEnabledColor: Colors.yellow,
+                        value: _selectedSport,
+                        items: sports.map((sport) {
+                          return DropdownMenuItem(
+                            value: sport,
+                            child: Text(sport,
+                                style: const TextStyle(color: Colors.white)),
+                          );
+                        }).toList(),
+                        validator: (value) => _validateDropdown(value, 'sport'),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSport = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 30),
+
+                      // Assignment Area Address Section
+                      Text(
+                        'Assignment Area Address',
+                        style: TextStyle(
+                          color: Colors.grey[300],
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This helps us find officials in your area. Use your league office, school, or primary location where games are typically held.',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 20),
 
@@ -266,9 +333,7 @@ class _AthleticDirectorProfileScreenState
                         controller: _addressController,
                         decoration: InputDecoration(
                           labelText: 'Address',
-                          hintText: 'Address',
-                          prefixIcon:
-                              const Icon(Icons.home, color: Colors.grey),
+                          hintText: 'Street address',
                         ),
                         style: const TextStyle(color: Colors.white),
                         textCapitalization: TextCapitalization.words,
@@ -284,8 +349,6 @@ class _AthleticDirectorProfileScreenState
                         decoration: InputDecoration(
                           labelText: 'City',
                           hintText: 'City',
-                          prefixIcon: const Icon(Icons.location_city,
-                              color: Colors.grey),
                         ),
                         style: const TextStyle(color: Colors.white),
                         textCapitalization: TextCapitalization.words,
@@ -305,8 +368,6 @@ class _AthleticDirectorProfileScreenState
                               decoration: InputDecoration(
                                 labelText: 'ST',
                                 hintText: 'ST',
-                                prefixIcon:
-                                    const Icon(Icons.map, color: Colors.grey),
                               ),
                               style: const TextStyle(color: Colors.white),
                               textCapitalization: TextCapitalization.characters,
@@ -340,94 +401,14 @@ class _AthleticDirectorProfileScreenState
                               decoration: InputDecoration(
                                 labelText: 'Zip Code',
                                 hintText: 'Zip Code',
-                                prefixIcon: const Icon(Icons.local_post_office,
-                                    color: Colors.grey),
                               ),
                               style: const TextStyle(color: Colors.white),
-                              textInputAction: TextInputAction.next,
+                              textInputAction: TextInputAction.done,
                               keyboardType: TextInputType.number,
                               validator: _validateZip,
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Team Name Field with explanation
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'How would you like your school\'s team name to appear on schedules?',
-                            style: TextStyle(
-                              color: Colors.grey[300],
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Examples: "Edwardsville Tigers", "St. Mary\'s Redbirds"',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _teamNameController,
-                            decoration: InputDecoration(
-                              labelText: 'Team Name',
-                              hintText: 'e.g., Edwardsville Tigers',
-                              prefixIcon:
-                                  const Icon(Icons.sports, color: Colors.grey),
-                            ),
-                            style: const TextStyle(color: Colors.white),
-                            textCapitalization: TextCapitalization.words,
-                            textInputAction: TextInputAction.done,
-                            validator: (value) =>
-                                _validateRequired(value, 'Team name'),
-                            onChanged: (value) =>
-                                setState(() {}), // Update preview
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Preview Card
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.yellow.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: Colors.yellow.withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Schedule Preview',
-                              style: TextStyle(
-                                color: Colors.yellow,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _teamNameController.text.trim().isEmpty
-                                  ? 'Troy Saints @ [Enter your team name]'
-                                  : 'Troy Saints @ ${_teamNameController.text.trim()}',
-                              style: TextStyle(
-                                color: Colors.grey[300],
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ],
                   ),

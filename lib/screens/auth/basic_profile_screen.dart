@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 
 class BasicProfileScreen extends StatefulWidget {
   const BasicProfileScreen({super.key});
@@ -148,18 +150,27 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.yellow,
-          size: 32,
+        backgroundColor: colorScheme.surface,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -177,7 +188,8 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.yellow,
+                    color: colorScheme
+                        .onBackground, // Dark text for light mode readability
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -382,8 +394,6 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _handleContinue,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
-                      foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

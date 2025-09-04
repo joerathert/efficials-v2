@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -34,20 +36,39 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Icon(
+        backgroundColor: colorScheme.surface,
+        title: Icon(
           Icons.sports,
-          color: Colors.yellow,
+          color: Colors.black,
           size: 32,
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  themeProvider.toggleTheme();
+                },
+                tooltip: 'Toggle theme',
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -56,38 +77,40 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              const Text(
+              Text(
                 'Choose Your Role',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.yellow,
+                  color: colorScheme
+                      .onBackground, // Dark text for light mode readability
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Select how you\'ll be using Efficials',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
-              
+
               // Scheduler Role Card
               _RoleCard(
                 title: 'Scheduler',
                 subtitle: 'Athletic Director, Coach, or Assigner',
-                description: 'Create games, manage schedules, and assign officials',
+                description:
+                    'Create games, manage schedules, and assign officials',
                 icon: Icons.event_note,
                 isSelected: selectedRole == 'scheduler',
                 onTap: () => _handleRoleSelection('scheduler'),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Official Role Card
               _RoleCard(
                 title: 'Official',
@@ -97,17 +120,15 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 isSelected: selectedRole == 'official',
                 onTap: () => _handleRoleSelection('official'),
               ),
-              
+
               const Spacer(),
-              
+
               // Continue Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _handleContinue,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow,
-                    foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -122,7 +143,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 20),
             ],
           ),
@@ -151,6 +172,9 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -158,16 +182,39 @@ class _RoleCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.yellow.withOpacity(0.1) : Colors.grey[800],
+          color: isSelected
+              ? theme.brightness == Brightness.light
+                  ? Colors.grey
+                      .shade100 // Light gray background when selected in light mode
+                  : colorScheme.primary.withOpacity(
+                      0.1) // Yellow background when selected in dark mode
+              : theme.brightness == Brightness.light
+                  ? Colors.grey
+                      .shade50 // Light gray background for unselected in light mode
+                  : colorScheme.surfaceVariant
+                      .withOpacity(0.8), // Original dark mode styling
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.yellow : Colors.transparent,
-            width: 2,
+            color: isSelected
+                ? theme.brightness == Brightness.light
+                    ? Colors.black // Black border when selected in light mode
+                    : colorScheme
+                        .primary // Yellow border when selected in dark mode
+                : theme.brightness == Brightness.light
+                    ? Colors.black.withOpacity(
+                        0.3) // Light black border for unselected in light mode
+                    : colorScheme.outline
+                        .withOpacity(0.3), // Original dark mode border
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 8,
+              color: theme.brightness == Brightness.light
+                  ? Colors.black.withOpacity(
+                      isSelected ? 0.2 : 0.1) // Softer shadows in light mode
+                  : colorScheme.shadow.withOpacity(
+                      isSelected ? 0.3 : 0.15), // Original dark mode shadows
+              blurRadius: isSelected ? 12 : 6, // More shadow for selected cards
               offset: const Offset(0, 2),
             ),
           ],
@@ -179,7 +226,7 @@ class _RoleCard extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? Colors.yellow : Colors.white,
+                  color: colorScheme.onSurface, // Always black icons
                   size: 32,
                 ),
                 const SizedBox(width: 16),
@@ -192,23 +239,31 @@ class _RoleCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.yellow : Colors.white,
+                          color: isSelected
+                              ? theme.brightness == Brightness.light
+                                  ? colorScheme
+                                      .onSurface // Black text when selected in light mode
+                                  : colorScheme
+                                      .primary // Yellow text when selected in dark mode
+                              : colorScheme.onSurface,
                         ),
                       ),
                       Text(
                         subtitle,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[400],
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
                 if (isSelected)
-                  const Icon(
+                  Icon(
                     Icons.check_circle,
-                    color: Colors.yellow,
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow checkmark in dark mode
+                        : Colors.black, // Black checkmark in light mode
                     size: 24,
                   ),
               ],
@@ -218,7 +273,7 @@ class _RoleCard extends StatelessWidget {
               description,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey[300],
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],

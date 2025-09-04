@@ -6,10 +6,12 @@ class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
 
   @override
-  State<AthleticDirectorHomeScreen> createState() => _AthleticDirectorHomeScreenState();
+  State<AthleticDirectorHomeScreen> createState() =>
+      _AthleticDirectorHomeScreenState();
 }
 
-class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen> {
+class _AthleticDirectorHomeScreenState
+    extends State<AthleticDirectorHomeScreen> {
   final AuthService _authService = AuthService();
   UserModel? _currentUser;
   bool _isLoading = true;
@@ -60,11 +62,14 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: colorScheme.background,
         body: Center(
-          child: CircularProgressIndicator(color: Colors.yellow),
+          child: CircularProgressIndicator(color: colorScheme.primary),
         ),
       );
     }
@@ -72,16 +77,16 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
     final homeTeam = _currentUser?.schedulerProfile?.getHomeTeamName();
 
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text(
+        backgroundColor: colorScheme.surface,
+        title: Text(
           'Athletic Director Dashboard',
-          style: TextStyle(color: Colors.yellow),
+          style: TextStyle(color: colorScheme.primary),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
+            icon: Icon(Icons.logout, color: colorScheme.onSurface),
             onPressed: _handleSignOut,
           ),
         ],
@@ -104,8 +109,8 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
                   children: [
                     Text(
                       'Welcome back, ${_currentUser?.profile.firstName ?? "Athletic Director"}!',
-                      style: const TextStyle(
-                        color: Colors.yellow,
+                      style: TextStyle(
+                        color: colorScheme.primary,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -133,16 +138,16 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
               const SizedBox(height: 30),
 
               // Quick Actions Grid
-              const Text(
+              Text(
                 'Quick Actions',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onBackground,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
@@ -156,7 +161,8 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
                       onTap: () {
                         // TODO: Navigate to create game screen
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Create Game - Coming Soon!')),
+                          const SnackBar(
+                              content: Text('Create Game - Coming Soon!')),
                         );
                       },
                     ),
@@ -167,7 +173,8 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
                       onTap: () {
                         // TODO: Navigate to games list
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('My Games - Coming Soon!')),
+                          const SnackBar(
+                              content: Text('My Games - Coming Soon!')),
                         );
                       },
                     ),
@@ -178,7 +185,9 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
                       onTap: () {
                         // TODO: Navigate to officials management
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Officials Management - Coming Soon!')),
+                          const SnackBar(
+                              content:
+                                  Text('Officials Management - Coming Soon!')),
                         );
                       },
                     ),
@@ -189,7 +198,8 @@ class _AthleticDirectorHomeScreenState extends State<AthleticDirectorHomeScreen>
                       onTap: () {
                         // TODO: Navigate to schedules
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Schedules - Coming Soon!')),
+                          const SnackBar(
+                              content: Text('Schedules - Coming Soon!')),
                         );
                       },
                     ),
@@ -243,11 +253,14 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[800],
+          color: colorScheme.surfaceVariant,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withOpacity(0.3)),
         ),
@@ -262,8 +275,8 @@ class _QuickActionCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: colorScheme.onSurface,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
