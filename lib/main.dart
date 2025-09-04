@@ -8,6 +8,10 @@ import 'providers/theme_provider.dart';
 import 'app_theme.dart';
 import 'screens/auth/role_selection_screen.dart';
 import 'screens/auth/basic_profile_screen.dart';
+import 'screens/auth/official_profile_screen.dart';
+import 'screens/auth/official_step2_screen.dart';
+import 'screens/auth/official_step3_screen.dart';
+import 'screens/auth/official_step4_screen.dart';
 import 'screens/auth/scheduler_type_screen.dart';
 import 'screens/auth/athletic_director_profile_screen.dart';
 import 'screens/auth/coach_profile_screen.dart';
@@ -74,8 +78,11 @@ class MyApp extends StatelessWidget {
             '/coach-profile': (context) => const CoachProfileScreen(),
             '/assigner-profile': (context) => const AssignerProfileScreen(),
             '/assigner-home': (context) => const AssignerHomeScreen(),
+            '/official-profile': (context) => const OfficialProfileScreen(),
+            '/official-step2': (context) => const OfficialStep2Screen(),
+            '/official-step3': (context) => const OfficialStep3Screen(),
+            '/official-step4': (context) => const OfficialStep4Screen(),
             // TODO: Add other routes as we create them
-            // '/official-profile': (context) => const OfficialProfileScreen(),
           },
         );
       },
@@ -134,8 +141,9 @@ class MyHomePage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: colorScheme
-                      .onBackground, // Dark text for light mode readability
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
                 ),
                 textAlign: TextAlign.center,
               ),

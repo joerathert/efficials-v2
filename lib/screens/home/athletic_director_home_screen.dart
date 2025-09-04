@@ -82,7 +82,11 @@ class _AthleticDirectorHomeScreenState
         backgroundColor: colorScheme.surface,
         title: Text(
           'Athletic Director Dashboard',
-          style: TextStyle(color: colorScheme.primary),
+          style: TextStyle(
+            color: theme.brightness == Brightness.dark
+                ? colorScheme.primary // Yellow in dark mode
+                : colorScheme.onBackground, // Dark in light mode
+          ),
         ),
         actions: [
           IconButton(
@@ -110,7 +114,9 @@ class _AthleticDirectorHomeScreenState
                     Text(
                       'Welcome back, ${_currentUser?.profile.firstName ?? "Athletic Director"}!',
                       style: TextStyle(
-                        color: colorScheme.primary,
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow in dark mode
+                            : colorScheme.onBackground, // Dark in light mode
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),

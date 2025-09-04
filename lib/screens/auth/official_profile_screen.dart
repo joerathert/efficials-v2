@@ -3,14 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 
-class BasicProfileScreen extends StatefulWidget {
-  const BasicProfileScreen({super.key});
+class OfficialProfileScreen extends StatefulWidget {
+  const OfficialProfileScreen({super.key});
 
   @override
-  State<BasicProfileScreen> createState() => _BasicProfileScreenState();
+  State<OfficialProfileScreen> createState() => _OfficialProfileScreenState();
 }
 
-class _BasicProfileScreenState extends State<BasicProfileScreen> {
+class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -21,36 +21,7 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
 
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-  String? userRole;
-
-  @override
-  void initState() {
-    super.initState();
-    // Get the role from navigation arguments
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      userRole = args?['role'];
-
-      // If role is official, immediately navigate to official profile screen
-      if (userRole == 'official') {
-        Navigator.pushReplacementNamed(
-          context,
-          '/official-profile',
-          arguments: args,
-        );
-      }
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Get the role from navigation arguments
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    userRole = args?['role'];
-  }
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -140,6 +111,15 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
       return;
     }
 
+    if (!_acceptedTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Please accept the Terms of Service and Privacy Policy')),
+      );
+      return;
+    }
+
     // Clean phone number (digits only)
     final cleanPhone = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -149,17 +129,15 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
       'phone': cleanPhone,
-      'role': userRole,
+      'role': 'official',
     };
 
-    // Navigate to role-specific screen (only schedulers should reach here)
-    if (userRole == 'scheduler') {
-      Navigator.pushNamed(
-        context,
-        '/scheduler-type',
-        arguments: profileData,
-      );
-    }
+    // Navigate to next step in official registration
+    Navigator.pushNamed(
+      context,
+      '/official-step2',
+      arguments: profileData,
+    );
   }
 
   @override
@@ -210,11 +188,13 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
+
+                // Title - Official Registration
                 Text(
-                  'Create Your Account',
+                  'Official Registration',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -222,29 +202,28 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                         ? colorScheme.primary // Yellow in dark mode
                         : colorScheme.onBackground, // Dark in light mode
                   ),
-                  textAlign: TextAlign.center,
                 ),
+
                 const SizedBox(height: 8),
+
+                // Subtitle - Step 1 of 4: Basic Information
                 Text(
-                  'Enter your basic information to get started',
+                  'Step 1 of 4: Basic Information',
                   style: TextStyle(
                     fontSize: 16,
-                    color: theme.brightness == Brightness.dark
-                        ? Colors.grey[400] // Light gray for dark mode
-                        : colorScheme
-                            .onSurfaceVariant, // Theme-aware for light mode
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  textAlign: TextAlign.center,
                 ),
+
                 const SizedBox(height: 40),
 
+                // Form Fields Container
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: theme.brightness == Brightness.dark
                         ? Colors.grey[800] // Dark gray for dark mode
-                        : Colors.grey[
-                            300], // Even more distinct gray for light mode
+                        : Colors.grey[300], // Light gray for light mode
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -620,6 +599,44 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                             );
                           }
                         },
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // Terms and Conditions Checkbox
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: _acceptedTerms,
+                            onChanged: (value) {
+                              setState(() {
+                                _acceptedTerms = value ?? false;
+                              });
+                            },
+                            activeColor: theme.brightness == Brightness.dark
+                                ? colorScheme.primary // Yellow in dark mode
+                                : Colors.black, // Black in light mode
+                            checkColor: theme.brightness == Brightness.dark
+                                ? Colors
+                                    .black // Black checkmark on yellow background
+                                : Colors
+                                    .white, // White checkmark on black background
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'I accept the Terms of Service and Privacy Policy',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: theme.brightness == Brightness.dark
+                                    ? Colors.white // White text for dark mode
+                                    : colorScheme
+                                        .onSurface, // Theme-aware text for light mode
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

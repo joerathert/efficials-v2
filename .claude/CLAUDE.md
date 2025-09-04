@@ -32,7 +32,10 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 7. **Advanced Theme System** - Light/dark mode with theme-aware components ✅
 8. **Universal Design System** - Complete style guide with patterns and templates ✅
 9. **Sophisticated Card Styling** - Theme-aware cards with optimal contrast ✅
-10. **End-to-End Testing** - Both Athletic Director & Coach signup flows tested ✅
+10. **Enhanced Visual Feedback** - Selected cards with `Colors.grey.shade400` backgrounds ✅
+11. **Theme-Aware Typography** - Yellow titles in dark mode, black in light mode ✅
+12. **Professional Card Design** - Consistent styling across all selection screens ✅
+13. **End-to-End Testing** - Both Athletic Director & Coach signup flows tested ✅
 
 ### ✅ RECENT FIXES COMPLETED
 
@@ -44,10 +47,11 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 
 **Advanced Card Styling System** - SOPHISTICATED UI COMPONENTS:
 - **Theme-Aware Card Design**: Cards automatically adapt styling based on light/dark mode
-- **Light Mode**: Light gray backgrounds with black borders for better contrast against white
+- **Light Mode**: Light gray backgrounds (`Colors.grey.shade50`) with black borders for better contrast against white
 - **Dark Mode**: Yellow accent backgrounds with black text/icons (original design preserved)
-- **Interactive States**: Selected cards have enhanced shadows and borders
-- **Icon Consistency**: All card icons remain black for clean appearance
+- **Interactive States**: Selected cards have enhanced shadows and borders, plus darker backgrounds (`Colors.grey.shade400`)
+- **Icon Consistency**: All card icons remain black in light mode, yellow in dark mode for brand consistency
+- **Enhanced Visual Feedback**: Selected cards have stronger shadows, darker backgrounds, and clearer visual hierarchy
 
 **Universal Design System Documentation** - COMPREHENSIVE STYLE GUIDE:
 - **Design System Guide**: Created `lib/design_system.md` with complete styling patterns
@@ -65,6 +69,20 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 - **Clarified Address Purpose**: Changed "Home Address" to "Assignment Area Address" to better explain the geographic matching purpose
 - **Better Instructions**: Added specific guidance: "Use your league office, school, or primary location where games are typically held"
 - **Reduced Confusion**: Eliminated implication that personal home address is required for official matching
+
+**Scheduler Type Screen Card Design Refinement** - PERFECTED VISUAL HIERARCHY:
+- **Theme-Aware Card Matching**: Updated "What Type of Scheduler Are You?" cards to match "Choose Your Role" screen design
+- **Enhanced Selected State**: Selected cards now use `Colors.grey.shade400` background for maximum visual clarity
+- **Theme-Appropriate Colors**: Black text/icons in light mode, yellow text/icons in dark mode for optimal contrast
+- **Improved Visual Feedback**: Enhanced shadow depth and border thickness for selected cards
+- **Professional Appearance**: Consistent styling across all card-based selection screens
+
+**Design System Refinements** - ADVANCED UI POLISH:
+- **Title Text Theming**: All screen titles now use yellow in dark mode, black in light mode for consistency
+- **Icon Theming**: App bar icons, card icons, and interactive elements follow theme-aware color schemes
+- **Form Field Enhancements**: Text box outlines change to black when selected in light mode for better UX
+- **Background Contrast**: Form containers use `Colors.grey[300]` in light mode for clear visual separation
+- **Typography Hierarchy**: Consistent text colors using `colorScheme.onSurfaceVariant` for secondary text
 
 **Coach Signup Flow Complete** - IMPLEMENTED! Full Coach profile system with advanced features:
 - **Team Setup Form**: Team name, sport, level of competition, gender
@@ -122,13 +140,14 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 **Smart Features**: School affiliation toggle dynamically switches between age-based (6U-18U) and school-based (3rd Grade-Varsity) competition levels
 
 ### 🚧 IMMEDIATE NEXT STEPS
-1. **BUILD**: Assigner Signup Flow - Adapt Athletic Director pattern for assigners
-2. **CREATE**: Assigner Profile Screen - Organization focus, broader region management
-3. **TEST**: Assigner signup end-to-end workflow
-4. **BUILD**: Official Signup Flow - Simpler profile for officials
-5. **CREATE**: Official Profile Screen - City, experience, certification levels
-6. **IMPLEMENT**: Sign-in screen for existing users (all user types)
-7. **ADD**: Route guards for authenticated screens (prevent unauthorized access)
+1. **BUILD**: Official Signup Flow - Simpler profile for officials (NEXT PRIORITY)
+2. **CREATE**: Official Profile Screen - City, experience, certification levels
+3. **TEST**: Official signup end-to-end workflow
+4. **BUILD**: Assigner Signup Flow - Adapt Athletic Director pattern for assigners
+5. **CREATE**: Assigner Profile Screen - Organization focus, broader region management
+6. **TEST**: Assigner signup end-to-end workflow
+7. **IMPLEMENT**: Sign-in screen for existing users (all user types)
+8. **ADD**: Route guards for authenticated screens (prevent unauthorized access)
 
 ## 📁 KEY FILES (V2.0 PROJECT STRUCTURE)
 
@@ -184,10 +203,11 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 
 **Dark Mode Configuration:**
 - **Background**: Dark gray (`Colors.grey[900]`) for eye comfort
-- **Cards**: Yellow accent backgrounds with black text/icons
-- **Text**: White primary text, light gray secondary text
+- **Cards**: Dark gray backgrounds (`Colors.grey[800]`) with yellow titles and icons for brand consistency
+- **Text**: Yellow titles and primary elements, white/light gray secondary text for optimal readability
 - **Logos**: Yellow for brand consistency against dark backgrounds
-- **Interactive Elements**: Yellow accents for selected states
+- **Interactive Elements**: Yellow accents, enhanced shadows, and darker backgrounds for selected states
+- **Visual Hierarchy**: Yellow highlights draw attention while maintaining comfortable contrast ratios
 
 **Form Styling (Theme-Aware):**
 - **Input Fields**: Adaptive backgrounds based on theme
@@ -231,17 +251,22 @@ I am rebuilding the Efficials sports officials scheduling app from scratch as v2
 ## 🧠 CONTEXT FOR CLAUDE
 - **Primary Goal**: Complete all user signup flows and authentication system
 - **Current Progress**: Athletic Director & Coach signup fully working and tested ✅
+- **Design System Status**: Advanced theme system with sophisticated card styling completed ✅
 - **Development Environment**: Hot restart fully functional with proper Firebase error handling
-- **Next Focus**: Assigner signup flow - adapt Athletic Director pattern for organization management
+- **Next Focus**: Official signup flow - create simpler profile for officials (HIGHEST PRIORITY)
 - **Success Metric**: All user types can signup → dashboard loads → data stored in Firestore
 - **Architecture Status**: Solid foundation with established patterns and design system
 - **Development Pattern**: Reuse Coach flow structure for remaining user types
 - **Smart Features**: School affiliation toggle, dynamic form options, universal theming, UX clarity
+- **UI Polish**: Professional card design with enhanced visual feedback and theme consistency
 
 **Key Achievements**:
 - **Advanced Theme System**: Complete light/dark mode implementation with automatic switching
 - **Intelligent Logo Theming**: Context-aware logo colors (black in light, yellow in dark)
 - **Sophisticated Card Design**: Theme-aware cards with optimal contrast in both modes
+- **Enhanced Visual Feedback**: Selected cards with `Colors.grey.shade400` backgrounds for maximum clarity
+- **Theme-Aware Typography**: Yellow titles in dark mode, black titles in light mode for consistency
+- **Professional Card Styling**: Consistent design across all selection screens with enhanced shadows
 - **Universal Design System**: Complete style guide with patterns, templates, and compliance checker
 - **Dual Grade Systems**: Age-based (6U-18U) and school-based (3rd Grade-Varsity) competition levels
 - **Form Polish**: Fixed all contrast issues, proper hint text colors, validation feedback

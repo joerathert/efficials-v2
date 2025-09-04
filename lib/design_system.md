@@ -4,6 +4,7 @@
 
 ### **1. Color Usage Rules**
 - ✅ **DO**: Use `Theme.of(context).colorScheme.primary` for brand yellow accents
+- ✅ **DO**: Use `Theme.of(context).colorScheme.primary` for title text in dark mode
 - ✅ **DO**: Use `Theme.of(context).colorScheme.onBackground` for text on backgrounds
 - ❌ **NEVER**: Use `Colors.yellow` directly on text (causes contrast issues)
 - ❌ **NEVER**: Use yellow text on white/light backgrounds
@@ -25,7 +26,9 @@
 Text(
   'Title',
   style: TextStyle(
-    color: Theme.of(context).colorScheme.onBackground, // Primary text
+    color: Theme.of(context).colorScheme.brightness == Brightness.dark
+        ? Theme.of(context).colorScheme.primary // Yellow in dark mode
+        : Theme.of(context).colorScheme.onBackground, // Dark in light mode
   ),
 )
 
@@ -220,7 +223,9 @@ class NewScreen extends StatelessWidget {
               Text(
                 'Screen Title',
                 style: TextStyle(
-                  color: colorScheme.onBackground, // Proper contrast
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -284,7 +289,8 @@ Before creating a new screen, verify:
 
 - [ ] App bar uses theme-aware logo (black in light mode, yellow in dark mode)
 - [ ] No `Colors.yellow` used directly for text
-- [ ] All text uses `colorScheme.onBackground` or `colorScheme.onSurfaceVariant`
+- [ ] Title text uses theme-aware colors (yellow in dark mode, dark in light mode)
+- [ ] Other text uses `colorScheme.onBackground` or `colorScheme.onSurfaceVariant`
 - [ ] Backgrounds use `colorScheme.background` or `colorScheme.surface`
 - [ ] Buttons use theme-aware styling
 - [ ] Shadows use `colorScheme.shadow.withOpacity(0.x)`
@@ -292,10 +298,11 @@ Before creating a new screen, verify:
 ## 🎯 **Remember These Rules**
 
 1. **Theme-aware logo** = Black in light mode, yellow in dark mode
-2. **No yellow text** = Never use `Colors.yellow` for text content
-3. **Theme colors only** = Use `Theme.of(context).colorScheme.*` for everything else
-4. **Consistent buttons** = Use `ElevatedButton` for primary actions
-5. **Proper contrast** = Let the theme system handle light/dark differences
+2. **Theme-aware titles** = Yellow in dark mode, dark in light mode
+3. **No yellow text** = Never use `Colors.yellow` for text content (except via theme)
+4. **Theme colors only** = Use `Theme.of(context).colorScheme.*` for everything else
+5. **Consistent buttons** = Use `ElevatedButton` for primary actions
+6. **Proper contrast** = Let the theme system handle light/dark differences
 
 ## 🔄 **Updating Existing Screens**
 

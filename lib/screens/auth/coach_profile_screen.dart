@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../providers/theme_provider.dart';
 
 class CoachProfileScreen extends StatefulWidget {
   const CoachProfileScreen({super.key});
@@ -268,10 +270,16 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.yellow,
-          size: 32,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? Theme.of(context).colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
         leading: IconButton(
@@ -288,12 +296,18 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Team Setup',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.yellow,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Theme.of(context)
+                            .colorScheme
+                            .primary // Yellow in dark mode
+                        : Theme.of(context)
+                            .colorScheme
+                            .onBackground, // Dark in light mode
                   ),
                   textAlign: TextAlign.center,
                 ),

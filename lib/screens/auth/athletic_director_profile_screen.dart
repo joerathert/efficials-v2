@@ -207,12 +207,14 @@ class _AthleticDirectorProfileScreenState
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'School Information',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.yellow,
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow in dark mode
+                        : colorScheme.onBackground, // Dark in light mode
                   ),
                   textAlign: TextAlign.center,
                 ),

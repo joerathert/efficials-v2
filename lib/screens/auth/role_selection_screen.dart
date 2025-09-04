@@ -43,10 +43,16 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Icon(
-          Icons.sports,
-          color: Colors.black,
-          size: 32,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
         leading: IconButton(
@@ -82,8 +88,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: colorScheme
-                      .onBackground, // Dark text for light mode readability
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -226,7 +233,9 @@ class _RoleCard extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: colorScheme.onSurface, // Always black icons
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow icons in dark mode
+                      : colorScheme.onSurface, // Black icons in light mode
                   size: 32,
                 ),
                 const SizedBox(width: 16),

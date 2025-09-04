@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 
 class CoachHomeScreen extends StatefulWidget {
   const CoachHomeScreen({super.key});
@@ -17,10 +19,16 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
       backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: const Icon(
-          Icons.sports,
-          color: Colors.black,
-          size: 32,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? Theme.of(context).colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
         ),
         centerTitle: true,
         actions: [
@@ -49,7 +57,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
                 ),
                 textAlign: TextAlign.center,
               ),

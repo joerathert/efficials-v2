@@ -1,0 +1,597 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
+
+class OfficialStep3Screen extends StatefulWidget {
+  const OfficialStep3Screen({super.key});
+
+  @override
+  State<OfficialStep3Screen> createState() => _OfficialStep3ScreenState();
+}
+
+class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
+  // Available sports and their certification levels (matching coach profile)
+  final List<String> availableSports = [
+    'Baseball',
+    'Basketball',
+    'Football',
+    'Soccer',
+    'Softball',
+    'Volleyball'
+  ];
+
+  final List<String> certificationLevels = [
+    'IHSA Registered',
+    'IHSA Recognized',
+    'IHSA Certified',
+    'No Certification',
+  ];
+
+  final List<String> competitionLevels = [
+    'Grade School (6U-11U)',
+    'Middle School (11U-14U)',
+    'Underclass (15U-16U)',
+    'Junior Varsity (16U-17U)',
+    'Varsity (17U-18U)',
+    'College',
+    'Adult',
+  ];
+
+  // Selected sports with their details
+  Map<String, Map<String, dynamic>> selectedSports = {};
+
+  late Map<String, dynamic> previousData;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    previousData =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  }
+
+  void _addSport(String sport) {
+    if (!selectedSports.containsKey(sport)) {
+      setState(() {
+        selectedSports[sport] = {
+          'certification': null,
+          'experience': 0,
+          'levels': <String>[],
+        };
+      });
+    }
+  }
+
+  void _removeSport(String sport) {
+    setState(() {
+      selectedSports.remove(sport);
+    });
+  }
+
+  void _handleContinue() {
+    // Validate that at least one sport is selected
+    if (selectedSports.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Please select at least one sport you can officiate')),
+      );
+      return;
+    }
+
+    // Validate that each sport has at least one competition level
+    for (var entry in selectedSports.entries) {
+      if (entry.value['levels'].isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Please select competition levels for ${entry.key}')),
+        );
+        return;
+      }
+    }
+
+    final updatedData = {
+      ...previousData,
+      'selectedSports': selectedSports,
+    };
+
+    // Navigate to step 4
+    Navigator.pushNamed(
+      context,
+      '/official-step4',
+      arguments: updatedData,
+    );
+  }
+
+  void _showAddSportDialog() {
+    final availableToAdd = availableSports
+        .where((sport) => !selectedSports.containsKey(sport))
+        .toList();
+
+    if (availableToAdd.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('You have already added all available sports')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'Select a Sport',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: availableToAdd.length,
+            itemBuilder: (context, index) {
+              final sport = availableToAdd[index];
+              return ListTile(
+                title: Text(
+                  sport,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addSport(sport);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      backgroundColor: theme.brightness == Brightness.dark
+          ? Colors.black
+          : colorScheme.background,
+      appBar: AppBar(
+        backgroundColor: colorScheme.surface,
+        title: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return Icon(
+              Icons.sports,
+              color: themeProvider.isDarkMode
+                  ? colorScheme.primary // Yellow in dark mode
+                  : Colors.black, // Black in light mode
+              size: 32,
+            );
+          },
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  themeProvider.toggleTheme();
+                },
+                tooltip: 'Toggle theme',
+              );
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+
+              // Title - Sports & Certifications
+              Text(
+                'Sports & Certifications',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Subtitle - Step 3 of 4: Your Officiating Experience
+              Text(
+                'Step 3 of 4: Your Officiating Experience',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // Form Fields
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Sports You Officiate',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: theme.brightness == Brightness.dark
+                                  ? colorScheme.primary // Yellow in dark mode
+                                  : colorScheme
+                                      .onBackground, // Dark in light mode
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: _showAddSportDialog,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  theme.brightness == Brightness.dark
+                                      ? colorScheme.primary
+                                      : Colors.black,
+                              foregroundColor:
+                                  theme.brightness == Brightness.dark
+                                      ? Colors.black
+                                      : Colors.white,
+                            ),
+                            child: const Text('Add Sport'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (selectedSports.isEmpty)
+                        Column(
+                          children: [
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Text(
+                                  'No sports selected yet.\nTap "Add Sport" to get started.',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: 200,
+                              child: ElevatedButton(
+                                onPressed: _handleContinue,
+                                style: ElevatedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Continue',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            ...selectedSports.entries.map((entry) =>
+                                _buildSportCard(entry.key, entry.value)),
+                            const SizedBox(height: 32),
+                            // Add Sport button at bottom
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: _showAddSportDialog,
+                                style: OutlinedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(
+                                    color: theme.brightness == Brightness.dark
+                                        ? colorScheme.primary
+                                        : Colors.black,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Add Another Sport',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: theme.brightness == Brightness.dark
+                                        ? colorScheme.primary
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _handleContinue,
+                                style: ElevatedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Continue',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSportCard(String sport, Map<String, dynamic> sportData) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      color: theme.brightness == Brightness.dark
+          ? colorScheme.surfaceVariant
+          : colorScheme.surface,
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      sport,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow in dark mode
+                            : colorScheme.onBackground, // Dark in light mode
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  onPressed: () => _removeSport(sport),
+                  icon: Icon(
+                    Icons.delete,
+                    color: theme.brightness == Brightness.dark
+                        ? Colors.red[400]
+                        : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Certification Level Dropdown
+            DropdownButtonFormField<String>(
+              value: sportData['certification'],
+              decoration: InputDecoration(
+                labelText: 'Certification Level',
+                labelStyle: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow for dark mode
+                        : Colors.black, // Black for light mode
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: theme.brightness == Brightness.dark
+                    ? Colors.grey[700]
+                    : colorScheme.surface,
+              ),
+              hint: Text(
+                'Select certification level',
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              dropdownColor: colorScheme.surface,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 16,
+              ),
+              items: certificationLevels.map((level) {
+                return DropdownMenuItem(
+                  value: level,
+                  child: Text(level),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  sportData['certification'] = value;
+                });
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Years of Experience Field
+            TextFormField(
+              initialValue: sportData['experience'] == 0
+                  ? null
+                  : sportData['experience'].toString(),
+              decoration: InputDecoration(
+                labelText: 'Years of Experience in this Sport',
+                hintText: 'Set years of experience',
+                labelStyle: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow for dark mode
+                        : Colors.black, // Black for light mode
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: theme.brightness == Brightness.dark
+                    ? Colors.grey[700]
+                    : colorScheme.surface,
+              ),
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 16,
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                sportData['experience'] = int.tryParse(value) ?? 0;
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Competition Levels
+            Text(
+              'Competition Levels:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: competitionLevels.map((level) {
+                final isSelected =
+                    (sportData['levels'] as List<String>).contains(level);
+                return FilterChip(
+                  label: SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      level,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        (sportData['levels'] as List<String>).add(level);
+                      } else {
+                        (sportData['levels'] as List<String>).remove(level);
+                      }
+                    });
+                  },
+                  selectedColor: theme.brightness == Brightness.dark
+                      ? colorScheme.primary
+                      : Colors.black,
+                  backgroundColor: theme.brightness == Brightness.dark
+                      ? Colors.grey[700]
+                      : Colors.grey[200],
+                  checkmarkColor: theme.brightness == Brightness.dark
+                      ? Colors.black
+                      : Colors.white,
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? (theme.brightness == Brightness.dark
+                            ? Colors.black
+                            : Colors.white)
+                        : colorScheme.onSurface,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

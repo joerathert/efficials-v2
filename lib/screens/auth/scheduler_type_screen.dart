@@ -91,6 +91,22 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  themeProvider.toggleTheme();
+                },
+                tooltip: 'Toggle theme',
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -109,17 +125,18 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: colorScheme
-                      .onBackground, // Dark text for light mode readability
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow in dark mode
+                      : colorScheme.onBackground, // Dark in light mode
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Choose the option that best describes your role',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -222,6 +239,9 @@ class _SchedulerTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -229,17 +249,39 @@ class _SchedulerTypeCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.yellow.withOpacity(0.1) : Colors.grey[800],
+          color: isSelected
+              ? theme.brightness == Brightness.light
+                  ? Colors.grey
+                      .shade400 // Even darker gray background when selected in light mode
+                  : colorScheme.primary.withOpacity(
+                      0.1) // Original yellow background when selected in dark mode
+              : theme.brightness == Brightness.light
+                  ? Colors.grey
+                      .shade50 // Light gray background for unselected in light mode
+                  : colorScheme.surfaceVariant
+                      .withOpacity(0.8), // Original dark mode styling
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.yellow : Colors.transparent,
-            width: 2,
+            color: Colors.black,
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: theme.brightness == Brightness.light
+                  ? Colors.black.withOpacity(isSelected
+                      ? 0.25
+                      : 0.1) // Enhanced shadow for selected cards in light mode
+                  : colorScheme.shadow.withOpacity(isSelected
+                      ? 0.3
+                      : 0.15), // Original shadow for selected cards in dark mode
+              blurRadius: isSelected
+                  ? 16
+                  : 6, // More pronounced shadow for selected cards
+              offset: Offset(
+                  0,
+                  isSelected
+                      ? 3
+                      : 2), // Slightly higher lift for selected cards
             ),
           ],
         ),
@@ -250,7 +292,9 @@ class _SchedulerTypeCard extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? Colors.yellow : Colors.white,
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.primary // Yellow icons in dark mode
+                      : Colors.black, // Black icons in light mode
                   size: 32,
                 ),
                 const SizedBox(width: 16),
@@ -263,23 +307,28 @@ class _SchedulerTypeCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.yellow : Colors.white,
+                          color: theme.brightness == Brightness.dark
+                              ? colorScheme
+                                  .primary // Yellow titles in dark mode
+                              : Colors.black, // Black titles in light mode
                         ),
                       ),
                       Text(
                         description,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[400],
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
                 if (isSelected)
-                  const Icon(
+                  Icon(
                     Icons.check_circle,
-                    color: Colors.yellow,
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow checkmark in dark mode
+                        : Colors.black, // Black checkmark in light mode
                     size: 24,
                   ),
               ],
@@ -291,7 +340,7 @@ class _SchedulerTypeCard extends StatelessWidget {
                     detail,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[300],
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 )),

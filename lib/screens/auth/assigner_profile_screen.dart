@@ -227,12 +227,14 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Assigner Setup',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.yellow,
+                    color: theme.brightness == Brightness.dark
+                        ? colorScheme.primary // Yellow in dark mode
+                        : colorScheme.onBackground, // Dark in light mode
                   ),
                   textAlign: TextAlign.center,
                 ),
