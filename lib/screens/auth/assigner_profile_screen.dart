@@ -293,7 +293,7 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
-                        iconEnabledColor: Colors.yellow,
+                        iconEnabledColor: colorScheme.primary,
                         value: _selectedSport,
                         items: sports.map((sport) {
                           return DropdownMenuItem(
@@ -424,7 +424,7 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleCreateAccount,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
+                      backgroundColor: colorScheme.primary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(

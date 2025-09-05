@@ -365,7 +365,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
-                        iconEnabledColor: Colors.yellow,
+                        iconEnabledColor: Theme.of(context).colorScheme.primary,
                         value: _selectedSport,
                         items: sports.map((sport) {
                           return DropdownMenuItem(
@@ -401,9 +401,12 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                               Switch(
                                 value: _isSchoolAffiliated,
                                 onChanged: _onSchoolAffiliationChanged,
-                                activeThumbColor: Colors.yellow,
-                                activeTrackColor:
-                                    Colors.yellow.withOpacity(0.3),
+                                activeThumbColor:
+                                    Theme.of(context).colorScheme.primary,
+                                activeTrackColor: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.3),
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -443,7 +446,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
-                        iconEnabledColor: Colors.yellow,
+                        iconEnabledColor: Theme.of(context).colorScheme.primary,
                         value: _selectedGrade,
                         items: grades.map((grade) {
                           return DropdownMenuItem(
@@ -474,7 +477,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                         ),
                         style: const TextStyle(color: Colors.white),
                         dropdownColor: Colors.grey[800],
-                        iconEnabledColor: Colors.yellow,
+                        iconEnabledColor: Theme.of(context).colorScheme.primary,
                         value: _selectedGender,
                         items: genders.map((gender) {
                           return DropdownMenuItem(
@@ -607,7 +610,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleCreateAccount,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(

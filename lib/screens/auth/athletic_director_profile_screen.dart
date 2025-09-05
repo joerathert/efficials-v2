@@ -186,7 +186,7 @@ class _AthleticDirectorProfileScreenState
             return Icon(
               Icons.sports,
               color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
+                  ? Theme.of(context).colorScheme.primary // Yellow in dark mode
                   : Colors.black, // Black in light mode
               size: 32,
             );
@@ -213,7 +213,9 @@ class _AthleticDirectorProfileScreenState
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: theme.brightness == Brightness.dark
-                        ? colorScheme.primary // Yellow in dark mode
+                        ? Theme.of(context)
+                            .colorScheme
+                            .primary // Yellow in dark mode
                         : colorScheme.onBackground, // Dark in light mode
                   ),
                   textAlign: TextAlign.center,
@@ -401,18 +403,24 @@ class _AthleticDirectorProfileScreenState
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.yellow.withOpacity(0.1),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: Colors.yellow.withOpacity(0.3)),
+                          border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Schedule Preview',
                               style: TextStyle(
-                                color: Colors.yellow,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -443,7 +451,7 @@ class _AthleticDirectorProfileScreenState
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleCreateAccount,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
