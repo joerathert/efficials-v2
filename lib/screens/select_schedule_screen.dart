@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
+import '../services/game_service.dart';
+
+// Use the typedef from GameService
+typedef ScheduleData = Map<String, Object>;
 
 class SelectScheduleScreen extends StatefulWidget {
   const SelectScheduleScreen({super.key});
@@ -12,7 +16,7 @@ class SelectScheduleScreen extends StatefulWidget {
 
 class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   String? selectedSchedule;
-  List<Map<String, dynamic>> schedules = [];
+  List<ScheduleData> schedules = [];
   bool isLoading = true;
   GameTemplateModel? template;
 
@@ -27,21 +31,46 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     super.didChangeDependencies();
 
     // Get the arguments from the current route
-    final args = ModalRoute.of(context)!.settings.arguments;
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      final args = route.settings.arguments;
 
-    // Handle the case when args is a Map (coming from HomeScreen with a template)
-    if (args is Map<String, dynamic>?) {
-      if (args != null && args.containsKey('template')) {
-        template = args['template'] as GameTemplateModel?;
+      // Handle the case when args is a Map
+      if (args is Map<String, dynamic>?) {
+        if (args != null) {
+          if (args.containsKey('template')) {
+            template = args['template'] as GameTemplateModel?;
+          } else if (args.containsKey('name') && args.containsKey('sport')) {
+            // This is a new schedule that was just created
+            // Add it to the schedules list and select it
+            final ScheduleData newSchedule = {
+              'id': args['id'] ??
+                  DateTime.now().millisecondsSinceEpoch.toString(),
+              'name': args['name'] as String,
+              'sport': args['sport'] as String,
+            };
+
+            // Only add if it's not already in the list
+            if (!schedules.any((s) => s['name'] == newSchedule['name'])) {
+              setState(() {
+                schedules.insert(0, newSchedule);
+                selectedSchedule = newSchedule['name'] as String;
+              });
+            }
+          }
+        }
       }
     }
   }
 
   Future<void> _fetchSchedules() async {
     try {
-      // Start with empty schedules - we'll replace with actual service calls later
+      // Fetch schedules from Firebase
+      final gameService = GameService();
+      final fetchedSchedules = await gameService.getSchedules();
+
       setState(() {
-        schedules = [];
+        schedules = fetchedSchedules;
 
         // Filter schedules by the template's sport if a template is provided
         if (template != null &&
@@ -71,6 +100,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         isLoading = false;
       });
     } catch (e) {
+      print('Error in _fetchSchedules: $e');
       setState(() {
         schedules.clear();
         schedules
@@ -124,7 +154,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
@@ -146,11 +176,16 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
               const SizedBox(height: 20),
               Text(
                 'Select Schedule',
@@ -159,7 +194,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                   fontWeight: FontWeight.bold,
                   color: theme.brightness == Brightness.dark
                       ? colorScheme.primary
-                      : colorScheme.onBackground,
+                      : colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -176,17 +211,18 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant,
+                  color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: colorScheme.shadow.withOpacity(0.1),
+                      color: colorScheme.shadow.withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     isLoading
@@ -223,7 +259,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                   filled: true,
                                   fillColor: colorScheme.surface,
                                 ),
-                                value: selectedSchedule,
+                                initialValue: selectedSchedule,
                                 hint: Text(
                                   'Choose from existing schedules',
                                   style: TextStyle(
@@ -249,38 +285,27 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                         },
                                       ).then((result) async {
                                         if (result != null) {
-                                          await _fetchSchedules();
-
-                                          // Handle both schedule objects and schedule names
-                                          String? scheduleName;
+                                          // Handle the new schedule object
                                           if (result is Map<String, dynamic>) {
-                                            // Result is a schedule object from database
-                                            scheduleName =
-                                                result['name'] as String?;
-                                          } else if (result is String) {
-                                            // Result is a schedule name from SharedPreferences
-                                            scheduleName = result;
+                                            // Add the new schedule to the local list
+                                            final ScheduleData newSchedule = {
+                                              'id': result['id']?.toString() ??
+                                                  DateTime.now()
+                                                      .millisecondsSinceEpoch
+                                                      .toString(),
+                                              'name': result['name'] as String,
+                                              'sport':
+                                                  result['sport'] as String,
+                                            };
+                                            setState(() {
+                                              schedules.insert(0, newSchedule);
+                                              selectedSchedule =
+                                                  newSchedule['name'] as String;
+                                            });
+                                          } else {
+                                            // Fallback for other result types
+                                            await _fetchSchedules();
                                           }
-
-                                          setState(() {
-                                            if (scheduleName != null &&
-                                                schedules.any((s) =>
-                                                    s['name'] ==
-                                                    scheduleName)) {
-                                              selectedSchedule = scheduleName;
-                                            } else {
-                                              // Fallback: Select the first schedule if the new one isn't found
-                                              if (schedules.isNotEmpty &&
-                                                  schedules.first['name'] !=
-                                                      'No schedules available') {
-                                                selectedSchedule = schedules
-                                                    .first['name'] as String;
-                                              }
-                                            }
-                                          });
-                                        } else {
-                                          // Fallback: Refresh schedules in case the new schedule was created
-                                          await _fetchSchedules();
                                         }
                                       });
                                     }
@@ -289,8 +314,6 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                 items: schedules.map((schedule) {
                                   final scheduleName =
                                       schedule['name'] as String;
-                                  final sport =
-                                      schedule['sport'] as String? ?? 'Unknown';
 
                                   return DropdownMenuItem(
                                     value: scheduleName,
@@ -311,16 +334,6 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                                     : colorScheme.onSurface,
                                               ),
                                             ),
-                                            if (sport != 'None' &&
-                                                sport != 'Unknown')
-                                              Text(
-                                                sport,
-                                                style: TextStyle(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
                                           ],
                                         ),
                                       ],
@@ -330,7 +343,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                               ),
                             ),
                           ),
-                    const Spacer(),
+                    const SizedBox(height: 40),
                     const SizedBox(height: 20),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 400),
@@ -421,7 +434,10 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

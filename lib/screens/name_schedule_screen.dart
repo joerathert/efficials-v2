@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/game_service.dart';
 
 class NameScheduleScreen extends StatefulWidget {
   const NameScheduleScreen({super.key});
@@ -13,15 +14,34 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
   final TextEditingController _scheduleNameController = TextEditingController();
   String? selectedSport;
   bool _isLoading = false;
+  List<String> existingScheduleNames = [];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
     // Get the sport from arguments
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null && args['sport'] != null) {
       selectedSport = args['sport'] as String?;
+    }
+
+    // Load existing schedule names for validation
+    _loadExistingScheduleNames();
+  }
+
+  Future<void> _loadExistingScheduleNames() async {
+    try {
+      final gameService = GameService();
+      final schedules = await gameService.getSchedules();
+      setState(() {
+        existingScheduleNames =
+            schedules.map((schedule) => schedule['name'] as String).toList();
+      });
+    } catch (e) {
+      // If we can't load existing schedules, we'll just proceed without validation
+      print('Could not load existing schedule names: $e');
     }
   }
 
@@ -107,10 +127,15 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                       controller: _scheduleNameController,
                       decoration: InputDecoration(
                         labelText: 'Schedule Name',
-                        hintText: 'e.g., Varsity Basketball Schedule',
+                        hintText: 'e.g., Varsity Basketball',
                         labelStyle: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                         ),
+                        errorText: existingScheduleNames.contains(
+                                    _scheduleNameController.text.trim()) &&
+                                _scheduleNameController.text.trim().isNotEmpty
+                            ? 'A schedule with this name already exists'
+                            : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
@@ -130,6 +155,20 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                             width: 2,
                           ),
                         ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.error,
+                            width: 1,
+                          ),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: colorScheme.error,
+                            width: 2,
+                          ),
+                        ),
                         filled: true,
                         fillColor: colorScheme.surface,
                       ),
@@ -141,59 +180,56 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                         setState(() {});
                       },
                     ),
-                    if (selectedSport != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.sports,
-                              color: colorScheme.primary,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Sport: $selectedSport',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
               const Spacer(),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _scheduleNameController.text.trim().isNotEmpty && !_isLoading
+                onPressed: _scheduleNameController.text.trim().isNotEmpty &&
+                        !_isLoading &&
+                        !existingScheduleNames
+                            .contains(_scheduleNameController.text.trim())
                     ? () async {
                         setState(() {
                           _isLoading = true;
                         });
 
-                        // Simulate creating the schedule
-                        await Future.delayed(const Duration(seconds: 1));
+                        try {
+                          final gameService = GameService();
+                          final scheduleName =
+                              _scheduleNameController.text.trim();
 
-                        final scheduleName = _scheduleNameController.text.trim();
+                          // Save the schedule to Firebase
+                          final newSchedule = await gameService.createSchedule(
+                            scheduleName,
+                            selectedSport ?? 'Unknown',
+                          );
 
-                        if (mounted) {
-                          setState(() {
-                            _isLoading = false;
-                          });
+                          if (mounted) {
+                            setState(() {
+                              _isLoading = false;
+                            });
 
-                          // Return the schedule name to the previous screen
-                          Navigator.pop(context, scheduleName);
+                            // Navigate directly back to SelectScheduleScreen with the new schedule
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/select-schedule',
+                              (route) =>
+                                  route.settings.name ==
+                                  '/athletic-director-home',
+                              arguments: newSchedule,
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            setState(() {
+                              _isLoading = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Error creating schedule: $e')),
+                            );
+                          }
                         }
                       }
                     : null,

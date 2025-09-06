@@ -26,6 +26,13 @@ import 'screens/game_templates_screen.dart';
 import 'screens/select_schedule_screen.dart';
 import 'screens/select_sport_screen.dart';
 import 'screens/name_schedule_screen.dart';
+import 'screens/date_time_screen.dart';
+import 'screens/choose_location_screen.dart';
+import 'screens/add_new_location_screen.dart';
+import 'screens/additional_game_info_screen.dart';
+import 'screens/additional_game_info_condensed_screen.dart';
+import 'screens/select_officials_screen.dart';
+import 'screens/lists_of_officials_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,6 +100,15 @@ class MyApp extends StatelessWidget {
             '/select-schedule': (context) => const SelectScheduleScreen(),
             '/select-sport': (context) => const SelectSportScreen(),
             '/name-schedule': (context) => const NameScheduleScreen(),
+            '/date-time': (context) => const DateTimeScreen(),
+            '/choose-location': (context) => const ChooseLocationScreen(),
+            '/add-new-location': (context) => const AddNewLocationScreen(),
+            '/additional-game-info': (context) =>
+                const AdditionalGameInfoScreen(),
+            '/additional-game-info-condensed': (context) =>
+                const AdditionalGameInfoCondensedScreen(),
+            '/select-officials': (context) => const SelectOfficialsScreen(),
+            '/lists-of-officials': (context) => const ListsOfOfficialsScreen(),
             // TODO: Add other routes as we create them
           },
         );
@@ -110,6 +126,29 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   bool _isSigningIn = false;
+  bool _hasResetNavigation = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check if we're on a different route due to hot restart and reset if needed
+    if (!_hasResetNavigation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final currentRoute = ModalRoute.of(context)?.settings.name;
+          if (currentRoute != null && currentRoute != '/') {
+            _hasResetNavigation = true;
+            // Only reset if we're actually on a different route
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/', (route) => false);
+          } else {
+            _hasResetNavigation =
+                true; // Still mark as done even if no reset needed
+          }
+        }
+      });
+    }
+  }
 
   Future<void> _quickSignIn(
       BuildContext context, String email, String password, String route) async {

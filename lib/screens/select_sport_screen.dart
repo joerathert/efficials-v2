@@ -164,10 +164,8 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                           context,
                           '/name-schedule',
                           arguments: {'sport': selectedSport},
-                        ).then((result) {
-                          // Forward the schedule name back to SelectScheduleScreen
-                          Navigator.pop(context, result);
-                        });
+                        );
+                        // No need to handle result here since NameScheduleScreen navigates directly back
                       }
                     : null,
                 style: ElevatedButton.styleFrom(

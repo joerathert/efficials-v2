@@ -1,4 +1,9 @@
 import '../models/game_template_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'auth_service.dart';
+
+// Add this typedef for clarity
+typedef ScheduleData = Map<String, Object>;
 
 class GameService {
   // Mock data for development - replace with actual Firebase/database calls
@@ -74,32 +79,104 @@ class GameService {
     return true;
   }
 
-  Future<List<Map<String, dynamic>>> getSchedules() async {
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<List<ScheduleData>> getSchedules() async {
+    try {
+      // Get the current authenticated user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
 
-    return [
-      {
-        'name': 'Varsity Basketball Schedule',
-        'id': 1,
-        'sport': 'Basketball',
-      },
-      {
-        'name': 'JV Basketball Schedule',
-        'id': 2,
-        'sport': 'Basketball',
-      },
-      {
-        'name': 'Varsity Soccer Schedule',
-        'id': 3,
-        'sport': 'Soccer',
-      },
-      {
-        'name': 'Football Schedule',
-        'id': 4,
-        'sport': 'Football',
-      },
-    ];
+      print('DEBUG: Current user ID: $currentUserId');
+
+      if (currentUserId == null) {
+        print('DEBUG: No authenticated user found');
+        return []; // Return empty list if no user is authenticated
+      }
+
+      // Query Firebase for schedules created by the current user
+      // Using a simpler query that doesn't require a composite index for now
+      print('DEBUG: Querying schedules for user: $currentUserId');
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('schedules')
+          .where('createdBy', isEqualTo: currentUserId)
+          .get();
+
+      print('DEBUG: Query returned ${querySnapshot.docs.length} documents');
+
+      // Debug: Print all document data
+      for (var doc in querySnapshot.docs) {
+        print('DEBUG: Document ${doc.id}: ${doc.data()}');
+      }
+
+      // Sort in memory since we can't use orderBy without an index
+      final docs = querySnapshot.docs;
+      docs.sort((a, b) {
+        final aTime = (a.data()['createdAt'] as Timestamp).toDate();
+        final bTime = (b.data()['createdAt'] as Timestamp).toDate();
+        return bTime.compareTo(aTime); // Descending order
+      });
+
+      // Convert to the expected format
+      final result = docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] as String,
+          'sport': data['sport'] as String,
+          'createdAt': (data['createdAt'] as Timestamp).toDate(),
+        };
+      }).toList();
+
+      print('DEBUG: Returning ${result.length} schedules');
+      return result;
+    } catch (e) {
+      // If Firebase query fails, return empty list
+      print('Error fetching schedules: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createSchedule(String name, String sport) async {
+    try {
+      // Get the current authenticated user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        throw Exception('No authenticated user found. Please sign in first.');
+      }
+
+      // Check if a schedule with the same name already exists for this user
+      final existingSchedulesQuery = await FirebaseFirestore.instance
+          .collection('schedules')
+          .where('createdBy', isEqualTo: currentUserId)
+          .where('name', isEqualTo: name)
+          .get();
+
+      if (existingSchedulesQuery.docs.isNotEmpty) {
+        throw Exception(
+            'A schedule with the name "$name" already exists. Please choose a different name.');
+      }
+
+      // Save to Firebase Firestore
+      final docRef =
+          await FirebaseFirestore.instance.collection('schedules').add({
+        'name': name,
+        'sport': sport,
+        'createdAt': DateTime.now(),
+        'createdBy': currentUserId, // Use actual authenticated user ID
+      });
+
+      // Return the created schedule with the document ID
+      return {
+        'id': docRef.id,
+        'name': name,
+        'sport': sport,
+        'createdAt': DateTime.now(),
+      };
+    } catch (e) {
+      // If Firebase fails, throw the error
+      throw Exception('Failed to save schedule to Firebase: $e');
+    }
   }
 
   Future<List<Map<String, dynamic>>> getGames() async {

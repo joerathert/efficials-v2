@@ -427,10 +427,7 @@ class _AthleticDirectorHomeScreenState
                   style: TextStyle(color: colorScheme.onSurface)),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to schedules
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Schedules coming soon!')),
-                );
+                Navigator.pushNamed(context, '/select-schedule');
               },
             ),
             ListTile(

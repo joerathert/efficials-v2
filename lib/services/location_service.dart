@@ -1,0 +1,83 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+
+class LocationService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
+
+  Future<Map<String, dynamic>> createLocation({
+    required String name,
+    required String address,
+    required String city,
+    required String state,
+    required String zip,
+  }) async {
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      final locationData = {
+        'name': name,
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
+        'createdBy': currentUser.uid,
+        'createdAt': DateTime.now(),
+      };
+
+      final docRef = await _firestore.collection('locations').add(locationData);
+
+      return {
+        'id': docRef.id,
+        'name': name,
+        'address': address,
+        'city': city,
+        'state': state,
+        'zip': zip,
+      };
+    } catch (e) {
+      throw Exception('Failed to create location: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getLocations() async {
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        return [];
+      }
+
+      final querySnapshot = await _firestore
+          .collection('locations')
+          .where('createdBy', isEqualTo: currentUser.uid)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] as String,
+          'address': data['address'] as String,
+          'city': data['city'] as String,
+          'state': data['state'] as String,
+          'zip': data['zip'] as String,
+        };
+      }).toList();
+    } catch (e) {
+      print('Error fetching locations: $e');
+      return [];
+    }
+  }
+
+  Future<void> deleteLocation(String locationId) async {
+    try {
+      await _firestore.collection('locations').doc(locationId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete location: $e');
+    }
+  }
+}
