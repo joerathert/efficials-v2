@@ -535,8 +535,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                                   labelStyle: TextStyle(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
-                                  hintText:
-                                      'Enter the visiting team name (e.g., "Collinsville Kahoks")',
+                                  hintText: 'Team Name and Mascot',
                                   hintStyle: TextStyle(
                                       color: colorScheme.onSurfaceVariant),
                                   border: OutlineInputBorder(

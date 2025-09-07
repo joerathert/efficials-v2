@@ -53,10 +53,9 @@ class LocationService {
       final querySnapshot = await _firestore
           .collection('locations')
           .where('createdBy', isEqualTo: currentUser.uid)
-          .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs.map((doc) {
+      final locations = querySnapshot.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -67,6 +66,10 @@ class LocationService {
           'zip': data['zip'] as String,
         };
       }).toList();
+
+      print(
+          'LocationService: Fetched ${locations.length} locations for user ${currentUser.uid}');
+      return locations;
     } catch (e) {
       print('Error fetching locations: $e');
       return [];

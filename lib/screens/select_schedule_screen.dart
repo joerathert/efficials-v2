@@ -186,254 +186,266 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-              const SizedBox(height: 20),
-              Text(
-                'Select Schedule',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary
-                      : colorScheme.onSurface,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Choose an existing schedule or create a new one',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.shadow.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Select Schedule',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 400),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: DropdownButtonFormField<String>(
-                                decoration: InputDecoration(
-                                  labelText: 'Select a schedule',
-                                  labelStyle: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: colorScheme.outline,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose an existing schedule or create a new one',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 30),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.shadow.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 400),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: DropdownButtonFormField<String>(
+                                      decoration: InputDecoration(
+                                        labelText: 'Select a schedule',
+                                        labelStyle: TextStyle(
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: colorScheme.outline,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: colorScheme.outline,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: colorScheme.primary,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        filled: true,
+                                        fillColor: colorScheme.surface,
+                                      ),
+                                      initialValue: selectedSchedule,
+                                      hint: Text(
+                                        'Choose from existing schedules',
+                                        style: TextStyle(
+                                            color:
+                                                colorScheme.onSurfaceVariant),
+                                      ),
+                                      dropdownColor: colorScheme.surface,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 16,
+                                      ),
+                                      onChanged: (newValue) {
+                                        setState(() {
+                                          selectedSchedule = newValue;
+                                          if (newValue ==
+                                              '+ Create new schedule') {
+                                            // Reset selectedSchedule to ensure the dropdown updates correctly
+                                            selectedSchedule = null;
+                                            Navigator.pushNamed(
+                                              context,
+                                              '/select-sport',
+                                              arguments: {
+                                                'fromTemplate': true,
+                                                'sport': template?.sport,
+                                              },
+                                            ).then((result) async {
+                                              if (result != null) {
+                                                // Handle the new schedule object
+                                                if (result
+                                                    is Map<String, dynamic>) {
+                                                  // Add the new schedule to the local list
+                                                  final ScheduleData
+                                                      newSchedule = {
+                                                    'id': result['id']
+                                                            ?.toString() ??
+                                                        DateTime.now()
+                                                            .millisecondsSinceEpoch
+                                                            .toString(),
+                                                    'name': result['name']
+                                                        as String,
+                                                    'sport': result['sport']
+                                                        as String,
+                                                  };
+                                                  setState(() {
+                                                    schedules.insert(
+                                                        0, newSchedule);
+                                                    selectedSchedule =
+                                                        newSchedule['name']
+                                                            as String;
+                                                  });
+                                                } else {
+                                                  // Fallback for other result types
+                                                  await _fetchSchedules();
+                                                }
+                                              }
+                                            });
+                                          }
+                                        });
+                                      },
+                                      items: schedules.map((schedule) {
+                                        final scheduleName =
+                                            schedule['name'] as String;
+
+                                        return DropdownMenuItem(
+                                          value: scheduleName,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    scheduleName,
+                                                    style: TextStyle(
+                                                      color: scheduleName ==
+                                                              'No schedules available'
+                                                          ? Colors.red
+                                                          : colorScheme
+                                                              .onSurface,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: colorScheme.outline,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: colorScheme.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: colorScheme.surface,
                                 ),
-                                initialValue: selectedSchedule,
-                                hint: Text(
-                                  'Choose from existing schedules',
-                                  style: TextStyle(
-                                      color: colorScheme.onSurfaceVariant),
-                                ),
-                                dropdownColor: colorScheme.surface,
-                                style: TextStyle(
-                                  color: colorScheme.onSurface,
-                                  fontSize: 16,
-                                ),
-                                onChanged: (newValue) {
-                                  setState(() {
-                                    selectedSchedule = newValue;
-                                    if (newValue == '+ Create new schedule') {
-                                      // Reset selectedSchedule to ensure the dropdown updates correctly
-                                      selectedSchedule = null;
+                          const SizedBox(height: 40),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: 400,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: (selectedSchedule == null ||
+                                      selectedSchedule ==
+                                          'No schedules available' ||
+                                      selectedSchedule ==
+                                          '+ Create new schedule')
+                                  ? null
+                                  : () {
+                                      // Validate sport match if a template is used
+                                      if (!_validateSportMatch()) {
+                                        return;
+                                      }
+                                      final selected = schedules.firstWhere(
+                                          (s) => s['name'] == selectedSchedule);
                                       Navigator.pushNamed(
                                         context,
-                                        '/select-sport',
+                                        '/date-time',
                                         arguments: {
-                                          'fromTemplate': true,
-                                          'sport': template?.sport,
+                                          'scheduleName': selectedSchedule,
+                                          'sport': selected['sport'],
+                                          'template': template,
                                         },
-                                      ).then((result) async {
-                                        if (result != null) {
-                                          // Handle the new schedule object
-                                          if (result is Map<String, dynamic>) {
-                                            // Add the new schedule to the local list
-                                            final ScheduleData newSchedule = {
-                                              'id': result['id']?.toString() ??
-                                                  DateTime.now()
-                                                      .millisecondsSinceEpoch
-                                                      .toString(),
-                                              'name': result['name'] as String,
-                                              'sport':
-                                                  result['sport'] as String,
-                                            };
-                                            setState(() {
-                                              schedules.insert(0, newSchedule);
-                                              selectedSchedule =
-                                                  newSchedule['name'] as String;
-                                            });
-                                          } else {
-                                            // Fallback for other result types
-                                            await _fetchSchedules();
-                                          }
-                                        }
-                                      });
-                                    }
-                                  });
-                                },
-                                items: schedules.map((schedule) {
-                                  final scheduleName =
-                                      schedule['name'] as String;
-
-                                  return DropdownMenuItem(
-                                    value: scheduleName,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              scheduleName,
-                                              style: TextStyle(
-                                                color: scheduleName ==
-                                                        'No schedules available'
-                                                    ? Colors.red
-                                                    : colorScheme.onSurface,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
+                                      );
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                disabledBackgroundColor: Colors.grey[600],
+                                disabledForegroundColor: Colors.grey[300],
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 15, horizontal: 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Continue',
+                                style: TextStyle(
+                                  color: colorScheme.onPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                    const SizedBox(height: 40),
-                    const SizedBox(height: 20),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: (selectedSchedule == null ||
-                                  selectedSchedule ==
-                                      'No schedules available' ||
-                                  selectedSchedule == '+ Create new schedule')
-                              ? null
-                              : () {
-                                  // Validate sport match if a template is used
-                                  if (!_validateSportMatch()) {
-                                    return;
-                                  }
-                                  final selected = schedules.firstWhere(
-                                      (s) => s['name'] == selectedSchedule);
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/date-time',
-                                    arguments: {
-                                      'scheduleName': selectedSchedule,
-                                      'sport': selected['sport'],
-                                      'template': template,
+                          const SizedBox(height: 16),
+                          selectedSchedule != null &&
+                                  selectedSchedule !=
+                                      'No schedules available' &&
+                                  selectedSchedule != '+ Create new schedule'
+                              ? SizedBox(
+                                  width: 400,
+                                  height: 50,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      final selected = schedules.firstWhere(
+                                          (s) => s['name'] == selectedSchedule);
+                                      _showDeleteConfirmationDialog(
+                                          selectedSchedule!,
+                                          selected['id'] as int);
                                     },
-                                  );
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
-                            disabledBackgroundColor: Colors.grey[600],
-                            disabledForegroundColor: Colors.grey[300],
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 15, horizontal: 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Continue',
-                            style: TextStyle(
-                              color: colorScheme.onPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 15, horizontal: 50),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    selectedSchedule != null &&
-                            selectedSchedule != 'No schedules available' &&
-                            selectedSchedule != '+ Create new schedule'
-                        ? ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 400),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final selected = schedules.firstWhere(
-                                      (s) => s['name'] == selectedSchedule);
-                                  _showDeleteConfirmationDialog(
-                                      selectedSchedule!, selected['id'] as int);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 15, horizontal: 50),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Delete',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),

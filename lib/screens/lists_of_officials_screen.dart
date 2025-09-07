@@ -297,15 +297,23 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                           const SizedBox(height: 24),
                                           ElevatedButton.icon(
                                             onPressed: () {
-                                              // TODO: Navigate to create list screen
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Create list functionality not yet implemented for $sport',
-                                                  ),
-                                                ),
-                                              );
+                                              Navigator.pushNamed(
+                                                context,
+                                                '/name-list',
+                                                arguments: {
+                                                  'sport': sport,
+                                                  'existingLists': <String>[],
+                                                  // Pass through game creation context
+                                                  ...?args,
+                                                },
+                                              ).then((result) {
+                                                if (result != null && mounted) {
+                                                  // Handle the result when a list is created
+                                                  _handleNewListFromReview(
+                                                      result as Map<String,
+                                                          dynamic>);
+                                                }
+                                              });
                                             },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor:
@@ -491,14 +499,24 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                             Center(
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  // TODO: Navigate to create list screen
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Create list functionality not yet implemented for $sport',
-                                      ),
-                                    ),
-                                  );
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/name-list',
+                                    arguments: {
+                                      'sport': sport,
+                                      'existingLists': actualLists
+                                          .map((list) => list['name'] as String)
+                                          .toList(),
+                                      // Pass through game creation context
+                                      ...?args,
+                                    },
+                                  ).then((result) {
+                                    if (result != null && mounted) {
+                                      // Handle the result when a list is created
+                                      _handleNewListFromReview(
+                                          result as Map<String, dynamic>);
+                                    }
+                                  });
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: colorScheme.primary,

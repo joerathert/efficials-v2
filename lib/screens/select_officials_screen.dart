@@ -108,8 +108,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Baseball';
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Baseball';
 
     showDialog(
       context: context,
@@ -162,8 +162,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final sport = args['sport'] as String? ?? 'Baseball';
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final sport = args?['sport'] as String? ?? 'Baseball';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -244,7 +244,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 30),
                           SizedBox(
-                            width: double.infinity,
+                            width: 300,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to Lists of Officials screen
@@ -252,7 +252,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                   context,
                                   '/lists-of-officials',
                                   arguments: <String, dynamic>{
-                                    ...args,
+                                    ...?args,
                                     'sport': sport,
                                     'fromGameCreation': true,
                                     'template': template,
@@ -289,7 +289,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
-                            width: double.infinity,
+                            width: 300,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Check if user has enough lists for advanced method
@@ -317,7 +317,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
-                            width: double.infinity,
+                            width: 300,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to hire crew
@@ -325,7 +325,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                   context,
                                   '/select_crew',
                                   arguments: <String, dynamic>{
-                                    ...args,
+                                    ...?args,
                                     'sport': sport,
                                     'method': 'hire_crew',
                                     'template': template,

@@ -33,6 +33,9 @@ import 'screens/additional_game_info_screen.dart';
 import 'screens/additional_game_info_condensed_screen.dart';
 import 'screens/select_officials_screen.dart';
 import 'screens/lists_of_officials_screen.dart';
+import 'screens/name_list_screen.dart';
+import 'screens/populate_roster_screen.dart';
+import 'screens/filter_settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,6 +112,9 @@ class MyApp extends StatelessWidget {
                 const AdditionalGameInfoCondensedScreen(),
             '/select-officials': (context) => const SelectOfficialsScreen(),
             '/lists-of-officials': (context) => const ListsOfOfficialsScreen(),
+            '/name-list': (context) => const NameListScreen(),
+            '/populate-roster': (context) => const PopulateRosterScreen(),
+            '/filter-settings': (context) => const FilterSettingsScreen(),
             // TODO: Add other routes as we create them
           },
         );

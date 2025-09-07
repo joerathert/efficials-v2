@@ -47,6 +47,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   Future<void> _fetchLocations() async {
     try {
       final locationService = LocationService();
+      print('ChooseLocationScreen: Fetching locations...');
       final savedLocations = await locationService.getLocations();
 
       setState(() {
@@ -65,6 +66,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         ];
         isLoading = false;
       });
+
+      print(
+          'ChooseLocationScreen: Processed ${locations.length} total locations (${savedLocations.length} from Firebase)');
     } catch (e) {
       print('Error fetching locations: $e');
       setState(() {

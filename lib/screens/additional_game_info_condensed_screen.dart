@@ -373,7 +373,7 @@ class _AdditionalGameInfoCondensedScreenState
                                   ),
                                   hintText: _isAwayGame
                                       ? 'Will be auto-filled with your school name'
-                                      : 'Enter the visiting team name',
+                                      : 'Team Name and Mascot',
                                   hintStyle: TextStyle(
                                       color: colorScheme.onSurfaceVariant),
                                   border: OutlineInputBorder(

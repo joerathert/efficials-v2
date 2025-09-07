@@ -1,0 +1,95 @@
+{
+  "official_derek_greenfield": {
+    "email": "derek.greenfield@efficials.com",
+    "role": "official",
+    "isActive": true,
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "updatedAt": "2024-01-15T10:00:00.000Z",
+    "profile": {
+      "firstName": "Derek",
+      "lastName": "Greenfield",
+      "phone": "(555) 123-4567"
+    },
+    "officialProfile": {
+      "city": "Swansea",
+      "state": "IL",
+      "zipCode": "62226",
+      "address": "204 Wild Cherry Ln.",
+      "distance": 8.5,
+      "sportsData": {
+        "Football": {
+          "experienceYears": 12,
+          "certificationLevel": "certified",
+          "competitionLevels": ["Underclass", "JV", "Varsity"]
+        }
+      },
+      "sports": ["Football"],
+      "availabilityStatus": "available",
+      "followThroughRate": 100.0,
+      "totalAcceptedGames": 0,
+      "totalBackedOutGames": 0
+    }
+  },
+  "official_beaux_greenfield": {
+    "email": "beaux.greenfield@efficials.com",
+    "role": "official",
+    "isActive": true,
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "updatedAt": "2024-01-15T10:00:00.000Z",
+    "profile": {
+      "firstName": "Beaux",
+      "lastName": "Greenfield",
+      "phone": "(555) 234-5678"
+    },
+    "officialProfile": {
+      "city": "Millstadt",
+      "state": "IL",
+      "zipCode": "62260",
+      "address": "9 Josiah Ln.",
+      "distance": 12.3,
+      "sportsData": {
+        "Football": {
+          "experienceYears": 12,
+          "certificationLevel": "certified",
+          "competitionLevels": ["Underclass", "JV", "Varsity"]
+        }
+      },
+      "sports": ["Football"],
+      "availabilityStatus": "available",
+      "followThroughRate": 100.0,
+      "totalAcceptedGames": 0,
+      "totalBackedOutGames": 0
+    }
+  },
+  "official_brian_jackson": {
+    "email": "brian.jackson@efficials.com",
+    "role": "official",
+    "isActive": true,
+    "createdAt": "2024-01-15T10:00:00.000Z",
+    "updatedAt": "2024-01-15T10:00:00.000Z",
+    "profile": {
+      "firstName": "Brian",
+      "lastName": "Jackson",
+      "phone": "(555) 345-6789"
+    },
+    "officialProfile": {
+      "city": "Shiloh",
+      "state": "IL",
+      "zipCode": "62269",
+      "address": "1137 Hampshire Lane",
+      "distance": 6.8,
+      "sportsData": {
+        "Football": {
+          "experienceYears": 11,
+          "certificationLevel": "certified",
+          "competitionLevels": ["Underclass", "JV", "Varsity"]
+        }
+      },
+      "sports": ["Football"],
+      "availabilityStatus": "available",
+      "followThroughRate": 100.0,
+      "totalAcceptedGames": 0,
+      "totalBackedOutGames": 0
+    }
+  }
+}
