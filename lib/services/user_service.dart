@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
+import '../constants/firebase_constants.dart';
 
 class UserServiceException implements Exception {
   final String message;
   UserServiceException(this.message);
-  
+
   @override
   String toString() => 'UserServiceException: $message';
 }
@@ -18,13 +19,13 @@ class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String collectionName = 'users';
+  // Collection name is now handled by FirebaseCollections.users
 
   /// Create a new user document in Firestore
   Future<void> createUser(UserModel user) async {
     try {
       await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(user.id)
           .set(user.toMap());
     } catch (e) {
@@ -36,10 +37,10 @@ class UserService {
   Future<UserModel?> getUserById(String userId) async {
     try {
       final doc = await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(userId)
           .get();
-      
+
       if (doc.exists && doc.data() != null) {
         return UserModel.fromMap(doc.data()!);
       }
@@ -53,7 +54,7 @@ class UserService {
   Future<UserModel?> getCurrentUser() async {
     final user = _auth.currentUser;
     if (user == null) return null;
-    
+
     return await getUserById(user.uid);
   }
 
@@ -61,7 +62,7 @@ class UserService {
   Future<void> updateUser(UserModel user) async {
     try {
       await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(user.id)
           .update(user.copyWith(updatedAt: DateTime.now()).toMap());
     } catch (e) {
@@ -73,7 +74,7 @@ class UserService {
   Future<void> updateFcmToken(String userId, String token) async {
     try {
       await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(userId)
           .update({
         'fcmTokens': FieldValue.arrayUnion([token]),
@@ -88,7 +89,7 @@ class UserService {
   Future<void> removeFcmToken(String userId, String token) async {
     try {
       await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(userId)
           .update({
         'fcmTokens': FieldValue.arrayRemove([token]),
@@ -103,11 +104,11 @@ class UserService {
   Future<bool> emailExists(String email) async {
     try {
       final query = await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .where('email', isEqualTo: email.toLowerCase())
           .limit(1)
           .get();
-      
+
       return query.docs.isNotEmpty;
     } catch (e) {
       throw UserServiceException('Failed to check email existence: $e');
@@ -118,13 +119,11 @@ class UserService {
   Future<List<UserModel>> getAllSchedulers() async {
     try {
       final query = await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .where('role', isEqualTo: 'scheduler')
           .get();
-      
-      return query.docs
-          .map((doc) => UserModel.fromMap(doc.data()))
-          .toList();
+
+      return query.docs.map((doc) => UserModel.fromMap(doc.data())).toList();
     } catch (e) {
       throw UserServiceException('Failed to get schedulers: $e');
     }
@@ -134,13 +133,11 @@ class UserService {
   Future<List<UserModel>> getAllOfficials() async {
     try {
       final query = await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .where('role', isEqualTo: 'official')
           .get();
-      
-      return query.docs
-          .map((doc) => UserModel.fromMap(doc.data()))
-          .toList();
+
+      return query.docs.map((doc) => UserModel.fromMap(doc.data())).toList();
     } catch (e) {
       throw UserServiceException('Failed to get officials: $e');
     }
@@ -150,14 +147,13 @@ class UserService {
   Future<List<UserModel>> searchUsersByName(String searchTerm) async {
     try {
       final searchLower = searchTerm.toLowerCase();
-      
-      final query = await _firestore
-          .collection(collectionName)
-          .get();
-      
+
+      final query =
+          await _firestore.collection(FirebaseCollections.users).get();
+
       return query.docs
           .map((doc) => UserModel.fromMap(doc.data()))
-          .where((user) => 
+          .where((user) =>
               user.fullName.toLowerCase().contains(searchLower) ||
               user.email.toLowerCase().contains(searchLower))
           .toList();
@@ -169,7 +165,7 @@ class UserService {
   /// Listen to user profile changes
   Stream<UserModel?> watchUser(String userId) {
     return _firestore
-        .collection(collectionName)
+        .collection(FirebaseCollections.users)
         .doc(userId)
         .snapshots()
         .map((doc) {
@@ -196,7 +192,7 @@ class UserService {
       // Note: This only deletes the Firestore document
       // Firebase Auth user deletion requires different permissions
       await _firestore
-          .collection(collectionName)
+          .collection(FirebaseCollections.users)
           .doc(userId)
           .delete();
     } catch (e) {
@@ -208,14 +204,13 @@ class UserService {
   Future<void> batchCreateUsers(List<UserModel> users) async {
     try {
       final batch = _firestore.batch();
-      
+
       for (final user in users) {
-        final docRef = _firestore
-            .collection(collectionName)
-            .doc(user.id);
+        final docRef =
+            _firestore.collection(FirebaseCollections.users).doc(user.id);
         batch.set(docRef, user.toMap());
       }
-      
+
       await batch.commit();
     } catch (e) {
       throw UserServiceException('Failed to batch create users: $e');

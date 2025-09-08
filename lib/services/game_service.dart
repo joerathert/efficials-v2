@@ -1,6 +1,7 @@
 import '../models/game_template_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_service.dart';
+import '../constants/firebase_constants.dart';
 
 // Add this typedef for clarity
 typedef ScheduleData = Map<String, Object>;
@@ -96,8 +97,8 @@ class GameService {
       // Using a simpler query that doesn't require a composite index for now
       print('DEBUG: Querying schedules for user: $currentUserId');
       final querySnapshot = await FirebaseFirestore.instance
-          .collection('schedules')
-          .where('createdBy', isEqualTo: currentUserId)
+          .collection(FirebaseCollections.schedules)
+          .where(FirebaseFields.createdBy, isEqualTo: currentUserId)
           .get();
 
       print('DEBUG: Query returned ${querySnapshot.docs.length} documents');
@@ -110,8 +111,10 @@ class GameService {
       // Sort in memory since we can't use orderBy without an index
       final docs = querySnapshot.docs;
       docs.sort((a, b) {
-        final aTime = (a.data()['createdAt'] as Timestamp).toDate();
-        final bTime = (b.data()['createdAt'] as Timestamp).toDate();
+        final aTime =
+            (a.data()[FirebaseFields.createdAt] as Timestamp).toDate();
+        final bTime =
+            (b.data()[FirebaseFields.createdAt] as Timestamp).toDate();
         return bTime.compareTo(aTime); // Descending order
       });
 
@@ -120,9 +123,9 @@ class GameService {
         final data = doc.data();
         return {
           'id': doc.id,
-          'name': data['name'] as String,
-          'sport': data['sport'] as String,
-          'createdAt': (data['createdAt'] as Timestamp).toDate(),
+          'name': data[FirebaseFields.name] as String,
+          'sport': data[FirebaseFields.sport] as String,
+          'createdAt': (data[FirebaseFields.createdAt] as Timestamp).toDate(),
         };
       }).toList();
 
@@ -147,9 +150,9 @@ class GameService {
 
       // Check if a schedule with the same name already exists for this user
       final existingSchedulesQuery = await FirebaseFirestore.instance
-          .collection('schedules')
-          .where('createdBy', isEqualTo: currentUserId)
-          .where('name', isEqualTo: name)
+          .collection(FirebaseCollections.schedules)
+          .where(FirebaseFields.createdBy, isEqualTo: currentUserId)
+          .where(FirebaseFields.name, isEqualTo: name)
           .get();
 
       if (existingSchedulesQuery.docs.isNotEmpty) {
@@ -158,12 +161,14 @@ class GameService {
       }
 
       // Save to Firebase Firestore
-      final docRef =
-          await FirebaseFirestore.instance.collection('schedules').add({
-        'name': name,
-        'sport': sport,
-        'createdAt': DateTime.now(),
-        'createdBy': currentUserId, // Use actual authenticated user ID
+      final docRef = await FirebaseFirestore.instance
+          .collection(FirebaseCollections.schedules)
+          .add({
+        FirebaseFields.name: name,
+        FirebaseFields.sport: sport,
+        FirebaseFields.createdAt: DateTime.now(),
+        FirebaseFields.createdBy:
+            currentUserId, // Use actual authenticated user ID
       });
 
       // Return the created schedule with the document ID

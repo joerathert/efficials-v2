@@ -236,6 +236,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           const SizedBox(height: 30),
                           SizedBox(
                             width: 250,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to Lists of Officials screen
@@ -281,6 +282,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           const SizedBox(height: 16),
                           SizedBox(
                             width: 250,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Check if user has enough lists for advanced method
@@ -309,6 +311,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           const SizedBox(height: 16),
                           SizedBox(
                             width: 250,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to hire crew

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/theme_provider.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
@@ -76,6 +77,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
     return await showDialog<bool>(
       context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: colorScheme.surface,
@@ -180,9 +182,46 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         gameData['scheduleName'] = 'Team Schedule';
       }
 
-      // TODO: Implement actual game publishing to Firebase
-      // For now, simulate the publishing process
-      await Future.delayed(const Duration(seconds: 1));
+      // Save the game to Firestore
+      try {
+        final gameDataForDB = {
+          'scheduleId': args['scheduleId'],
+          'scheduleName': gameData['scheduleName'],
+          'sport': gameData['sport'],
+          'date': gameData['date']?.toIso8601String(),
+          'time': gameData['time'] != null
+              ? '${gameData['time'].hour}:${gameData['time'].minute.toString().padLeft(2, '0')}'
+              : null,
+          'location': gameData['location'],
+          'opponent': gameData['opponent'],
+          'officialsRequired': gameData['officialsRequired'],
+          'gameFee': gameData['gameFee'],
+          'gender': gameData['gender'],
+          'levelOfCompetition': gameData['levelOfCompetition'],
+          'hireAutomatically': gameData['hireAutomatically'],
+          'method': gameData['method'],
+          'selectedOfficials': gameData['selectedOfficials'],
+          'selectedCrews': gameData['selectedCrews'],
+          'selectedCrew': gameData['selectedCrew'],
+          'selectedListName': gameData['selectedListName'],
+          'selectedLists': gameData['selectedLists'],
+          'officialsHired': gameData['officialsHired'],
+          'status': gameData['status'],
+          'createdAt': gameData['createdAt'],
+          'isAway': gameData['isAway'] ?? false,
+          'homeTeam': gameData['homeTeam'],
+          'awayTeam': gameData['awayTeam'],
+        };
+
+        // Save to Firestore games collection
+        final firestore = FirebaseFirestore.instance;
+        final gameRef = await firestore.collection('games').add(gameDataForDB);
+
+        debugPrint('Game saved to Firestore with ID: ${gameRef.id}');
+      } catch (e) {
+        debugPrint('Error saving game to Firestore: $e');
+        throw Exception('Failed to save game: $e');
+      }
 
       if (mounted) {
         // Hide button loading before showing dialog
@@ -192,8 +231,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
         // Show template creation dialog
         final shouldCreateTemplate = await _showCreateTemplateDialog();
+        debugPrint('Template dialog result: $shouldCreateTemplate');
 
-        if (shouldCreateTemplate == true && !isAwayGame) {
+        // Treat null as false (user dismissed dialog)
+        final createTemplate = shouldCreateTemplate == true;
+
+        if (createTemplate && !isAwayGame) {
+          debugPrint('Navigating to template creation screen');
           if (mounted) {
             // Prepare data for template creation (convert DateTime and TimeOfDay to strings)
             final templateData = Map<String, dynamic>.from(gameData);
@@ -221,12 +265,18 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
             });
           }
         } else {
+          debugPrint('Navigating directly back to home screen');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Game published successfully!')),
             );
           }
-          _navigateBack();
+          // Ensure navigation happens even if not mounted
+          Future.delayed(Duration.zero, () {
+            if (mounted) {
+              _navigateBack();
+            }
+          });
         }
       }
     } finally {
@@ -247,30 +297,121 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishLater() async {
-    // TODO: Implement publish later functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Publish later not yet implemented')),
-    );
+    if (_isPublishing) return;
+
+    setState(() {
+      _isPublishing = true;
+      _showButtonLoading = true;
+    });
+
+    try {
+      if (args['time'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please set a game time before saving.')),
+        );
+        return;
+      }
+
+      final gameData = Map<String, dynamic>.from(args);
+      gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
+      gameData['createdAt'] = DateTime.now().toIso8601String();
+      gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
+      gameData['status'] = 'Unpublished';
+
+      if (gameData['scheduleName'] == null) {
+        gameData['scheduleName'] = 'Team Schedule';
+      }
+
+      // Save the game to Firestore as unpublished
+      try {
+        final gameDataForDB = {
+          'scheduleId': args['scheduleId'],
+          'scheduleName': gameData['scheduleName'],
+          'sport': gameData['sport'],
+          'date': gameData['date']?.toIso8601String(),
+          'time': gameData['time'] != null
+              ? '${gameData['time'].hour}:${gameData['time'].minute.toString().padLeft(2, '0')}'
+              : null,
+          'location': gameData['location'],
+          'opponent': gameData['opponent'],
+          'officialsRequired': gameData['officialsRequired'],
+          'gameFee': gameData['gameFee'],
+          'gender': gameData['gender'],
+          'levelOfCompetition': gameData['levelOfCompetition'],
+          'hireAutomatically': gameData['hireAutomatically'],
+          'method': gameData['method'],
+          'selectedOfficials': gameData['selectedOfficials'],
+          'selectedCrews': gameData['selectedCrews'],
+          'selectedCrew': gameData['selectedCrew'],
+          'selectedListName': gameData['selectedListName'],
+          'selectedLists': gameData['selectedLists'],
+          'officialsHired': gameData['officialsHired'],
+          'status': gameData['status'],
+          'createdAt': gameData['createdAt'],
+          'isAway': gameData['isAway'] ?? false,
+          'homeTeam': gameData['homeTeam'],
+          'awayTeam': gameData['awayTeam'],
+        };
+
+        // Save to Firestore games collection as unpublished
+        final firestore = FirebaseFirestore.instance;
+        final gameRef = await firestore.collection('games').add(gameDataForDB);
+
+        debugPrint(
+            'Unpublished game saved to Firestore with ID: ${gameRef.id}');
+      } catch (e) {
+        debugPrint('Error saving unpublished game to Firestore: $e');
+        throw Exception('Failed to save game: $e');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Game saved to Unpublished Games list!')),
+        );
+        _navigateBack();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPublishing = false;
+          _showButtonLoading = false;
+        });
+      }
+    }
   }
 
   void _navigateBack() {
+    debugPrint(
+        '_navigateBack called. fromScheduleDetails: $fromScheduleDetails');
     if (fromScheduleDetails) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
+      Navigator.of(context).pushReplacementNamed(
         '/schedule_details',
-        (route) => false,
         arguments: {
           'scheduleName': args['scheduleName'],
           'scheduleId': scheduleId,
         },
       );
     } else {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/athletic_director_home',
-        (route) => false,
-        arguments: {'refresh': true, 'gamePublished': true},
-      );
+      debugPrint('Navigating to athletic director home');
+      // Try a different route first to test if routing works
+      debugPrint('Available routes: ${ModalRoute.of(context)?.settings.name}');
+      try {
+        debugPrint('Attempting navigation to /ad-home');
+        Navigator.of(context).pushNamed(
+          '/ad-home',
+          arguments: {'refresh': true, 'gamePublished': true},
+        );
+      } catch (e) {
+        debugPrint('Navigation to /ad-home failed: $e');
+        try {
+          debugPrint('Trying navigation to /role-selection');
+          Navigator.of(context).pushNamed('/role-selection');
+        } catch (e2) {
+          debugPrint('Fallback navigation to /role-selection also failed: $e2');
+        }
+      }
     }
   }
 

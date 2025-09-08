@@ -454,7 +454,8 @@ class _AddNewLocationScreenState extends State<AddNewLocationScreen> {
                     ),
                     const SizedBox(height: 30),
                     SizedBox(
-                      width: double.infinity,
+                      width: 400,
+                      height: 50,
                       child: ElevatedButton(
                         onPressed: _handleContinue,
                         style: ElevatedButton.styleFrom(

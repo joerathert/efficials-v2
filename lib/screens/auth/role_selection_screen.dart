@@ -135,7 +135,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
                   // Continue Button
                   SizedBox(
-                    width: double.infinity,
+                    width: 400,
+                    height: 50,
                     child: ElevatedButton(
                       onPressed: _handleContinue,
                       style: ElevatedButton.styleFrom(

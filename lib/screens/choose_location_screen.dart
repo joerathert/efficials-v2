@@ -303,7 +303,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                           const SizedBox(height: 40),
                           const SizedBox(height: 20),
                           SizedBox(
-                            width: double.infinity,
+                            width: 400,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: (selectedLocation != null &&
                                       selectedLocation !=

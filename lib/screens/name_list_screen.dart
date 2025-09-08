@@ -188,69 +188,75 @@ class _NameListScreenState extends State<NameListScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    ElevatedButton(
-                      onPressed: () {
-                        final name = _nameController.text.trim();
-                        if (name.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Please enter a list name!'),
-                              backgroundColor: colorScheme.surfaceVariant,
-                            ),
-                          );
-                        } else if (existingLists.contains(name)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('List name must be unique!'),
-                              backgroundColor: colorScheme.surfaceVariant,
-                            ),
-                          );
-                        } else if (RegExp(r'^\s+$').hasMatch(name)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                  'List name cannot be just spaces!'),
-                              backgroundColor: colorScheme.surfaceVariant,
-                            ),
-                          );
-                        } else {
-                          Navigator.pushNamed(
-                            context,
-                            '/populate-roster',
-                            arguments: {
-                              'sport': sport,
-                              'listName': name,
-                              'fromGameCreation': true,
-                              // Pass through ALL game creation context
-                              ...?args,
-                              // Explicitly exclude selectedOfficials to start with clean slate
-                              'selectedOfficials': null,
-                            },
-                          ).then((result) {
-                            if (result != null && mounted) {
-                              // Pass the result back to the lists screen
-                              Navigator.pop(context, result);
-                            }
-                          });
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 32,
+                    SizedBox(
+                      width: 400,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final name = _nameController.text.trim();
+                          if (name.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    const Text('Please enter a list name!'),
+                                backgroundColor: colorScheme.surfaceVariant,
+                              ),
+                            );
+                          } else if (existingLists.contains(name)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    const Text('List name must be unique!'),
+                                backgroundColor: colorScheme.surfaceVariant,
+                              ),
+                            );
+                          } else if (RegExp(r'^\s+$').hasMatch(name)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                    'List name cannot be just spaces!'),
+                                backgroundColor: colorScheme.surfaceVariant,
+                              ),
+                            );
+                          } else {
+                            Navigator.pushNamed(
+                              context,
+                              '/populate-roster',
+                              arguments: {
+                                'sport': sport,
+                                'listName': name,
+                                'fromGameCreation': true,
+                                // Pass through ALL game creation context
+                                ...?args,
+                                // Explicitly exclude selectedOfficials to start with clean slate
+                                'selectedOfficials': null,
+                              },
+                            ).then((result) {
+                              if (result != null && mounted) {
+                                // Pass the result back to the lists screen
+                                Navigator.pop(context, result);
+                              }
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 32,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onPrimary,
+                        child: Text(
+                          'Continue',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onPrimary,
+                          ),
                         ),
                       ),
                     ),

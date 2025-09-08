@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../../providers/theme_provider.dart';
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
@@ -13,7 +16,9 @@ class AthleticDirectorHomeScreen extends StatefulWidget {
 class _AthleticDirectorHomeScreenState
     extends State<AthleticDirectorHomeScreen> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> publishedGames = []; // Mock games data for now
+  List<Map<String, dynamic>> publishedGames = [];
+  int _alertDays = 7;
+  String _alertUnit = 'days';
   bool isFabExpanded = false;
   bool showPastGames = false;
   bool isPullingDown = false;
@@ -28,7 +33,14 @@ class _AthleticDirectorHomeScreenState
   }
 
   Future<void> _initializeData() async {
+    await _loadAlertPreferences();
     _fetchGames();
+  }
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -36,30 +48,150 @@ class _AthleticDirectorHomeScreenState
     super.didChangeDependencies();
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null && args['refresh'] == true) {
-      _fetchGames();
-      // Show success message if a game was just published
-      if (args['gamePublished'] == true && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Game published successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        });
+    if (args != null) {
+      if (args['refresh'] == true) {
+        _fetchGames();
+        // Show success message if a game was just published
+        if (args['gamePublished'] == true && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Game published successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          });
+        }
       }
+    }
+  }
+
+  Future<void> _loadAlertPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _alertDays = prefs.getInt('alert_days') ?? 7;
+      _alertUnit = prefs.getString('alert_unit') ?? 'days';
+    });
+  }
+
+  IconData _getSportIcon(String sport) {
+    switch (sport.toLowerCase()) {
+      case 'football':
+        return Icons.sports_football;
+      case 'basketball':
+        return Icons.sports_basketball;
+      case 'soccer':
+        return Icons.sports_soccer;
+      case 'baseball':
+        return Icons.sports_baseball;
+      case 'volleyball':
+        return Icons.sports_volleyball;
+      case 'tennis':
+        return Icons.sports_tennis;
+      default:
+        return Icons.sports;
+    }
+  }
+
+  bool _shouldShowAlert(DateTime gameDate) {
+    final now = DateTime.now();
+    final difference = gameDate.difference(now);
+
+    switch (_alertUnit) {
+      case 'days':
+        return difference.inDays <= _alertDays && difference.inDays >= 0;
+      case 'weeks':
+        return difference.inDays <= (_alertDays * 7) && difference.inDays >= 0;
+      case 'months':
+        return difference.inDays <= (_alertDays * 30) && difference.inDays >= 0;
+      default:
+        return difference.inDays <= _alertDays && difference.inDays >= 0;
     }
   }
 
   Future<void> _fetchGames() async {
     try {
-      // For now, use mock data - we'll replace with actual service calls
+      // Fetch games from Firestore (both published and unpublished)
+      final firestore = FirebaseFirestore.instance;
+      final snapshot = await firestore.collection('games').get();
+
+      final games = snapshot.docs.map((doc) {
+        final data = doc.data();
+        // Convert Firestore data back to the format expected by the UI
+        return {
+          'id': doc.id,
+          'scheduleId': data['scheduleId'],
+          'scheduleName': data['scheduleName'],
+          'sport': data['sport'],
+          'date': data['date'] != null ? DateTime.parse(data['date']) : null,
+          'time': data['time'] != null
+              ? TimeOfDay(
+                  hour: int.parse(data['time'].split(':')[0]),
+                  minute: int.parse(data['time'].split(':')[1]),
+                )
+              : null,
+          'location': data['location'],
+          'opponent': data['opponent'],
+          'officialsRequired': data['officialsRequired'] ?? 0,
+          'gameFee': data['gameFee'],
+          'gender': data['gender'],
+          'levelOfCompetition': data['levelOfCompetition'],
+          'hireAutomatically': data['hireAutomatically'] ?? false,
+          'method': data['method'],
+          'selectedOfficials': data['selectedOfficials'],
+          'selectedCrews': data['selectedCrews'],
+          'selectedCrew': data['selectedCrew'],
+          'selectedListName': data['selectedListName'],
+          'selectedLists': data['selectedLists'],
+          'officialsHired': data['officialsHired'] ?? 0,
+          'status': data['status'],
+          'createdAt': data['createdAt'],
+          'isAway': data['isAway'] ?? false,
+          'homeTeam': data['homeTeam'],
+          'awayTeam': data['awayTeam'],
+        };
+      }).toList();
+
+      // Sort games by date and time (chronological order, nearest first)
+      games.sort((a, b) {
+        final dateA = a['date'] as DateTime?;
+        final dateB = b['date'] as DateTime?;
+        final timeA = a['time'] as TimeOfDay?;
+        final timeB = b['time'] as TimeOfDay?;
+
+        // Handle null dates - put games without dates at the end
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+
+        // Compare dates first
+        final dateComparison = dateA.compareTo(dateB);
+        if (dateComparison != 0) return dateComparison;
+
+        // If dates are the same, compare times
+        if (timeA == null && timeB == null) return 0;
+        if (timeA == null) return 1;
+        if (timeB == null) return -1;
+
+        // Compare times
+        final timeAInMinutes = timeA.hour * 60 + timeA.minute;
+        final timeBInMinutes = timeB.hour * 60 + timeB.minute;
+        return timeAInMinutes.compareTo(timeBInMinutes);
+      });
+
       setState(() {
-        publishedGames = []; // Empty for initial state
+        publishedGames = games;
         _isLoading = false;
       });
+
+      debugPrint('Fetched ${games.length} games from Firestore');
+      // Debug: log the status of each game
+      for (var game in games) {
+        debugPrint(
+            'Game: ${game['scheduleName']} - Status: ${game['status']} - Date: ${game['date']}');
+      }
     } catch (e) {
+      debugPrint('Error fetching games: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading games: $e')),
@@ -72,20 +204,16 @@ class _AthleticDirectorHomeScreenState
     }
   }
 
-  void _onShowPastGames() {
-    setState(() {
-      showPastGames = true;
-      pullDistance = 0.0;
-      isPullingDown = false;
-    });
-  }
-
   List<Map<String, dynamic>> _filterGamesByTime(
       List<Map<String, dynamic>> games, bool getPastGames) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
     return games.where((game) {
+      // Only show published games in the upcoming/past games lists
+      final status = game['status'] as String?;
+      if (status != 'Published') return false;
+
       final gameDate = game['date'] as DateTime?;
       if (gameDate != null) {
         final gameDay = DateTime(gameDate.year, gameDate.month, gameDate.day);
@@ -199,20 +327,22 @@ class _AthleticDirectorHomeScreenState
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'You have ${publishedGames.length} game${publishedGames.length == 1 ? '' : 's'} created, but they are currently hidden by your filter settings.',
-                        style: TextStyle(
+                        'You have ${publishedGames.length} game${publishedGames.length == 1 ? '' : 's'} created, but ${publishedGames.length == 1 ? 'it is' : 'they are'} currently hidden by your filter settings.',
+                        style: const TextStyle(
                           fontSize: 16,
-                          color: colorScheme.onSurfaceVariant,
+                          color: Color(0xFF666666),
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
                       ElevatedButton.icon(
                         onPressed: () {
-                          // TODO: Navigate to filter screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Filter screen coming soon!')),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  Container(), // TODO: Add filter screen
+                            ),
                           );
                         },
                         icon: const Icon(Icons.filter_list, size: 24),
@@ -222,13 +352,30 @@ class _AthleticDirectorHomeScreenState
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.secondary,
-                          foregroundColor: colorScheme.onSecondary,
+                          foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 16,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            // Reset all filters to show all games
+                            // TODO: Reset filters
+                          });
+                        },
+                        child: Text(
+                          'Show All Games',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.primary,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
@@ -281,91 +428,229 @@ class _AthleticDirectorHomeScreenState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final gameTitle = game['scheduleName'] as String? ?? 'Not set';
-    final gameDate = game['date'] != null
-        ? (game['date'] as DateTime).toString().split(' ')[0]
-        : 'Not set';
-    final gameTime = game['time'] != null ? 'Time: ${game['time']}' : 'Not set';
+    final gameDate = game['date'] as DateTime?;
+    final gameTime = game['time'] as TimeOfDay?;
     final sport = game['sport'] as String? ?? 'Unknown Sport';
+    final opponent = game['opponent'] as String?;
+    final officialsRequired = game['officialsRequired'] as int? ?? 5;
+    final officialsHired = game['officialsHired'] as int? ?? 0;
+    final levelOfCompetition =
+        game['levelOfCompetition'] as String? ?? 'Varsity';
+    final isAway = game['isAway'] as bool? ?? false;
 
-    return GestureDetector(
-      onTap: () {
-        // TODO: Navigate to game details
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Game details for $gameTitle coming soon!')),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withOpacity(0.2),
-              spreadRadius: 1,
-              blurRadius: 3,
-              offset: const Offset(0, 1),
+    // Format date as requested: "Friday, Sep 12, 2025"
+    final formattedDate = gameDate != null
+        ? DateFormat('EEEE, MMM d, yyyy').format(gameDate)
+        : 'Not set';
+
+    // Format time as requested: "7:00 PM"
+    final formattedTime = gameTime != null
+        ? '${gameTime.hourOfPeriod}:${gameTime.minute.toString().padLeft(2, '0')} ${gameTime.period.name.toUpperCase()}'
+        : 'Not set';
+
+    // Format opponent display
+    final opponentDisplay =
+        opponent != null ? (isAway ? '@ $opponent' : 'vs $opponent') : '';
+
+    // Determine officials count background color
+    final shouldAlert = gameDate != null ? _shouldShowAlert(gameDate) : false;
+    final officialsBackgroundColor =
+        shouldAlert && officialsHired < officialsRequired
+            ? Colors.red.withOpacity(0.1)
+            : colorScheme.primary.withOpacity(0.1);
+
+    final officialsTextColor = shouldAlert && officialsHired < officialsRequired
+        ? Colors.red
+        : colorScheme.primary;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 550),
+        child: GestureDetector(
+          onTap: () {
+            // TODO: Navigate to game details
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Game details coming soon!')),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.sports,
-                color: colorScheme.primary,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    gameDate,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$gameTime - $gameTitle',
-                    style:
-                        TextStyle(fontSize: 16, color: colorScheme.onSurface),
+                  child: Icon(
+                    _getSportIcon(sport),
+                    color: colorScheme.primary,
+                    size: 24,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Date line
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Time and opponent line
+                      Text(
+                        '$formattedTime $opponentDisplay',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Sport and level line
+                      Text(
+                        '$levelOfCompetition $sport',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Officials count
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: colorScheme.secondary.withOpacity(0.1),
+                          color: officialsBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          sport,
+                          '$officialsHired/$officialsRequired Officials',
                           style: TextStyle(
-                              fontSize: 12, color: colorScheme.secondary),
+                            fontSize: 12,
+                            color: officialsTextColor,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  void _onShowPastGames() {
+    setState(() {
+      showPastGames = true;
+      pullDistance = 0.0;
+      isPullingDown = false;
+    });
+
+    // Ensure layout is complete and adjust scroll position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        final pastGames = _filterGamesByTime(publishedGames, true);
+        final upcomingGames = _filterGamesByTime(publishedGames, false);
+        if (upcomingGames.isNotEmpty) {
+          // Calculate the index where upcoming games start
+          final firstUpcomingIndex = pastGames.length;
+          // Estimate the height of each game tile (adjust based on actual measurement)
+          const double estimatedTileHeight = 160.0; // Current estimate
+          // Initial target offset
+          double targetOffset = firstUpcomingIndex * estimatedTileHeight;
+          // Get initial max scroll extent
+          final initialMaxScrollExtent =
+              scrollController.position.maxScrollExtent;
+
+          // If maxScrollExtent is too small, delay and retry with a longer wait
+          if (targetOffset > initialMaxScrollExtent) {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (scrollController.hasClients) {
+                final updatedMaxScrollExtent =
+                    scrollController.position.maxScrollExtent;
+                targetOffset = firstUpcomingIndex *
+                    estimatedTileHeight.clamp(0.0, updatedMaxScrollExtent);
+                scrollController
+                    .jumpTo(targetOffset.clamp(0.0, updatedMaxScrollExtent));
+              }
+            });
+          } else {
+            scrollController
+                .jumpTo(targetOffset.clamp(0.0, initialMaxScrollExtent));
+          }
+        }
+      }
+    });
+  }
+
+  void _handleLogout() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            'Logout',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+
+                // Clear user session
+                // TODO: Implement session clearing
+
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/welcome',
+                  (route) => false,
+                ); // Go to welcome screen and clear navigation stack
+              },
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -394,9 +679,8 @@ class _AthleticDirectorHomeScreenState
           builder: (context, themeProvider, child) {
             return Icon(
               Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
+              color:
+                  themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
               size: 32,
             );
           },
@@ -467,10 +751,7 @@ class _AthleticDirectorHomeScreenState
                   style: TextStyle(color: colorScheme.onSurface)),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to settings
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settings coming soon!')),
-                );
+                Navigator.pushNamed(context, '/settings');
               },
             ),
             const Divider(color: Colors.grey),
@@ -479,147 +760,115 @@ class _AthleticDirectorHomeScreenState
               title: Text('Logout', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement logout
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logout coming soon!')),
-                );
+                _handleLogout();
               },
             ),
           ],
         ),
       ),
       body: SafeArea(
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            if (details.delta.dy > 0) {
-              setState(() {
-                pullDistance = (pullDistance + details.delta.dy)
-                    .clamp(0.0, pullThreshold * 1.5);
-                isPullingDown = pullDistance > 10;
-              });
-            }
-          },
-          onPanEnd: (details) {
-            if (pullDistance >= pullThreshold && !showPastGames) {
-              _onShowPastGames();
-            } else {
-              setState(() {
-                pullDistance = 0.0;
-                isPullingDown = false;
-              });
-            }
-          },
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: pullDistance > 0
-                    ? pullDistance.clamp(0.0, pullThreshold)
-                    : 0,
-                child: pullDistance > 0
-                    ? Container(
-                        width: double.infinity,
-                        color: colorScheme.background,
-                        child: Center(
-                          child: Text(
-                            pullDistance >= pullThreshold
-                                ? 'Release to view past games'
-                                : 'View past games',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 550),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!showPastGames && upcomingGames.isNotEmpty) ...[
+                          Text(
+                            'Upcoming Games',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: pullDistance >= pullThreshold
-                                  ? colorScheme.secondary
-                                  : colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onBackground,
                             ),
                           ),
+                          const SizedBox(height: 10),
+                        ],
+                        Expanded(
+                          child: _buildGamesList(pastGames, upcomingGames),
                         ),
-                      )
-                    : null,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!showPastGames && upcomingGames.isNotEmpty) ...[
-                        Text(
-                          'Upcoming Games',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onBackground,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
                       ],
-                      Expanded(
-                        child: _buildGamesList(pastGames, upcomingGames),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      floatingActionButton: Stack(
         children: [
-          if (isFabExpanded) ...[
-            AnimatedOpacity(
-              opacity: isFabExpanded ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: FloatingActionButton.extended(
-                  heroTag: "fab_use_template",
+          Positioned(
+            bottom: 40,
+            right: (MediaQuery.of(context).size.width -
+                        (MediaQuery.of(context).size.width > 550
+                            ? 550
+                            : MediaQuery.of(context).size.width)) /
+                    2 +
+                20, // Position FAB 20px from the right edge of the constrained content area
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isFabExpanded) ...[
+                  AnimatedOpacity(
+                    opacity: isFabExpanded ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: FloatingActionButton.extended(
+                        heroTag: "fab_use_template",
+                        onPressed: () {
+                          setState(() {
+                            isFabExpanded = false;
+                          });
+                          Navigator.pushNamed(context, '/game-templates');
+                        },
+                        backgroundColor: colorScheme.primary,
+                        label: Text('Use Game Template',
+                            style: TextStyle(color: colorScheme.onPrimary)),
+                        icon: Icon(Icons.copy, color: colorScheme.onPrimary),
+                      ),
+                    ),
+                  ),
+                  AnimatedOpacity(
+                    opacity: isFabExpanded ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: FloatingActionButton.extended(
+                        heroTag: "fab_start_scratch",
+                        onPressed: () {
+                          setState(() {
+                            isFabExpanded = false;
+                          });
+                          Navigator.pushNamed(context, '/select-schedule');
+                        },
+                        backgroundColor: colorScheme.primary,
+                        label: Text('Start from Scratch',
+                            style: TextStyle(color: colorScheme.onPrimary)),
+                        icon: Icon(Icons.add, color: colorScheme.onPrimary),
+                      ),
+                    ),
+                  ),
+                ],
+                FloatingActionButton(
+                  heroTag: "fab_main",
                   onPressed: () {
                     setState(() {
-                      isFabExpanded = false;
+                      isFabExpanded = !isFabExpanded;
                     });
-                    Navigator.pushNamed(context, '/game-templates');
                   },
-                  backgroundColor: colorScheme.primary,
-                  label: Text('Use Game Template',
-                      style: TextStyle(color: colorScheme.onPrimary)),
-                  icon: Icon(Icons.copy, color: colorScheme.onPrimary),
+                  backgroundColor: colorScheme.surfaceVariant,
+                  child: Icon(isFabExpanded ? Icons.close : Icons.add,
+                      size: 30, color: colorScheme.primary),
                 ),
-              ),
+              ],
             ),
-            AnimatedOpacity(
-              opacity: isFabExpanded ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: FloatingActionButton.extended(
-                  heroTag: "fab_start_scratch",
-                  onPressed: () {
-                    setState(() {
-                      isFabExpanded = false;
-                    });
-                    Navigator.pushNamed(context, '/select-schedule');
-                  },
-                  backgroundColor: colorScheme.primary,
-                  label: Text('Start from Scratch',
-                      style: TextStyle(color: colorScheme.onPrimary)),
-                  icon: Icon(Icons.add, color: colorScheme.onPrimary),
-                ),
-              ),
-            ),
-          ],
-          FloatingActionButton(
-            heroTag: "fab_main",
-            onPressed: () {
-              setState(() {
-                isFabExpanded = !isFabExpanded;
-              });
-            },
-            backgroundColor: colorScheme.surfaceVariant,
-            child: Icon(isFabExpanded ? Icons.close : Icons.add,
-                size: 30, color: colorScheme.primary),
           ),
         ],
       ),

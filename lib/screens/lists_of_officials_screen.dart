@@ -273,50 +273,54 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                             ),
                                           ),
                                           const SizedBox(height: 24),
-                                          ElevatedButton.icon(
-                                            onPressed: () {
-                                              Navigator.pushNamed(
-                                                context,
-                                                '/name-list',
-                                                arguments: {
-                                                  'sport': sport,
-                                                  'existingLists': <String>[],
-                                                  // Pass through game creation context
-                                                  ...?args,
-                                                },
-                                              ).then((result) {
-                                                if (result != null && mounted) {
-                                                  // Handle the result when a list is created
-                                                  _handleNewListFromReview(
-                                                      result as Map<String,
-                                                          dynamic>);
-                                                }
-                                              });
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  colorScheme.primary,
-                                              foregroundColor:
-                                                  colorScheme.onPrimary,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 15,
-                                                      horizontal: 32),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                          SizedBox(
+                                            height: 50,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () {
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  '/name-list',
+                                                  arguments: {
+                                                    'sport': sport,
+                                                    'existingLists': <String>[],
+                                                    // Pass through game creation context
+                                                    ...?args,
+                                                  },
+                                                ).then((result) {
+                                                  if (result != null &&
+                                                      mounted) {
+                                                    // Handle the result when a list is created
+                                                    _handleNewListFromReview(
+                                                        result as Map<String,
+                                                            dynamic>);
+                                                  }
+                                                });
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.primary,
+                                                foregroundColor:
+                                                    colorScheme.onPrimary,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 15,
+                                                        horizontal: 32),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
                                               ),
-                                            ),
-                                            icon: Icon(
-                                              Icons.add,
-                                              color: colorScheme.onPrimary,
-                                            ),
-                                            label: Text(
-                                              'Create New List',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
+                                              icon: Icon(
+                                                Icons.add,
                                                 color: colorScheme.onPrimary,
+                                              ),
+                                              label: Text(
+                                                'Create New List',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: colorScheme.onPrimary,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -477,46 +481,50 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                           if (!isLoading && actualLists.isNotEmpty) ...[
                             const SizedBox(height: 20),
                             Center(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    '/name-list',
-                                    arguments: {
-                                      'sport': sport,
-                                      'existingLists': actualLists
-                                          .map((list) => list['name'] as String)
-                                          .toList(),
-                                      // Pass through game creation context
-                                      ...?args,
-                                    },
-                                  ).then((result) {
-                                    if (result != null && mounted) {
-                                      // Handle the result when a list is created
-                                      _handleNewListFromReview(
-                                          result as Map<String, dynamic>);
-                                    }
-                                  });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colorScheme.primary,
-                                  foregroundColor: colorScheme.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 15, horizontal: 32),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                              child: SizedBox(
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/name-list',
+                                      arguments: {
+                                        'sport': sport,
+                                        'existingLists': actualLists
+                                            .map((list) =>
+                                                list['name'] as String)
+                                            .toList(),
+                                        // Pass through game creation context
+                                        ...?args,
+                                      },
+                                    ).then((result) {
+                                      if (result != null && mounted) {
+                                        // Handle the result when a list is created
+                                        _handleNewListFromReview(
+                                            result as Map<String, dynamic>);
+                                      }
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15, horizontal: 32),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
-                                ),
-                                icon: Icon(
-                                  Icons.add,
-                                  color: colorScheme.onPrimary,
-                                ),
-                                label: Text(
-                                  'Create New List',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                                  icon: Icon(
+                                    Icons.add,
                                     color: colorScheme.onPrimary,
+                                  ),
+                                  label: Text(
+                                    'Create New List',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onPrimary,
+                                    ),
                                   ),
                                 ),
                               ),

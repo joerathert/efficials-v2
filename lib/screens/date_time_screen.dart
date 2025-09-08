@@ -236,7 +236,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                           ),
                           const SizedBox(height: 40),
                           SizedBox(
-                            width: double.infinity,
+                            width: 400,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed:
                                   (selectedDate != null && selectedTime != null)

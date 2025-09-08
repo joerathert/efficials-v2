@@ -683,7 +683,8 @@ class _OfficialProfileScreenState extends State<OfficialProfileScreen> {
                     // Continue Button
                     Center(
                       child: SizedBox(
-                        width: 500,
+                        width: 400,
+                        height: 50,
                         child: ElevatedButton(
                           onPressed: _handleContinue,
                           style: ElevatedButton.styleFrom(

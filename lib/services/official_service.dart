@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/firebase_constants.dart';
 
 class OfficialService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -28,8 +29,9 @@ class OfficialService {
           '🔍 Filters: ihsaLevel=$ihsaLevel, minYears=$minYears, levels=$levels, radius=$radius');
 
       // Query users collection for officials
-      Query query =
-          _firestore.collection('users').where('role', isEqualTo: 'official');
+      Query query = _firestore
+          .collection(FirebaseCollections.users)
+          .where(FirebaseFields.role, isEqualTo: FirebaseValues.roleOfficial);
 
       final snapshot = await query.get();
       _debugPrint('🔍 Found ${snapshot.docs.length} officials in database');

@@ -554,6 +554,149 @@ Row(
 // - Font weight: w500 for labels, regular for values
 ```
 
+#### **4. Chronological List Sorting**
+```dart
+// ✅ RECOMMENDED - Sort lists by date and time (nearest first)
+games.sort((a, b) {
+  final dateA = a['date'] as DateTime?;
+  final dateB = b['date'] as DateTime?;
+  final timeA = a['time'] as TimeOfDay?;
+  final timeB = b['time'] as TimeOfDay?;
+
+  // Handle null dates - put items without dates at the end
+  if (dateA == null && dateB == null) return 0;
+  if (dateA == null) return 1;
+  if (dateB == null) return -1;
+
+  // Compare dates first
+  final dateComparison = dateA.compareTo(dateB);
+  if (dateComparison != 0) return dateComparison;
+
+  // If dates are the same, compare times
+  if (timeA == null && timeB == null) return 0;
+  if (timeA == null) return 1;
+  if (timeB == null) return -1;
+
+  // Convert times to minutes for comparison
+  final timeAInMinutes = timeA.hour * 60 + timeA.minute;
+  final timeBInMinutes = timeB.hour * 60 + timeB.minute;
+  return timeAInMinutes.compareTo(timeBInMinutes);
+});
+
+// 📏 Sorting Guidelines:
+// - Primary sort: Date (earliest first)
+// - Secondary sort: Time (earliest first for same-day items)
+// - Null handling: Items without dates/times go to end
+// - User-centric: Most urgent items appear first
+// - Real-time: Apply after each data fetch
+```
+
+#### **5. Floating Action Button Positioning (Cross-Platform)**
+```dart
+// ✅ RECOMMENDED - Consistent FAB overlay across web and mobile
+floatingActionButton: Stack(
+  children: [
+    Positioned(
+      bottom: 40, // Optimal distance from bottom for accessibility
+      right: (MediaQuery.of(context).size.width -
+              (MediaQuery.of(context).size.width > 550 ? 550 : MediaQuery.of(context).size.width)) /
+          2 +
+          20, // Position relative to constrained content area (550px)
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // FAB content with expand/collapse functionality
+        ],
+      ),
+    ),
+  ],
+)
+
+// 📏 Positioning Guidelines:
+// - Bottom: 40-60px (optimal for thumb accessibility)
+// - Right offset: 20px from constrained content edge
+// - Content width reference: 550px (matches main content constraint)
+// - Platform agnostic: Same formula works on web and mobile
+// - Responsive: Automatically adjusts to screen size
+```
+
+## 🔧 **Reusable Components Library**
+
+The codebase now includes several reusable components to reduce duplication and ensure consistency:
+
+### **1. BaseScreen & CenteredScreen**
+```dart
+import '../widgets/base_screen.dart';
+
+// Most screens should extend BaseScreen
+class MyScreen extends BaseScreen {
+  @override
+  Widget buildContent(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+    return CenteredScreen(
+      child: Column(children: [/* content */]),
+    ).buildContent(context, theme, colorScheme);
+  }
+}
+```
+
+### **2. Form Components**
+```dart
+import '../widgets/form_section.dart';
+
+// Consistent form styling
+FormSection(
+  title: 'Personal Information',
+  children: [
+    StyledTextField(
+      labelText: 'First Name',
+      controller: _firstNameController,
+      validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+    ),
+    StyledDropdown(
+      labelText: 'State',
+      items: _stateItems,
+      value: _selectedState,
+      onChanged: (value) => setState(() => _selectedState = value),
+    ),
+  ],
+)
+```
+
+### **3. Standardized Buttons**
+```dart
+import '../widgets/standard_button.dart';
+
+// Consistent button styling across all screens
+StandardButton(
+  text: 'Continue',
+  onPressed: _handleContinue,
+  isLoading: _isLoading,
+  width: 400,
+  height: 50,
+)
+
+// For secondary actions
+StandardOutlinedButton(
+  text: 'Cancel',
+  onPressed: _handleCancel,
+  width: 400,
+  height: 50,
+)
+```
+
+### **4. Firebase Constants**
+```dart
+import '../constants/firebase_constants.dart';
+
+// Type-safe collection and field references
+_firestore.collection(FirebaseCollections.users)
+  .doc(userId)
+  .update({
+    FirebaseFields.email: newEmail,
+    FirebaseFields.status: FirebaseValues.statusPublished,
+  });
+```
+
 ### **Error Handling Patterns**
 
 #### **1. Form Validation with SnackBar**
@@ -595,7 +738,7 @@ Before creating a new screen, verify:
 - [ ] Title text uses theme-aware colors (yellow in dark mode, dark in light mode)
 - [ ] Other text uses `colorScheme.onBackground` or `colorScheme.onSurfaceVariant`
 - [ ] Backgrounds use `colorScheme.background` or `colorScheme.surface`
-- [ ] Buttons use theme-aware styling with consistent width (300px)
+- [ ] Buttons use theme-aware styling with standardized height (50px)
 - [ ] Shadows use `colorScheme.shadow.withOpacity(0.x)`
 - [ ] Dialogs use `ConstrainedBox(maxWidth: 400)` for proper width
 - [ ] Navigation preserves data between screens
@@ -603,6 +746,8 @@ Before creating a new screen, verify:
 - [ ] Null-safe argument handling in `didChangeDependencies()`
 - [ ] Responsive layout with `Center` + `ConstrainedBox(maxWidth: 430)` for optimal readability
 - [ ] Column spacing follows 160px labels + 16px gap pattern for label-value pairs
+- [ ] Floating Action Buttons use cross-platform positioning pattern (if applicable)
+- [ ] Lists with dates/times use chronological sorting (nearest first)
 
 ## 🎯 **Key Patterns to Remember**
 
@@ -610,11 +755,13 @@ Before creating a new screen, verify:
 2. **Theme-aware titles** = Yellow in dark mode, dark in light mode
 3. **No yellow text** = Never use `Colors.yellow` for text content (except via theme)
 4. **Theme colors only** = Use `Theme.of(context).colorScheme.*` for everything else
-5. **Consistent buttons** = Use `ElevatedButton` for primary actions with `minimumSize: const Size(double.infinity, 56)` for full-width mobile UX
+5. **Standardized buttons** = All buttons use 50px height with `SizedBox(width: 400, height: 50, child: ElevatedButton(...))`
 6. **Constrained dialogs** = Always use `ConstrainedBox(maxWidth: 400)` for dialogs
 7. **Data preservation** = Pass complete data objects between navigation steps
 8. **Null safety** = Use `?.` operators and null-aware spreads (`...?args`)
 9. **Responsive layout** = `Center` + `ConstrainedBox(maxWidth: 430)` for optimal readability, use 600 for data-heavy screens
-10. **Proper contrast** = Let the theme system handle light/dark differences
+10. **Cross-platform FAB** = Position FAB relative to constrained content area for consistent overlay
+11. **Chronological sorting** = Sort lists by date/time with nearest items first
+12. **Proper contrast** = Let the theme system handle light/dark differences
 
 This guide ensures you never have to point out the same issues again! 🎨

@@ -510,7 +510,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             ),
                             const SizedBox(height: 16),
                             SizedBox(
-                              width: double.infinity,
+                              width: 400,
+                              height: 50,
                               child: ElevatedButton(
                                 onPressed:
                                     selectedCount > 0 ? _handleContinue : null,

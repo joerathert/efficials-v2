@@ -36,6 +36,7 @@ import 'screens/lists_of_officials_screen.dart';
 import 'screens/name_list_screen.dart';
 import 'screens/populate_roster_screen.dart';
 import 'screens/filter_settings_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/review_list_screen.dart';
 import 'screens/review_game_info_screen.dart';
 
@@ -93,6 +94,8 @@ class MyApp extends StatelessWidget {
                 const AthleticDirectorProfileScreen(),
             '/athletic-director-home': (context) =>
                 const AthleticDirectorHomeScreen(),
+            // Add duplicate route for testing
+            '/ad-home': (context) => const AthleticDirectorHomeScreen(),
             '/coach-home': (context) => const CoachHomeScreen(),
             '/coach-profile': (context) => const CoachProfileScreen(),
             '/assigner-profile': (context) => const AssignerProfileScreen(),
@@ -117,6 +120,7 @@ class MyApp extends StatelessWidget {
             '/name-list': (context) => const NameListScreen(),
             '/populate-roster': (context) => const PopulateRosterScreen(),
             '/filter-settings': (context) => const FilterSettingsScreen(),
+            '/settings': (context) => const SettingsScreen(),
             '/review-list': (context) => const ReviewListScreen(),
             '/review-game-info': (context) => const ReviewGameInfoScreen(),
             // TODO: Add other routes as we create them
