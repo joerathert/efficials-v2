@@ -90,200 +90,201 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-              const SizedBox(height: 20),
-              Text(
-                'Set Date & Time',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary
-                      : colorScheme.onBackground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Choose when this game will take place',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.shadow.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                    const SizedBox(height: 20),
                     Text(
-                      'Schedule: ${scheduleName ?? "Not set"}',
+                      'Set Date & Time',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary
+                            : colorScheme.onBackground,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sport: ${sport ?? "Not set"}',
+                      'Choose when this game will take place',
                       style: TextStyle(
                         fontSize: 16,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                    Text(
-                      'Select Date',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () => _selectDate(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: colorScheme.outline,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              selectedDate != null
-                                  ? '${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}'
-                                  : 'Select a date',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: selectedDate != null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    Text(
-                      'Select Time',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () => _selectTime(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: colorScheme.outline,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              color: colorScheme.primary,
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              selectedTime != null
-                                  ? selectedTime!.format(context)
-                                  : 'Select a time',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: selectedTime != null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            (selectedDate != null && selectedTime != null)
-                                ? () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/choose-location',
-                                      arguments: {
-                                        'scheduleName': scheduleName,
-                                        'sport': sport,
-                                        'template': template,
-                                        'date': selectedDate,
-                                        'time': selectedTime,
-                                      },
-                                    );
-                                  }
-                                : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          disabledBackgroundColor: Colors.grey[600],
-                          disabledForegroundColor: Colors.grey[300],
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.shadow.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        child: Text(
-                          'Continue',
-                          style: TextStyle(
-                            color: colorScheme.onPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Schedule: ${scheduleName ?? "Not set"}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sport: ${sport ?? "Not set"}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          Text(
+                            'Select Date',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () => _selectDate(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Text(
+                                    selectedDate != null
+                                        ? '${selectedDate!.month}/${selectedDate!.day}/${selectedDate!.year}'
+                                        : 'Select a date',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: selectedDate != null
+                                          ? colorScheme.onSurface
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          Text(
+                            'Select Time',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () => _selectTime(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Text(
+                                    selectedTime != null
+                                        ? selectedTime!.format(context)
+                                        : 'Select a time',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: selectedTime != null
+                                          ? colorScheme.onSurface
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed:
+                                  (selectedDate != null && selectedTime != null)
+                                      ? () {
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/choose-location',
+                                            arguments: {
+                                              'scheduleName': scheduleName,
+                                              'sport': sport,
+                                              'template': template,
+                                              'date': selectedDate,
+                                              'time': selectedTime,
+                                            },
+                                          );
+                                        }
+                                      : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                disabledBackgroundColor: Colors.grey[600],
+                                disabledForegroundColor: Colors.grey[300],
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 15),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Continue',
+                                style: TextStyle(
+                                  color: colorScheme.onPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-),
     );
   }
 }

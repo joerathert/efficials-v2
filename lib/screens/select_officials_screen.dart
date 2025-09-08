@@ -193,7 +193,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -209,16 +209,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Choose a method for finding your officials',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -244,7 +235,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 30),
                           SizedBox(
-                            width: 300,
+                            width: 250,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to Lists of Officials screen
@@ -289,7 +280,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
-                            width: 300,
+                            width: 250,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Check if user has enough lists for advanced method
@@ -317,7 +308,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
-                            width: 300,
+                            width: 250,
                             child: ElevatedButton(
                               onPressed: () {
                                 // Navigate to hire crew

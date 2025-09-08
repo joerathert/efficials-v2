@@ -15,11 +15,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
   List<Map<String, dynamic>> officials = [];
   List<Map<String, dynamic>> filteredOfficials = [];
   bool isLoading = false;
-  Map<int, bool> selectedOfficials = {};
+  Map<String, bool> selectedOfficials = {};
   bool isFromGameCreation = false;
   String? listName;
   String? sport;
   bool hasAppliedFilters = false;
+  Map<String, dynamic> filters = {};
 
   @override
   void initState() {
@@ -41,6 +42,17 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   void _applyFilters(Map<String, dynamic>? filterSettings) {
     if (filterSettings != null) {
+      // Debug prints for filter application
+      const bool debugEnabled = true; // Set to true to enable debug prints
+      if (debugEnabled) {
+        print('🎯 PopulateRoster: Applying filters:');
+        print('   Sport: ${filterSettings['sport']}');
+        print('   IHSA Level: ${filterSettings['ihsaLevel']}');
+        print('   Min Years: ${filterSettings['minYears']}');
+        print('   Levels: ${filterSettings['levels']}');
+        print('   Radius: ${filterSettings['radius']}');
+      }
+
       setState(() {
         isLoading = true;
         hasAppliedFilters = true;
@@ -59,6 +71,11 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       )
           .then((results) {
         if (mounted) {
+          if (debugEnabled) {
+            print(
+                '📊 PopulateRoster: Received ${results.length} filtered results');
+          }
+
           setState(() {
             officials = results;
             filteredOfficials = List.from(results);
@@ -71,14 +88,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                 content:
                     Text('No officials found matching the selected filters.'),
                 duration: Duration(seconds: 3),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                    'Found ${results.length} officials matching your filters.'),
-                duration: const Duration(seconds: 2),
               ),
             );
           }
@@ -102,14 +111,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     }
   }
 
-  void _showFilterDialog() {
-    Navigator.pushNamed(context, '/filter-settings').then((result) {
-      if (result != null && mounted) {
-        _applyFilters(result as Map<String, dynamic>);
-      }
-    });
-  }
-
   void filterOfficials(String query) {
     setState(() {
       searchQuery = query;
@@ -128,23 +129,244 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   void _handleContinue() {
     final selected = officials.where((o) {
-      final officialId = o['id'];
-      return officialId is int && (selectedOfficials[officialId] ?? false);
+      final officialId = o['id'] as String;
+      return selectedOfficials[officialId] ?? false;
     }).toList();
 
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
             {};
 
-    final updatedArgs = {
+    final reviewArgs = {
       ...args,
       'selectedOfficials': selected,
       'listName': listName,
       'sport': sport,
     };
 
-    // For now, just pop back with the results
-    Navigator.pop(context, updatedArgs);
+    // Navigate to Review List screen
+    Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
+  }
+
+  Widget _buildOfficialsList() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!hasAppliedFilters) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.filter_list,
+              size: 80,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Apply filters to populate the roster',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.pushNamed(
+                  context,
+                  '/filter-settings',
+                  arguments: {
+                    'sport': sport,
+                    'previousFilters': filters,
+                  },
+                ).then((filterResult) {
+                  if (filterResult != null &&
+                      filterResult is Map<String, dynamic>) {
+                    _applyFilters(filterResult);
+                  }
+                });
+              },
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              icon: Icon(
+                Icons.filter_list,
+                color: colorScheme.onPrimary,
+              ),
+              label: Text(
+                'Adjust Filters',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Select All checkbox
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: filteredOfficials.every((o) {
+                      final officialId = o['id'] as String;
+                      return selectedOfficials[officialId] ?? false;
+                    }),
+                    onChanged: (value) {
+                      if (value == true) {
+                        // Select all
+                        setState(() {
+                          for (final official in filteredOfficials) {
+                            final officialId = official['id'] as String;
+                            selectedOfficials[officialId] = true;
+                          }
+                        });
+                      } else {
+                        // Deselect all
+                        setState(() {
+                          for (final official in filteredOfficials) {
+                            final officialId = official['id'] as String;
+                            selectedOfficials[officialId] = false;
+                          }
+                        });
+                      }
+                    },
+                    activeColor: colorScheme.primary,
+                    checkColor: colorScheme.onPrimary,
+                  ),
+                  Text(
+                    'Select all',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(20.0),
+            itemCount: filteredOfficials.length,
+            itemBuilder: (context, index) {
+              final official = filteredOfficials[index];
+              final officialId = official['id'] as String;
+              final isSelected = selectedOfficials[officialId] ?? false;
+
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.outline.withOpacity(0.3),
+                        width: isSelected ? 2.0 : 1.0,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8.0),
+                          border: Border.all(
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.outline.withOpacity(0.3),
+                          ),
+                        ),
+                        child: isSelected
+                            ? Icon(
+                                Icons.check,
+                                color: colorScheme.onPrimary,
+                                size: 20,
+                              )
+                            : Icon(
+                                Icons.add,
+                                color: colorScheme.primary,
+                                size: 20,
+                              ),
+                      ),
+                      title: Text(
+                        official['name'] ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Experience: ${official['yearsExperience'] ?? 0} years',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'IHSA Level: ${official['ihsaLevel'] ?? 'registered'}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'Distance: ${official['distance']?.toStringAsFixed(1) ?? 'N/A'} miles',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        setState(() {
+                          final currentValue =
+                              selectedOfficials[officialId] ?? false;
+                          selectedOfficials[officialId] = !currentValue;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -184,7 +406,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
               padding: const EdgeInsets.all(20.0),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
                     children: [
                       Text(
@@ -218,7 +440,7 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search officials...',
@@ -257,268 +479,72 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
             // Officials list
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : !hasAppliedFilters
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.filter_list,
-                                size: 80,
-                                color: colorScheme.onSurfaceVariant,
+              child: _buildOfficialsList(),
+            ),
+            // Bottom section with selected count and continue button
+            (hasAppliedFilters && filteredOfficials.isNotEmpty)
+                ? Container(
+                    padding: const EdgeInsets.all(20.0),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      border: Border(
+                        top: BorderSide(
+                          color: colorScheme.outline.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$selectedCount selected',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Apply filters to populate the roster',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: _showFilterDialog,
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed:
+                                    selectedCount > 0 ? _handleContinue : null,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: colorScheme.primary,
                                   foregroundColor: colorScheme.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 32,
-                                  ),
+                                  disabledBackgroundColor:
+                                      colorScheme.surfaceVariant,
+                                  disabledForegroundColor:
+                                      colorScheme.onSurfaceVariant,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                icon: Icon(
-                                  Icons.filter_list,
-                                  color: colorScheme.onPrimary,
-                                ),
-                                label: Text(
-                                  'Apply Filters',
+                                child: Text(
+                                  'Continue',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: colorScheme.onPrimary,
+                                    color: selectedCount > 0
+                                        ? colorScheme.onPrimary
+                                        : colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        )
-                      : filteredOfficials.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No officials found.',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            )
-                          : Column(
-                              children: [
-                                // Select All checkbox
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20.0),
-                                  child: Row(
-                                    children: [
-                                      Checkbox(
-                                        value: filteredOfficials.every((o) {
-                                          final officialId = o['id'] as int;
-                                          return selectedOfficials[
-                                                  officialId] ??
-                                              false;
-                                        }),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            if (value == true) {
-                                              for (final o
-                                                  in filteredOfficials) {
-                                                final officialId =
-                                                    o['id'] as int;
-                                                selectedOfficials[officialId] =
-                                                    true;
-                                              }
-                                            } else {
-                                              for (final o
-                                                  in filteredOfficials) {
-                                                final officialId =
-                                                    o['id'] as int;
-                                                selectedOfficials
-                                                    .remove(officialId);
-                                              }
-                                            }
-                                          });
-                                        },
-                                        activeColor: colorScheme.primary,
-                                        checkColor: colorScheme.onPrimary,
-                                      ),
-                                      Text(
-                                        'Select all',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.all(20.0),
-                                    itemCount: filteredOfficials.length,
-                                    itemBuilder: (context, index) {
-                                      final official = filteredOfficials[index];
-                                      final officialId = official['id'] as int;
-                                      final isSelected =
-                                          selectedOfficials[officialId] ??
-                                              false;
-
-                                      return Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 8.0),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.surfaceVariant,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? colorScheme.primary
-                                                : colorScheme.outline
-                                                    .withOpacity(0.3),
-                                            width: isSelected ? 2 : 1,
-                                          ),
-                                        ),
-                                        child: ListTile(
-                                          contentPadding:
-                                              const EdgeInsets.all(16),
-                                          leading: IconButton(
-                                            icon: Icon(
-                                              isSelected
-                                                  ? Icons.check_circle
-                                                  : Icons.add_circle,
-                                              color: isSelected
-                                                  ? Colors.green
-                                                  : colorScheme.primary,
-                                              size: 28,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                selectedOfficials[officialId] =
-                                                    !isSelected;
-                                                if (isSelected) {
-                                                  selectedOfficials
-                                                      .remove(officialId);
-                                                }
-                                              });
-                                            },
-                                          ),
-                                          title: Text(
-                                            official['name'] as String,
-                                            style: TextStyle(
-                                              color: colorScheme.onSurface,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          subtitle: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                '${official['cityState'] ?? 'Unknown location'}',
-                                                style: TextStyle(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Distance: ${official['distance']?.toStringAsFixed(1) ?? '0.0'} mi • Experience: ${official['yearsExperience'] ?? 0} yrs',
-                                                style: TextStyle(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
                             ),
-            ),
-
-            // Bottom section with selected count and continue button
-            if (hasAppliedFilters && filteredOfficials.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(20.0),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  border: Border(
-                    top: BorderSide(
-                      color: colorScheme.outline.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$selectedCount selected',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed:
-                                selectedCount > 0 ? _handleContinue : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              foregroundColor: colorScheme.onPrimary,
-                              disabledBackgroundColor:
-                                  colorScheme.surfaceVariant,
-                              disabledForegroundColor:
-                                  colorScheme.onSurfaceVariant,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: selectedCount > 0
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
+                  )
+                : const SizedBox.shrink(),
           ],
         ),
       ),

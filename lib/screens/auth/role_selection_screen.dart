@@ -77,82 +77,87 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              Text(
-                'Choose Your Role',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary // Yellow in dark mode
-                      : colorScheme.onBackground, // Dark in light mode
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Select how you\'ll be using Efficials',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-
-              // Scheduler Role Card
-              _RoleCard(
-                title: 'Scheduler',
-                subtitle: 'Athletic Director, Coach, or Assigner',
-                description:
-                    'Create games, manage schedules, and assign officials',
-                icon: Icons.event_note,
-                isSelected: selectedRole == 'scheduler',
-                onTap: () => _handleRoleSelection('scheduler'),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Official Role Card
-              _RoleCard(
-                title: 'Official',
-                subtitle: 'Referee, Umpire, or Judge',
-                description: 'View and claim available game assignments',
-                icon: Icons.sports,
-                isSelected: selectedRole == 'official',
-                onTap: () => _handleRoleSelection('official'),
-              ),
-
-              const Spacer(),
-
-              // Continue Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Continue',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+                  Text(
+                    'Choose Your Role',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 32,
                       fontWeight: FontWeight.bold,
+                      color: theme.brightness == Brightness.dark
+                          ? colorScheme.primary // Yellow in dark mode
+                          : colorScheme.onBackground, // Dark in light mode
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select how you\'ll be using Efficials',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Scheduler Role Card
+                  _RoleCard(
+                    title: 'Scheduler',
+                    subtitle: 'Athletic Director, Coach, or Assigner',
+                    description:
+                        'Create games, manage schedules, and assign officials',
+                    icon: Icons.event_note,
+                    isSelected: selectedRole == 'scheduler',
+                    onTap: () => _handleRoleSelection('scheduler'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Official Role Card
+                  _RoleCard(
+                    title: 'Official',
+                    subtitle: 'Referee, Umpire, or Judge',
+                    description: 'View and claim available game assignments',
+                    icon: Icons.sports,
+                    isSelected: selectedRole == 'official',
+                    onTap: () => _handleRoleSelection('official'),
+                  ),
+
+                  const Spacer(),
+
+                  // Continue Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _handleContinue,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 20),
-            ],
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ),
         ),
       ),

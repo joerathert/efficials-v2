@@ -36,6 +36,8 @@ import 'screens/lists_of_officials_screen.dart';
 import 'screens/name_list_screen.dart';
 import 'screens/populate_roster_screen.dart';
 import 'screens/filter_settings_screen.dart';
+import 'screens/review_list_screen.dart';
+import 'screens/review_game_info_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -115,6 +117,8 @@ class MyApp extends StatelessWidget {
             '/name-list': (context) => const NameListScreen(),
             '/populate-roster': (context) => const PopulateRosterScreen(),
             '/filter-settings': (context) => const FilterSettingsScreen(),
+            '/review-list': (context) => const ReviewListScreen(),
+            '/review-game-info': (context) => const ReviewGameInfoScreen(),
             // TODO: Add other routes as we create them
           },
         );

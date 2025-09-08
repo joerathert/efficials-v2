@@ -83,22 +83,22 @@ class AddressData {
 /// Scheduler-specific profile information
 class SchedulerProfile {
   final String type; // 'Athletic Director' | 'Coach' | 'Assigner'
-  
+
   // Athletic Director fields
   final String? schoolName;
   final String? schoolAddress;
-  
+
   // Team name field - used differently by each type:
   // Athletic Director: full team name (e.g., "Edwardsville Tigers")
   // Coach: team name (e.g., "JV Basketball")
   final String? teamName;
-  
+
   // Coach fields
   final String? sport;
   final String? levelOfCompetition;
   final String? gender;
   final String? defaultLocationId;
-  
+
   // Assigner fields
   final String? organizationName;
   final AddressData? homeAddress;
@@ -174,16 +174,17 @@ class SchedulerProfile {
     // Athletic Director fields
     if (schoolName != null) map['schoolName'] = schoolName;
     if (schoolAddress != null) map['schoolAddress'] = schoolAddress;
-    
+
     // Team name field (used by both Athletic Directors and Coaches)
     if (teamName != null) map['teamName'] = teamName;
-    
-    // Coach fields  
+
+    // Coach fields
     if (sport != null) map['sport'] = sport;
-    if (levelOfCompetition != null) map['levelOfCompetition'] = levelOfCompetition;
+    if (levelOfCompetition != null)
+      map['levelOfCompetition'] = levelOfCompetition;
     if (gender != null) map['gender'] = gender;
     if (defaultLocationId != null) map['defaultLocationId'] = defaultLocationId;
-    
+
     // Assigner fields
     if (organizationName != null) map['organizationName'] = organizationName;
     if (homeAddress != null) map['homeAddress'] = homeAddress!.toMap();
@@ -193,7 +194,7 @@ class SchedulerProfile {
 
   factory SchedulerProfile.fromMap(Map<String, dynamic> map) {
     final type = map['type'] ?? '';
-    
+
     return SchedulerProfile(
       type: type,
       // Athletic Director fields
@@ -208,7 +209,7 @@ class SchedulerProfile {
       defaultLocationId: map['defaultLocationId'],
       // Assigner fields
       organizationName: map['organizationName'],
-      homeAddress: map['homeAddress'] != null 
+      homeAddress: map['homeAddress'] != null
           ? AddressData.fromMap(map['homeAddress'])
           : null,
     );
@@ -254,6 +255,8 @@ class OfficialProfile {
   final int totalAcceptedGames;
   final int totalBackedOutGames;
   final String? bio;
+  final Map<String, Map<String, dynamic>>?
+      sportsData; // Detailed sports data with experience, certification, competition levels
 
   const OfficialProfile({
     required this.city,
@@ -265,6 +268,7 @@ class OfficialProfile {
     this.totalAcceptedGames = 0,
     this.totalBackedOutGames = 0,
     this.bio,
+    this.sportsData,
   });
 
   Map<String, dynamic> toMap() {
@@ -278,6 +282,7 @@ class OfficialProfile {
       'totalAcceptedGames': totalAcceptedGames,
       'totalBackedOutGames': totalBackedOutGames,
       'bio': bio,
+      'sportsData': sportsData,
     };
   }
 
@@ -292,6 +297,9 @@ class OfficialProfile {
       totalAcceptedGames: (map['totalAcceptedGames'] ?? 0).toInt(),
       totalBackedOutGames: (map['totalBackedOutGames'] ?? 0).toInt(),
       bio: map['bio'],
+      sportsData: map['sportsData'] != null
+          ? Map<String, Map<String, dynamic>>.from(map['sportsData'])
+          : null,
     );
   }
 }

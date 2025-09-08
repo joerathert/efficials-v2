@@ -47,6 +47,15 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
     super.didChangeDependencies();
     previousData =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+    // Initialize selectedSports from previous data if it exists
+    if (previousData.containsKey('selectedSports')) {
+      setState(() {
+        selectedSports = Map<String, Map<String, dynamic>>.from(
+            previousData['selectedSports']
+                as Map<String, Map<String, dynamic>>);
+      });
+    }
   }
 
   void _addSport(String sport) {
@@ -55,7 +64,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
         selectedSports[sport] = {
           'certification': null,
           'experience': 0,
-          'levels': <String>[],
+          'competitionLevels': <String>[],
         };
       });
     }
@@ -80,7 +89,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
 
     // Validate that each sport has at least one competition level
     for (var entry in selectedSports.entries) {
-      if (entry.value['levels'].isEmpty) {
+      if (entry.value['competitionLevels'].isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
@@ -127,26 +136,29 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: availableToAdd.length,
-            itemBuilder: (context, index) {
-              final sport = availableToAdd[index];
-              return ListTile(
-                title: Text(
-                  sport,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 400),
+          child: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableToAdd.length,
+              itemBuilder: (context, index) {
+                final sport = availableToAdd[index];
+                return ListTile(
+                  title: Text(
+                    sport,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _addSport(sport);
-                },
-              );
-            },
+                  onTap: () {
+                    Navigator.pop(context);
+                    _addSport(sport);
+                  },
+                );
+              },
+            ),
           ),
         ),
         actions: [
@@ -209,177 +221,219 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
 
-              // Title - Sports & Certifications
-              Text(
-                'Sports & Certifications',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary // Yellow in dark mode
-                      : colorScheme.onBackground, // Dark in light mode
-                ),
-              ),
+                  // Title - Sports & Certifications
+                  Center(
+                    child: Text(
+                      'Sports & Certifications',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow in dark mode
+                            : colorScheme.onBackground, // Dark in light mode
+                      ),
+                    ),
+                  ),
 
-              const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-              // Subtitle - Step 3 of 4: Your Officiating Experience
-              Text(
-                'Step 3 of 4: Your Officiating Experience',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
+                  // Subtitle - Step 3 of 4: Your Officiating Experience
+                  Center(
+                    child: Text(
+                      'Step 3 of 4: Your Officiating Experience',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
 
-              const SizedBox(height: 40),
+                  const SizedBox(height: 40),
 
-              // Form Fields
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Form Fields
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Sports You Officiate',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: theme.brightness == Brightness.dark
-                                  ? colorScheme.primary // Yellow in dark mode
-                                  : colorScheme
-                                      .onBackground, // Dark in light mode
+                          if (selectedSports.isEmpty)
+                            Column(
+                              children: [
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(32.0),
+                                    child: Text(
+                                      'No sports added yet.\nTap "Add Sport" to get started.',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Center(
+                                  child: SizedBox(
+                                    width: 300,
+                                    child: ElevatedButton(
+                                      onPressed: _showAddSportDialog,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            theme.brightness == Brightness.dark
+                                                ? colorScheme.primary
+                                                : Colors.black,
+                                        foregroundColor:
+                                            theme.brightness == Brightness.dark
+                                                ? Colors.black
+                                                : Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Add Sport',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: SizedBox(
+                                    width: 300,
+                                    child: ElevatedButton(
+                                      onPressed: selectedSports.isNotEmpty
+                                          ? _handleContinue
+                                          : null,
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        backgroundColor: selectedSports.isEmpty
+                                            ? Colors.grey[400]
+                                            : null,
+                                        foregroundColor: selectedSports.isEmpty
+                                            ? Colors.grey[600]
+                                            : null,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Continue',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                ...selectedSports.entries.map((entry) =>
+                                    _buildSportCard(entry.key, entry.value)),
+                                const SizedBox(height: 32),
+
+                                // Button Row - Add Sport above Continue
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      SizedBox(
+                                        width: 300,
+                                        child: OutlinedButton(
+                                          onPressed: _showAddSportDialog,
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 16),
+                                            side: BorderSide(
+                                              color: theme.brightness ==
+                                                      Brightness.dark
+                                                  ? colorScheme.primary
+                                                  : Colors.black,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Add Another Sport',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: theme.brightness ==
+                                                      Brightness.dark
+                                                  ? colorScheme.primary
+                                                  : Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      SizedBox(
+                                        width: 300,
+                                        child: ElevatedButton(
+                                          onPressed: selectedSports.isNotEmpty
+                                              ? _handleContinue
+                                              : null,
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 16),
+                                            backgroundColor:
+                                                selectedSports.isEmpty
+                                                    ? Colors.grey[400]
+                                                    : null,
+                                            foregroundColor:
+                                                selectedSports.isEmpty
+                                                    ? Colors.grey[600]
+                                                    : null,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Continue',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          ElevatedButton(
-                            onPressed: _showAddSportDialog,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  theme.brightness == Brightness.dark
-                                      ? colorScheme.primary
-                                      : Colors.black,
-                              foregroundColor:
-                                  theme.brightness == Brightness.dark
-                                      ? Colors.black
-                                      : Colors.white,
-                            ),
-                            child: const Text('Add Sport'),
-                          ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      if (selectedSports.isEmpty)
-                        Column(
-                          children: [
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Text(
-                                  'No sports selected yet.\nTap "Add Sport" to get started.',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: 200,
-                              child: ElevatedButton(
-                                onPressed: _handleContinue,
-                                style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: [
-                            ...selectedSports.entries.map((entry) =>
-                                _buildSportCard(entry.key, entry.value)),
-                            const SizedBox(height: 32),
-                            // Add Sport button at bottom
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: _showAddSportDialog,
-                                style: OutlinedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  side: BorderSide(
-                                    color: theme.brightness == Brightness.dark
-                                        ? colorScheme.primary
-                                        : Colors.black,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Add Another Sport',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: theme.brightness == Brightness.dark
-                                        ? colorScheme.primary
-                                        : Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _handleContinue,
-                                style: ElevatedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -396,200 +450,215 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
           : colorScheme.surface,
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      sport,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme.brightness == Brightness.dark
-                            ? colorScheme.primary // Yellow in dark mode
-                            : colorScheme.onBackground, // Dark in light mode
+      child: SizedBox(
+        width: 280,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        sport,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: theme.brightness == Brightness.dark
+                              ? colorScheme.primary // Yellow in dark mode
+                              : colorScheme.onBackground, // Dark in light mode
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => _removeSport(sport),
+                    icon: Icon(
+                      Icons.delete,
+                      color: theme.brightness == Brightness.dark
+                          ? Colors.red[400]
+                          : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Certification Level Dropdown
+              SizedBox(
+                width: 240,
+                child: DropdownButtonFormField<String>(
+                  value: sportData['certification'],
+                  decoration: InputDecoration(
+                    labelText: 'Certification Level',
+                    labelStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colorScheme.outline,
                       ),
                     ),
-                  ],
-                ),
-                IconButton(
-                  onPressed: () => _removeSport(sport),
-                  icon: Icon(
-                    Icons.delete,
-                    color: theme.brightness == Brightness.dark
-                        ? Colors.red[400]
-                        : Colors.red,
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow for dark mode
+                            : Colors.black, // Black for light mode
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: theme.brightness == Brightness.dark
+                        ? Colors.grey[700]
+                        : colorScheme.surface,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Certification Level Dropdown
-            DropdownButtonFormField<String>(
-              value: sportData['certification'],
-              decoration: InputDecoration(
-                labelText: 'Certification Level',
-                labelStyle: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: theme.brightness == Brightness.dark
-                        ? colorScheme.primary // Yellow for dark mode
-                        : Colors.black, // Black for light mode
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: theme.brightness == Brightness.dark
-                    ? Colors.grey[700]
-                    : colorScheme.surface,
-              ),
-              hint: Text(
-                'Select certification level',
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              dropdownColor: colorScheme.surface,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 16,
-              ),
-              items: certificationLevels.map((level) {
-                return DropdownMenuItem(
-                  value: level,
-                  child: Text(level),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  sportData['certification'] = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Years of Experience Field
-            TextFormField(
-              initialValue: sportData['experience'] == 0
-                  ? null
-                  : sportData['experience'].toString(),
-              decoration: InputDecoration(
-                labelText: 'Years of Experience in this Sport',
-                hintText: 'Set years of experience',
-                labelStyle: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: colorScheme.outline,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: theme.brightness == Brightness.dark
-                        ? colorScheme.primary // Yellow for dark mode
-                        : Colors.black, // Black for light mode
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: theme.brightness == Brightness.dark
-                    ? Colors.grey[700]
-                    : colorScheme.surface,
-              ),
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 16,
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                sportData['experience'] = int.tryParse(value) ?? 0;
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Competition Levels
-            Text(
-              'Competition Levels:',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: competitionLevels.map((level) {
-                final isSelected =
-                    (sportData['levels'] as List<String>).contains(level);
-                return FilterChip(
-                  label: SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      level,
-                      textAlign: TextAlign.center,
+                  hint: Text(
+                    'Select certification level',
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  selected: isSelected,
-                  onSelected: (selected) {
+                  dropdownColor: colorScheme.surface,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                  ),
+                  items: certificationLevels.map((level) {
+                    return DropdownMenuItem(
+                      value: level,
+                      child: Text(level),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
                     setState(() {
-                      if (selected) {
-                        (sportData['levels'] as List<String>).add(level);
-                      } else {
-                        (sportData['levels'] as List<String>).remove(level);
-                      }
+                      sportData['certification'] = value;
                     });
                   },
-                  selectedColor: theme.brightness == Brightness.dark
-                      ? colorScheme.primary
-                      : Colors.black,
-                  backgroundColor: theme.brightness == Brightness.dark
-                      ? Colors.grey[700]
-                      : Colors.grey[200],
-                  checkmarkColor: theme.brightness == Brightness.dark
-                      ? Colors.black
-                      : Colors.white,
-                  labelStyle: TextStyle(
-                    color: isSelected
-                        ? (theme.brightness == Brightness.dark
-                            ? Colors.black
-                            : Colors.white)
-                        : colorScheme.onSurface,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Years of Experience Field
+              SizedBox(
+                width: 240,
+                child: TextFormField(
+                  initialValue: sportData['experience'] == 0
+                      ? null
+                      : sportData['experience'].toString(),
+                  decoration: InputDecoration(
+                    labelText: 'Years of Experience',
+                    hintText: 'Set years of experience',
+                    labelStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow for dark mode
+                            : Colors.black, // Black for light mode
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: theme.brightness == Brightness.dark
+                        ? Colors.grey[700]
+                        : colorScheme.surface,
                   ),
-                );
-              }).toList(),
-            ),
-          ],
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    sportData['experience'] = int.tryParse(value) ?? 0;
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Competition Levels
+              Text(
+                'Competition Levels:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: competitionLevels.map((level) {
+                  final isSelected =
+                      (sportData['competitionLevels'] as List<String>)
+                          .contains(level);
+                  return Container(
+                    width: 240,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: FilterChip(
+                      label: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          level,
+                          textAlign: TextAlign.left,
+                        ),
+                      ),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            (sportData['competitionLevels'] as List<String>)
+                                .add(level);
+                          } else {
+                            (sportData['competitionLevels'] as List<String>)
+                                .remove(level);
+                          }
+                        });
+                      },
+                      selectedColor: theme.brightness == Brightness.dark
+                          ? colorScheme.primary
+                          : Colors.black,
+                      backgroundColor: theme.brightness == Brightness.dark
+                          ? Colors.grey[700]
+                          : Colors.grey[200],
+                      checkmarkColor: theme.brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? (theme.brightness == Brightness.dark
+                                ? Colors.black
+                                : Colors.white)
+                            : colorScheme.onSurface,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );

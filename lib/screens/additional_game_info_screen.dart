@@ -263,7 +263,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [

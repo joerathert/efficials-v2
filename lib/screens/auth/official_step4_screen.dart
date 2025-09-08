@@ -12,42 +12,14 @@ class OfficialStep4Screen extends StatefulWidget {
 }
 
 class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
-  String? _selectedRate;
   late Map<String, dynamic> previousData;
   bool _isCompletingRegistration = false;
-
-  final List<String> rateOptions = [
-    'Not specified',
-    '\$25',
-    '\$30',
-    '\$35',
-    '\$40',
-    '\$45',
-    '\$50',
-    '\$55',
-    '\$60',
-    '\$65',
-    '\$70',
-    '\$75',
-    '\$80',
-    '\$85',
-    '\$90',
-    '\$95',
-    '\$100',
-  ];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     previousData =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-
-    // Pre-select "Not specified" as default for optional field
-    if (_selectedRate == null) {
-      setState(() {
-        _selectedRate = 'Not specified';
-      });
-    }
   }
 
   void _handleAddAnotherSport() {
@@ -89,26 +61,29 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: availableToAdd.length,
-            itemBuilder: (context, index) {
-              final sport = availableToAdd[index];
-              return ListTile(
-                title: Text(
-                  sport,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: availableToAdd.length,
+              itemBuilder: (context, index) {
+                final sport = availableToAdd[index];
+                return ListTile(
+                  title: Text(
+                    sport,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _addSportToData(sport);
-                },
-              );
-            },
+                  onTap: () {
+                    Navigator.pop(context);
+                    _addSportToData(sport);
+                  },
+                );
+              },
+            ),
           ),
         ),
         actions: [
@@ -134,7 +109,7 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
       selectedSports[sport] = {
         'certification': null,
         'experience': 0,
-        'levels': <String>[],
+        'competitionLevels': <String>[],
       };
 
       // Navigate to step 3 to configure the new sport
@@ -190,271 +165,226 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
 
-              // Title - Profile & Verification
-              Text(
-                'Profile & Verification',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary // Yellow in dark mode
-                      : colorScheme.onBackground, // Dark in light mode
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Subtitle - Step 4 of 4: Complete Your Profile
-              Text(
-                'Step 4 of 4: Complete Your Profile',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Form Fields Container
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: theme.brightness == Brightness.dark
-                        ? Colors.grey[800] // Dark gray for dark mode
-                        : Colors.grey[300], // Light gray for light mode
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
+                  // Title - Profile & Verification
+                  Center(
+                    child: Text(
+                      'Profile & Verification',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
                         color: theme.brightness == Brightness.dark
-                            ? Colors.black
-                                .withOpacity(0.3) // Dark shadow for dark mode
-                            : colorScheme.shadow.withOpacity(
-                                0.1), // Light shadow for light mode
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                            ? colorScheme.primary // Yellow in dark mode
+                            : colorScheme.onBackground, // Dark in light mode
                       ),
-                    ],
+                    ),
                   ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Registration Summary
-                        _buildRegistrationSummary(),
-                        const SizedBox(height: 32),
 
-                        // Rate per Game Dropdown
-                        DropdownButtonFormField<String>(
-                          value: _selectedRate,
-                          decoration: InputDecoration(
-                            labelText: 'Rate per Game (Optional)',
-                            labelStyle: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            helperText:
-                                'Your preferred fee per game (optional)',
-                            helperStyle: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: colorScheme.outline,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: theme.brightness == Brightness.dark
-                                    ? colorScheme
-                                        .primary // Yellow for dark mode
-                                    : Colors.black, // Black for light mode
-                                width: 2,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: theme.brightness == Brightness.dark
-                                ? Colors.grey[700]
-                                : colorScheme.surface,
-                          ),
-                          dropdownColor: colorScheme.surface,
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                          ),
-                          hint: Text(
-                            'Select rate',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          items: rateOptions.map((rate) {
-                            return DropdownMenuItem(
-                              value: rate,
-                              child: Text(rate),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedRate = value;
-                            });
-                          },
-                        ),
+                  const SizedBox(height: 8),
 
-                        const SizedBox(height: 32),
+                  // Subtitle - Step 4 of 4: Complete Your Profile
+                  Center(
+                    child: Text(
+                      'Step 4 of 4: Complete Your Profile',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
 
-                        // Account Verification Info
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
+                  const SizedBox(height: 40),
+
+                  // Form Fields Container
+                  Expanded(
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: 500),
+                      padding: const EdgeInsets.only(
+                          left: 24, right: 24, top: 24, bottom: 4),
+                      decoration: BoxDecoration(
+                        color: theme.brightness == Brightness.dark
+                            ? Colors.grey[800] // Dark gray for dark mode
+                            : Colors.grey[300], // Light gray for light mode
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
                             color: theme.brightness == Brightness.dark
-                                ? colorScheme.surfaceVariant
-                                : colorScheme.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: theme.brightness == Brightness.dark
-                                  ? colorScheme.primary.withOpacity(0.3)
-                                  : colorScheme.outline,
-                            ),
+                                ? Colors.black.withOpacity(
+                                    0.3) // Dark shadow for dark mode
+                                : colorScheme.shadow.withOpacity(
+                                    0.1), // Light shadow for light mode
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                        ],
+                      ),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Registration Summary
+                            _buildRegistrationSummary(),
+                            const SizedBox(height: 32),
+
+                            // Account Verification Info
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: theme.brightness == Brightness.dark
+                                    ? colorScheme.surfaceVariant
+                                    : colorScheme.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: theme.brightness == Brightness.dark
+                                      ? colorScheme.primary.withOpacity(0.3)
+                                      : colorScheme.outline,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: theme.brightness == Brightness.dark
-                                        ? colorScheme.primary
-                                        : colorScheme.primary,
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline,
+                                        color:
+                                            theme.brightness == Brightness.dark
+                                                ? colorScheme.primary
+                                                : colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Account Verification',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.brightness ==
+                                                  Brightness.dark
+                                              ? colorScheme.primary
+                                              : colorScheme.primary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(height: 12),
                                   Text(
-                                    'Account Verification',
+                                    '• Your email will need to be verified\n'
+                                    '• Your profile will be reviewed by administrators\n'
+                                    '• You\'ll receive notification when approved\n'
+                                    '• You can then start receiving game assignments',
                                     style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.brightness == Brightness.dark
-                                          ? colorScheme.primary
-                                          : colorScheme.primary,
+                                      fontSize: 14,
+                                      color: colorScheme.onSurface,
+                                      height: 1.5,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '• Your email will need to be verified\n'
-                                '• Your profile will be reviewed by administrators\n'
-                                '• You\'ll receive notification when approved\n'
-                                '• You can then start receiving game assignments',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurface,
-                                  height: 1.5,
+                            ),
+
+                            const SizedBox(height: 40),
+
+                            // Add Another Sport Button
+                            SizedBox(
+                              width: 300,
+                              child: OutlinedButton(
+                                onPressed: _handleAddAnotherSport,
+                                style: OutlinedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(
+                                    color: theme.brightness == Brightness.dark
+                                        ? colorScheme.primary
+                                        : Colors.black,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Add Another Sport',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: theme.brightness == Brightness.dark
+                                        ? colorScheme.primary
+                                        : Colors.black,
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 40),
-
-                        // Add Another Sport Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: _handleAddAnotherSport,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(
-                                color: theme.brightness == Brightness.dark
-                                    ? colorScheme.primary
-                                    : Colors.black,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
                             ),
-                            child: Text(
-                              'Add Another Sport',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: theme.brightness == Brightness.dark
-                                    ? colorScheme.primary
-                                    : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ),
 
-                        const SizedBox(height: 16),
+                            const SizedBox(height: 16),
 
-                        // Complete Registration Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isCompletingRegistration
-                                ? null
-                                : _handleCompleteReal,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: _isCompletingRegistration
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            theme.brightness == Brightness.dark
-                                                ? Colors.black
-                                                : Colors.white,
+                            // Complete Registration Button
+                            SizedBox(
+                              width: 300,
+                              child: ElevatedButton(
+                                onPressed: _isCompletingRegistration
+                                    ? null
+                                    : _handleCompleteReal,
+                                style: ElevatedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: _isCompletingRegistration
+                                    ? Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                theme.brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.black
+                                                    : Colors.white,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Text(
-                                        'Creating Account...',
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Creating Account...',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : const Text(
+                                        'Complete Registration',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                    ],
-                                  )
-                                : const Text(
-                                    'Complete Registration',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                          ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -491,12 +421,28 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
               '${previousData['firstName']} ${previousData['lastName']}'),
           _buildSummaryRow('Email:', previousData['email']),
           if (previousData['phone']?.isNotEmpty == true)
-            _buildSummaryRow('Phone:', previousData['phone']),
+            _buildSummaryRow(
+                'Phone:', _formatPhoneNumber(previousData['phone'])),
           _buildSummaryRow(
               'Location:', '${previousData['city']}, ${previousData['state']}'),
           _buildSummaryRow(
               'Max Travel:', '${previousData['maxTravelDistance']} miles'),
-          _buildSummaryRow('Sports:', selectedSports.keys.join(', ')),
+          if (previousData['minRatePerGame'] != null)
+            _buildSummaryRow('Min Rate:', previousData['minRatePerGame']),
+          // Display detailed sports information
+          ...selectedSports.entries.map((entry) {
+            final sportName = entry.key;
+            final sportData = entry.value;
+            final experience = sportData['experience'] ?? 0;
+            final certification =
+                sportData['certification'] ?? 'No Certification';
+            final competitionLevels =
+                (sportData['competitionLevels'] as List<dynamic>?)
+                        ?.join(', ') ??
+                    'None';
+            return _buildSummaryRow('$sportName:',
+                'Exp: ${experience}yrs, Cert: $certification, Levels: $competitionLevels');
+          }),
         ],
       ),
     );
@@ -548,6 +494,8 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
           previousData['selectedSports'] as Map<String, Map<String, dynamic>>;
       int maxExperience = 0;
       String? highestCertification;
+      final sportsData = Map<String, Map<String, dynamic>>.from(
+          selectedSports); // Save detailed sports data
 
       for (final sportData in selectedSports.values) {
         final experience = sportData['experience'] as int? ?? 0;
@@ -566,12 +514,6 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         }
       }
 
-      // Get rate per game
-      double? ratePerGame;
-      if (_selectedRate != null && _selectedRate != 'Not specified') {
-        ratePerGame = double.tryParse(_selectedRate!.replaceAll('\$', ''));
-      }
-
       // Create official profile
       final officialProfile = OfficialProfile(
         city: previousData['city'],
@@ -582,9 +524,9 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         followThroughRate: 100.0,
         totalAcceptedGames: 0,
         totalBackedOutGames: 0,
-        bio: ratePerGame != null
-            ? 'Rate: \$${ratePerGame.toStringAsFixed(0)} per game'
-            : null,
+        bio: null, // Bio field should be for actual biographical information
+        sportsData:
+            sportsData, // Save detailed sports data with experience, certification, and competition levels
       );
 
       // Create profile data
@@ -649,6 +591,19 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         );
       }
     }
+  }
+
+  String _formatPhoneNumber(String phone) {
+    // Remove all non-digits
+    final digitsOnly = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Format as (###) ###-####
+    if (digitsOnly.length == 10) {
+      return '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+    }
+
+    // Return original if not 10 digits
+    return phone;
   }
 
   int _getCertificationPriority(String certification) {

@@ -113,7 +113,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [

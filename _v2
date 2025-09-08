@@ -1,0 +1,5 @@
+[33maaa89e2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Working on AD game flow. Generating the required officials.
+[33mb54bcea[m Working through the game creation flow as AD. Just finished the Add a Location screen and locations are saving to the Firestore Database.
+[33mdd23aa6[m Fixed display on web to narrow buttons from full width of web page
+[33m26525d5[m Finished the Official Sign Up flow
+[33mc8305d8[m Design changes. Finished the sign up process for AD, Assigner, and Coach users

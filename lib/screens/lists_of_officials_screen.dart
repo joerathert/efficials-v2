@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
+import '../services/official_list_service.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
   const ListsOfOfficialsScreen({super.key});
@@ -16,6 +17,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   bool isLoading = true;
   bool isFromGameCreation = false;
   GameTemplateModel? template;
+  final OfficialListService _listService = OfficialListService();
 
   @override
   void initState() {
@@ -32,9 +34,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     super.didChangeDependencies();
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
     if (args != null) {
       setState(() {
-        isFromGameCreation = args['fromGameCreation'] == true;
+        // Show green arrow during game creation flow (unless explicitly from hamburger menu)
+        isFromGameCreation = args['fromGameCreation'] == true &&
+            args['fromHamburgerMenu'] != true;
         template = args['template'] as GameTemplateModel?;
       });
 
@@ -42,52 +47,52 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       if (args['newListCreated'] != null) {
         final newListData = args['newListCreated'] as Map<String, dynamic>;
         _handleNewListFromReview(newListData);
-      } else if (lists.length <= 2 && lists[0]['name'] == 'No saved lists') {
+      } else {
+        // Refresh lists when coming from other routes
         _fetchLists();
       }
+    } else {
+      // No arguments (coming from hamburger menu) - fetch lists and hide green arrow
+      print(
+          '📱 ListsOfOfficialsScreen: No arguments detected (hamburger menu navigation)');
+      setState(() {
+        isFromGameCreation = false;
+      });
+      _fetchLists();
     }
-
-    // Always refresh the lists when this screen becomes active
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _fetchLists();
-      }
-    });
   }
 
   Future<void> _fetchLists() async {
     try {
-      // TODO: Replace with actual Firebase query when Firebase services are implemented
-      // For now, simulate querying Firestore and return empty result
-      await Future.delayed(const Duration(milliseconds: 500));
+      print('🔍 ListsOfOfficialsScreen: Starting to fetch lists...');
+      setState(() {
+        isLoading = true;
+      });
+
+      final fetchedLists = await _listService.fetchOfficialLists();
+      print(
+          '✅ ListsOfOfficialsScreen: Fetched ${fetchedLists.length} lists from database');
 
       setState(() {
         lists.clear();
 
-        // Simulate no lists in Firestore (empty result)
-        // In real implementation, this would be:
-        // final userLists = await FirebaseFirestore.instance
-        //     .collection('official_lists')
-        //     .where('userId', isEqualTo: currentUserId)
-        //     .get();
+        // Add the fetched lists
+        lists.addAll(fetchedLists);
+        print(
+            '📋 ListsOfOfficialsScreen: Added ${fetchedLists.length} lists to display');
 
-        // For now, show empty state
-        lists.add({'name': 'No saved lists', 'id': -1});
-        lists.add({'name': '+ Create new list', 'id': 0});
         isLoading = false;
       });
     } catch (e) {
+      print('❌ ListsOfOfficialsScreen: Error fetching lists: $e');
       setState(() {
-        lists = [
-          {'name': 'No saved lists', 'id': -1},
-          {'name': '+ Create new list', 'id': 0},
-        ];
+        lists = [];
         isLoading = false;
       });
     }
   }
 
-  void _showDeleteConfirmationDialog(String listName, int listId) {
+  void _showDeleteConfirmationDialog(String listName, String listId) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -115,19 +120,21 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                lists.removeWhere((list) => list['id'] == listId);
-                if (lists.isEmpty ||
-                    (lists.length == 1 && lists[0]['id'] == 0)) {
-                  lists.insert(0, {'name': 'No saved lists', 'id': -1});
-                }
+
+              try {
+                await _listService.deleteOfficialList(listId);
+                await _fetchLists(); // Refresh the list
                 selectedList = null;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('List deleted successfully')),
-              );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('List deleted successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error deleting list: $e')),
+                );
+              }
             },
             child: Text(
               'Delete',
@@ -137,35 +144,6 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ],
       ),
     );
-  }
-
-  void _handleContinue() {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
-    if (args == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Game data not found')),
-      );
-      return;
-    }
-    final selected = lists.firstWhere((l) => l['name'] == selectedList);
-    final officialsRaw = selected['officials'];
-    List<Map<String, dynamic>> selectedOfficials = [];
-
-    if (officialsRaw != null && officialsRaw is List) {
-      selectedOfficials = (officialsRaw)
-          .map((official) => Map<String, dynamic>.from(official as Map))
-          .toList();
-    }
-
-    final updatedArgs = {
-      ...args,
-      'selectedOfficials': selectedOfficials,
-      'method': 'use_list',
-      'selectedListName': selectedList,
-    };
-
-    Navigator.pop(context, updatedArgs);
   }
 
   @override
@@ -179,7 +157,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
     // Filter out special items for the main list display
     List<Map<String, dynamic>> actualLists =
-        lists.where((list) => list['id'] != 0 && list['id'] != -1).toList();
+        lists.where((list) => list['id'] != '0' && list['id'] != '-1').toList();
 
     // If coming from template creation, filter by sport
     if (fromTemplateCreation && sport != 'Unknown Sport') {
@@ -458,7 +436,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                           _showDeleteConfirmationDialog(
                                                               listName,
                                                               list['id']
-                                                                  as int);
+                                                                  as String);
                                                         },
                                                         icon: Icon(
                                                           Icons.delete_outline,
@@ -475,7 +453,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                               selectedList =
                                                                   listName;
                                                             });
-                                                            _handleContinue();
+                                                            // Navigate to Review Game Info screen
+                                                            _navigateToReviewGameInfo(
+                                                                list);
                                                           },
                                                           icon: Icon(
                                                             Icons.arrow_forward,
@@ -556,6 +536,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   void _handleNewListFromReview(Map<String, dynamic> newListData) async {
+    // Refresh the lists to show the newly created list
     await _fetchLists();
 
     setState(() {
@@ -570,5 +551,25 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ),
       );
     }
+  }
+
+  void _navigateToReviewGameInfo(Map<String, dynamic> list) {
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
+            {};
+
+    // Prepare game data with selected list
+    final gameData = {
+      ...args,
+      'method': 'use_list',
+      'selectedListName': list['name'],
+      'selectedOfficials': list['officials'] ?? [],
+    };
+
+    Navigator.pushNamed(
+      context,
+      '/review-game-info',
+      arguments: gameData,
+    );
   }
 }

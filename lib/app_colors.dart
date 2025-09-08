@@ -48,6 +48,14 @@ class AppColors {
   static const Color onError = Color(0xFFFFFFFF); // White text on error
   static const Color success = Color(0xFF4CAF50); // Green for success
   static const Color warning = Color(0xFFFF9800); // Orange for warnings
+
+  // Efficials brand colors (matching efficials_app design)
+  static const Color efficialsYellow = Color(0xFFFFD700); // Yellow/Gold
+  static const Color efficialsBlack = Color(0xFF000000); // Pure black
+  static const Color efficialsWhite = Color(0xFFFFFFFF); // Pure white
+  static const Color darkBackground = Color(0xFF121212); // Dark background
+  static const Color darkSurface = Color(0xFF1E1E1E); // Dark surface
+  static const Color darkSurfaceVariant = Color(0xFF2D2D2D); // Dark surface variant
 }
 
 /// Color scheme that matches Material Design 3 structure

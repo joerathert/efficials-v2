@@ -31,6 +31,27 @@ class _AthleticDirectorHomeScreenState
     _fetchGames();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null && args['refresh'] == true) {
+      _fetchGames();
+      // Show success message if a game was just published
+      if (args['gamePublished'] == true && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Game published successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        });
+      }
+    }
+  }
+
   Future<void> _fetchGames() async {
     try {
       // For now, use mock data - we'll replace with actual service calls
@@ -428,6 +449,16 @@ class _AthleticDirectorHomeScreenState
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/select-schedule');
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.people, color: colorScheme.primary),
+              title: Text('Lists of Officials',
+                  style: TextStyle(color: colorScheme.onSurface)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/lists-of-officials',
+                    arguments: {'fromHamburgerMenu': true});
               },
             ),
             ListTile(
