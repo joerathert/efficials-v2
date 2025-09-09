@@ -1,0 +1,167 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "games": "Partidos",
+    "officials": "Oficiales",
+    "settings": "Configuración"
+  },
+  "action": {
+    "continue": "Continuar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "submit": "Enviar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "close": "Cerrar",
+    "confirm": "Confirmar"
+  },
+  "auth": {
+    "signIn": "Iniciar Sesión",
+    "signOut": "Cerrar Sesión",
+    "signUp": "Registrarse",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "phone": "Teléfono",
+    "role": "Rol"
+  },
+  "games": {
+    "title": "Partidos",
+    "createGame": "Crear Partido",
+    "editGame": "Editar Partido",
+    "deleteGame": "Eliminar Partido",
+    "gameDetails": "Detalles del Partido",
+    "sport": "Deporte",
+    "date": "Fecha",
+    "time": "Hora",
+    "location": "Ubicación",
+    "opponent": "Oponente",
+    "officialsRequired": "Oficiales Requeridos",
+    "officialsHired": "Oficiales Contratados",
+    "status": "Estado",
+    "upcoming": "Próximos Partidos",
+    "past": "Partidos Anteriores",
+    "publishGame": "Publicar Partido",
+    "publishLater": "Publicar Después",
+    "createTemplate": "¿Crear Plantilla de Partido?",
+    "templateDescription": "¿Te gustaría crear una Plantilla de Partido usando la información de este partido?",
+    "yes": "Sí",
+    "no": "No",
+    "dontAskAgain": "No preguntarme de nuevo"
+  },
+  "officials": {
+    "title": "Oficiales",
+    "addOfficial": "Agregar Oficial",
+    "editOfficial": "Editar Oficial",
+    "deleteOfficial": "Eliminar Oficial",
+    "availability": "Disponibilidad",
+    "experience": "Experiencia",
+    "certification": "Certificación",
+    "contactInfo": "Información de Contacto",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "phone": "Teléfono",
+    "address": "Dirección",
+    "city": "Ciudad",
+    "state": "Estado",
+    "zipCode": "Código Postal",
+    "distance": "Distancia",
+    "yearsExperience": "Años de Experiencia",
+    "ihsaLevel": "Nivel IHSA",
+    "competitionLevels": "Niveles de Competencia",
+    "sports": "Deportes"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "theme": "Tema",
+    "notifications": "Notificaciones",
+    "privacy": "Privacidad",
+    "help": "Ayuda",
+    "about": "Acerca de",
+    "alertDays": "Días de Alerta Antes del Partido",
+    "alertUnit": "Unidad de Alerta"
+  },
+  "error": {
+    "general": "Ocurrió un error. Por favor, inténtalo de nuevo.",
+    "network": "Error de red. Por favor, verifica tu conexión.",
+    "validation": "Por favor, verifica tu entrada e inténtalo de nuevo.",
+    "authentication": "Error de autenticación. Por favor, inicia sesión nuevamente.",
+    "permission": "No tienes permiso para realizar esta acción.",
+    "notFound": "El elemento solicitado no fue encontrado.",
+    "loading": "Cargando...",
+    "noData": "No hay datos disponibles"
+  },
+  "success": {
+    "saved": "Cambios guardados exitosamente.",
+    "deleted": "Elemento eliminado exitosamente.",
+    "created": "Elemento creado exitosamente.",
+    "updated": "Elemento actualizado exitosamente.",
+    "gamePublished": "¡Partido publicado exitosamente!",
+    "templateCreated": "¡Plantilla de partido creada exitosamente!"
+  },
+  "validation": {
+    "required": "Este campo es obligatorio.",
+    "email": "Por favor, ingresa una dirección de correo electrónico válida.",
+    "password": "La contraseña debe tener al menos 6 caracteres.",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "phone": "Por favor, ingresa un número de teléfono válido.",
+    "name": "Por favor, ingresa un nombre válido.",
+    "zipCode": "Por favor, ingresa un código postal válido."
+  },
+  "dialog": {
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este elemento?",
+    "unsavedChanges": "Tienes cambios sin guardar. ¿Quieres guardarlos?",
+    "signOut": "¿Estás seguro de que quieres cerrar sesión?",
+    "loading": "Cargando...",
+    "error": "Error"
+  },
+  "sport": {
+    "football": "Fútbol Americano",
+    "basketball": "Baloncesto",
+    "baseball": "Béisbol",
+    "softball": "Softball",
+    "soccer": "Fútbol",
+    "volleyball": "Voleibol",
+    "tennis": "Tenis",
+    "track": "Atletismo",
+    "crossCountry": "Campo a Través",
+    "swimming": "Natación",
+    "wrestling": "Lucha Libre",
+    "golf": "Golf"
+  },
+  "role": {
+    "athleticDirector": "Director Atlético",
+    "scheduler": "Planificador",
+    "official": "Oficial"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "completed": "Completado",
+    "cancelled": "Cancelado",
+    "available": "Disponible",
+    "unavailable": "No Disponible"
+  },
+  "form": {
+    "scheduleName": "Nombre del Horario",
+    "description": "Descripción",
+    "competitionLevel": "Nivel de Competencia",
+    "hireAutomatically": "Contratar Automáticamente",
+    "gameFee": "Tarifa del Partido",
+    "notes": "Notas"
+  },
+  "template": {
+    "name": "Nombre de la Plantilla",
+    "description": "Descripción de la Plantilla",
+    "useDefaults": "Usar Valores Predeterminados"
+  }
+}

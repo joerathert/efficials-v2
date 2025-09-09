@@ -1,0 +1,167 @@
+{
+  "nav": {
+    "home": "Home",
+    "games": "Games",
+    "officials": "Officials",
+    "settings": "Settings"
+  },
+  "action": {
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "submit": "Submit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "confirm": "Confirm"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "signUp": "Sign Up",
+    "forgotPassword": "Forgot Password?",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone",
+    "role": "Role"
+  },
+  "games": {
+    "title": "Games",
+    "createGame": "Create Game",
+    "editGame": "Edit Game",
+    "deleteGame": "Delete Game",
+    "gameDetails": "Game Details",
+    "sport": "Sport",
+    "date": "Date",
+    "time": "Time",
+    "location": "Location",
+    "opponent": "Opponent",
+    "officialsRequired": "Officials Required",
+    "officialsHired": "Officials Hired",
+    "status": "Status",
+    "upcoming": "Upcoming Games",
+    "past": "Past Games",
+    "publishGame": "Publish Game",
+    "publishLater": "Publish Later",
+    "createTemplate": "Create Game Template?",
+    "templateDescription": "Would you like to create a Game Template using the information from this game?",
+    "yes": "Yes",
+    "no": "No",
+    "dontAskAgain": "Do not ask me again"
+  },
+  "officials": {
+    "title": "Officials",
+    "addOfficial": "Add Official",
+    "editOfficial": "Edit Official",
+    "deleteOfficial": "Delete Official",
+    "availability": "Availability",
+    "experience": "Experience",
+    "certification": "Certification",
+    "contactInfo": "Contact Information",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "city": "City",
+    "state": "State",
+    "zipCode": "ZIP Code",
+    "distance": "Distance",
+    "yearsExperience": "Years of Experience",
+    "ihsaLevel": "IHSA Level",
+    "competitionLevels": "Competition Levels",
+    "sports": "Sports"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "help": "Help",
+    "about": "About",
+    "alertDays": "Alert Days Before Game",
+    "alertUnit": "Alert Unit"
+  },
+  "error": {
+    "general": "An error occurred. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "validation": "Please check your input and try again.",
+    "authentication": "Authentication failed. Please sign in again.",
+    "permission": "You do not have permission to perform this action.",
+    "notFound": "The requested item was not found.",
+    "loading": "Loading...",
+    "noData": "No data available"
+  },
+  "success": {
+    "saved": "Changes saved successfully.",
+    "deleted": "Item deleted successfully.",
+    "created": "Item created successfully.",
+    "updated": "Item updated successfully.",
+    "gamePublished": "Game published successfully!",
+    "templateCreated": "Game template created successfully!"
+  },
+  "validation": {
+    "required": "This field is required.",
+    "email": "Please enter a valid email address.",
+    "password": "Password must be at least 6 characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "phone": "Please enter a valid phone number.",
+    "name": "Please enter a valid name.",
+    "zipCode": "Please enter a valid ZIP code."
+  },
+  "dialog": {
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "unsavedChanges": "You have unsaved changes. Do you want to save them?",
+    "signOut": "Are you sure you want to sign out?",
+    "loading": "Loading...",
+    "error": "Error"
+  },
+  "sport": {
+    "football": "Football",
+    "basketball": "Basketball",
+    "baseball": "Baseball",
+    "softball": "Softball",
+    "soccer": "Soccer",
+    "volleyball": "Volleyball",
+    "tennis": "Tennis",
+    "track": "Track & Field",
+    "crossCountry": "Cross Country",
+    "swimming": "Swimming",
+    "wrestling": "Wrestling",
+    "golf": "Golf"
+  },
+  "role": {
+    "athleticDirector": "Athletic Director",
+    "scheduler": "Scheduler",
+    "official": "Official"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "available": "Available",
+    "unavailable": "Unavailable"
+  },
+  "form": {
+    "scheduleName": "Schedule Name",
+    "description": "Description",
+    "competitionLevel": "Competition Level",
+    "hireAutomatically": "Hire Automatically",
+    "gameFee": "Game Fee",
+    "notes": "Notes"
+  },
+  "template": {
+    "name": "Template Name",
+    "description": "Template Description",
+    "useDefaults": "Use Default Values"
+  }
+}

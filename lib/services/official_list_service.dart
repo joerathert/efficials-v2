@@ -1,15 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../constants/firebase_constants.dart';
+import 'base_service.dart';
 
-class OfficialListService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class OfficialListService extends BaseService {
+  // Singleton pattern
+  static final OfficialListService _instance = OfficialListService._internal();
+  OfficialListService._internal();
+  factory OfficialListService() => _instance;
 
   // Debug flag - set to false to reduce console noise
   static const bool _debugEnabled = false;
 
   // Helper method for conditional debug prints
-  void _debugPrint(String message) {
+  @override
+  void debugPrint(String message) {
     if (_debugEnabled) {
       print(message);
     }
@@ -23,7 +27,7 @@ class OfficialListService {
     String? description,
   }) async {
     try {
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('User must be authenticated to save lists');
       }
@@ -39,14 +43,15 @@ class OfficialListService {
         'description': description ?? '',
       };
 
-      final docRef =
-          await _firestore.collection('official_lists').add(listData);
+      final docRef = await firestore
+          .collection(FirebaseCollections.officialLists)
+          .add(listData);
 
-      _debugPrint('✅ Official list "$listName" saved with ID: ${docRef.id}');
+      debugPrint('✅ Official list "$listName" saved with ID: ${docRef.id}');
 
       return docRef.id;
     } catch (e) {
-      _debugPrint('❌ Error saving official list: $e');
+      debugPrint('❌ Error saving official list: $e');
       throw Exception('Failed to save official list: $e');
     }
   }
@@ -54,7 +59,7 @@ class OfficialListService {
   /// Fetch all official lists for the current user
   Future<List<Map<String, dynamic>>> fetchOfficialLists() async {
     try {
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         print('❌ OfficialListService: No authenticated user found!');
         throw Exception('User must be authenticated to fetch lists');
@@ -65,8 +70,8 @@ class OfficialListService {
       print('👤 OfficialListService: User email: ${user.email}');
       print('🔐 OfficialListService: User is authenticated: true');
 
-      final snapshot = await _firestore
-          .collection('official_lists')
+      final snapshot = await firestore
+          .collection(FirebaseCollections.officialLists)
           .where('userId', isEqualTo: user.uid)
           .orderBy('updatedAt', descending: true)
           .get();
@@ -96,14 +101,14 @@ class OfficialListService {
   /// Delete an official list from Firestore
   Future<void> deleteOfficialList(String listId) async {
     try {
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('User must be authenticated to delete lists');
       }
 
       // Verify the list belongs to the current user before deleting
       final doc =
-          await _firestore.collection('official_lists').doc(listId).get();
+          await firestore.collection('official_lists').doc(listId).get();
 
       if (!doc.exists) {
         throw Exception('List not found');
@@ -114,11 +119,11 @@ class OfficialListService {
         throw Exception('Unauthorized to delete this list');
       }
 
-      await _firestore.collection('official_lists').doc(listId).delete();
+      await firestore.collection('official_lists').doc(listId).delete();
 
-      _debugPrint('✅ Official list $listId deleted successfully');
+      debugPrint('✅ Official list $listId deleted successfully');
     } catch (e) {
-      _debugPrint('❌ Error deleting official list: $e');
+      debugPrint('❌ Error deleting official list: $e');
       throw Exception('Failed to delete official list: $e');
     }
   }
@@ -132,14 +137,14 @@ class OfficialListService {
     String? description,
   }) async {
     try {
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('User must be authenticated to update lists');
       }
 
       // Verify the list belongs to the current user before updating
       final doc =
-          await _firestore.collection('official_lists').doc(listId).get();
+          await firestore.collection('official_lists').doc(listId).get();
 
       if (!doc.exists) {
         throw Exception('List not found');
@@ -162,14 +167,14 @@ class OfficialListService {
       }
       if (description != null) updateData['description'] = description;
 
-      await _firestore
-          .collection('official_lists')
+      await firestore
+          .collection(FirebaseCollections.officialLists)
           .doc(listId)
           .update(updateData);
 
-      _debugPrint('✅ Official list $listId updated successfully');
+      debugPrint('✅ Official list $listId updated successfully');
     } catch (e) {
-      _debugPrint('❌ Error updating official list: $e');
+      debugPrint('❌ Error updating official list: $e');
       throw Exception('Failed to update official list: $e');
     }
   }
@@ -177,13 +182,13 @@ class OfficialListService {
   /// Get a specific official list by ID
   Future<Map<String, dynamic>?> getOfficialList(String listId) async {
     try {
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('User must be authenticated to fetch list');
       }
 
       final doc =
-          await _firestore.collection('official_lists').doc(listId).get();
+          await firestore.collection('official_lists').doc(listId).get();
 
       if (!doc.exists) {
         return null;
@@ -199,7 +204,7 @@ class OfficialListService {
         'id': doc.id,
       };
     } catch (e) {
-      _debugPrint('❌ Error fetching official list: $e');
+      debugPrint('❌ Error fetching official list: $e');
       throw Exception('Failed to fetch official list: $e');
     }
   }

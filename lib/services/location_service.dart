@@ -1,8 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../constants/firebase_constants.dart';
+import 'base_service.dart';
 
-class LocationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class LocationService extends BaseService {
+  // Singleton pattern
+  static final LocationService _instance = LocationService._internal();
+  LocationService._internal();
+  factory LocationService() => _instance;
+
   final AuthService _authService = AuthService();
 
   Future<Map<String, dynamic>> createLocation({
@@ -28,7 +33,9 @@ class LocationService {
         'createdAt': DateTime.now(),
       };
 
-      final docRef = await _firestore.collection('locations').add(locationData);
+      final docRef = await firestore
+          .collection(FirebaseCollections.locations)
+          .add(locationData);
 
       return {
         'id': docRef.id,
@@ -50,7 +57,7 @@ class LocationService {
         return [];
       }
 
-      final querySnapshot = await _firestore
+      final querySnapshot = await firestore
           .collection('locations')
           .where('createdBy', isEqualTo: currentUser.uid)
           .get();
@@ -78,7 +85,7 @@ class LocationService {
 
   Future<void> deleteLocation(String locationId) async {
     try {
-      await _firestore.collection('locations').doc(locationId).delete();
+      await firestore.collection('locations').doc(locationId).delete();
     } catch (e) {
       throw Exception('Failed to delete location: $e');
     }

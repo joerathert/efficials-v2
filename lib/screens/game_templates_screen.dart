@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart'; // We'll create this
+import '../services/game_service.dart';
 
 class GameTemplatesScreen extends StatefulWidget {
   const GameTemplatesScreen({super.key});
@@ -25,34 +26,14 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
 
   Future<void> _fetchTemplates() async {
     try {
-      // For now, use mock data - we'll replace with actual service calls
+      final gameService = GameService();
+      final fetchedTemplates = await gameService.getTemplates();
+
       setState(() {
-        templates = [
-          GameTemplateModel(
-            id: '1',
-            name: 'Varsity Basketball Game',
-            sport: 'Basketball',
-            includeSport: true,
-            description: 'Standard varsity basketball game template',
-            createdAt: DateTime.now(),
-          ),
-          GameTemplateModel(
-            id: '2',
-            name: 'JV Soccer Match',
-            sport: 'Soccer',
-            includeSport: true,
-            description: 'Junior varsity soccer game template',
-            createdAt: DateTime.now(),
-          ),
-          GameTemplateModel(
-            id: '3',
-            name: 'Football Championship',
-            sport: 'Football',
-            includeSport: true,
-            description: 'Championship football game template',
-            createdAt: DateTime.now(),
-          ),
-        ];
+        templates = fetchedTemplates
+            .where((template) =>
+                template.id != '1' && template.id != '2' && template.id != '3')
+            .toList(); // Filter out mock templates
 
         // Extract unique sports from templates
         Set<String> allSports = templates
@@ -69,6 +50,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error fetching templates: $e');
       setState(() {
         templates = [];
         sports = [];
@@ -634,139 +616,337 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Game Templates',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onBackground,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Manage your saved game templates',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : templates.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.description,
-                                  size: 80,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No Game Templates found.',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Container(
-                                  width: 250,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      // TODO: Navigate to create template screen
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Create template coming soon!')),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: colorScheme.primary,
-                                      foregroundColor: colorScheme.onPrimary,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 15, horizontal: 32),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    icon: Icon(
-                                      Icons.add,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                    label: const Text(
-                                      'Create New Template',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: groupedTemplates.keys.length,
-                            itemBuilder: (context, index) {
-                              final sport =
-                                  groupedTemplates.keys.elementAt(index);
-                              final sportTemplates = groupedTemplates[sport]!;
-
-                              return _buildSportCard(sport, sportTemplates);
-                            },
-                          ),
-              ),
-              const SizedBox(height: 20),
-              if (templates.isNotEmpty)
-                Center(
-                  child: Container(
-                    width: 250,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        // TODO: Navigate to create template screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Create template coming soon!')),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 15, horizontal: 32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: Icon(
-                        Icons.add,
-                        color: colorScheme.onPrimary,
-                      ),
-                      label: const Text(
-                        'Create New Template',
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Text(
+                        'Game Templates',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
+                          color: theme.brightness == Brightness.dark
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        'Manage your saved game templates',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.shadow.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : templates.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.description,
+                                            size: 80,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No game templates found',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Create your first template to get started',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 24),
+                                          SizedBox(
+                                            height: 50,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () {
+                                                _createNewTemplate();
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.primary,
+                                                foregroundColor:
+                                                    colorScheme.onPrimary,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 15,
+                                                        horizontal: 32),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              icon: Icon(
+                                                Icons.add,
+                                                color: colorScheme.onPrimary,
+                                              ),
+                                              label: Text(
+                                                'Create New Template',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: colorScheme.onPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      itemCount: templates.length,
+                                      itemBuilder: (context, index) {
+                                        final template = templates[index];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 12.0),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: colorScheme.shadow
+                                                      .withOpacity(0.1),
+                                                  blurRadius: 5,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
+                                                    decoration: BoxDecoration(
+                                                      color: colorScheme.primary
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.description,
+                                                      color:
+                                                          colorScheme.primary,
+                                                      size: 24,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          template.name,
+                                                          style: TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: colorScheme
+                                                                .onSurface,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 4),
+                                                        Text(
+                                                          template.sport ??
+                                                              'Unknown Sport',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: colorScheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                        ),
+                                                        if (template
+                                                                .description !=
+                                                            null) ...[
+                                                          const SizedBox(
+                                                              height: 4),
+                                                          Text(
+                                                            template
+                                                                .description!,
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              color: colorScheme
+                                                                  .onSurfaceVariant,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      IconButton(
+                                                        onPressed: () {
+                                                          _useTemplate(
+                                                              template);
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.arrow_forward,
+                                                          color: Colors.green,
+                                                          size: 20,
+                                                        ),
+                                                        tooltip: 'Use Template',
+                                                      ),
+                                                      IconButton(
+                                                        onPressed: () {
+                                                          // TODO: Navigate to edit template screen
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                            const SnackBar(
+                                                                content: Text(
+                                                                    'Edit template coming soon!')),
+                                                          );
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.edit,
+                                                          color: colorScheme
+                                                              .primary,
+                                                          size: 20,
+                                                        ),
+                                                        tooltip:
+                                                            'Edit Template',
+                                                      ),
+                                                      IconButton(
+                                                        onPressed: () {
+                                                          _showDeleteConfirmationDialog(
+                                                              template.name,
+                                                              template);
+                                                        },
+                                                        icon: Icon(
+                                                          Icons.delete_outline,
+                                                          color: Colors
+                                                              .red.shade600,
+                                                          size: 20,
+                                                        ),
+                                                        tooltip:
+                                                            'Delete Template',
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                          if (!isLoading && templates.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            Center(
+                              child: SizedBox(
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    _createNewTemplate();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 15, horizontal: 32),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: Icon(
+                                    Icons.add,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                  label: Text(
+                                    'Create New Template',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _createNewTemplate() {
+    Navigator.pushNamed(
+      context,
+      '/create_game_template',
+    ).then((result) {
+      if (result != null) {
+        // Template was created, refresh the list
+        _fetchTemplates();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template created successfully!')),
+        );
+      }
+    });
   }
 }

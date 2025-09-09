@@ -53,10 +53,12 @@ class AuthService {
     try {
       // Validate inputs
       if (role == 'scheduler' && schedulerProfile == null) {
-        return AuthResult.failure('Scheduler profile is required for scheduler role');
+        return AuthResult.failure(
+            'Scheduler profile is required for scheduler role');
       }
       if (role == 'official' && officialProfile == null) {
-        return AuthResult.failure('Official profile is required for official role');
+        return AuthResult.failure(
+            'Official profile is required for official role');
       }
 
       // Create Firebase Auth account
@@ -158,8 +160,14 @@ class AuthService {
           errorMessage = 'Too many failed attempts. Please try again later';
           break;
       }
+      // Log error to console for easier debugging
+      print(
+          '🔴 AUTH ERROR: FirebaseAuthException - Code: ${e.code}, Message: ${e.message}');
+      print('🔴 AUTH ERROR: Final error message: $errorMessage');
       return AuthResult.failure(errorMessage);
     } catch (e) {
+      // Log error to console for easier debugging
+      print('🔴 AUTH ERROR: Unexpected error - $e');
       return AuthResult.failure('Sign in failed: $e');
     }
   }
@@ -205,7 +213,7 @@ class AuthService {
     try {
       if (!isSignedIn) return false;
       await currentUser!.updateEmail(newEmail.trim().toLowerCase());
-      
+
       // Update email in Firestore as well
       final userModel = await getCurrentUserProfile();
       if (userModel != null) {
@@ -213,7 +221,7 @@ class AuthService {
           userModel.copyWith(email: newEmail.trim().toLowerCase()),
         );
       }
-      
+
       return true;
     } catch (e) {
       return false;
@@ -224,15 +232,15 @@ class AuthService {
   Future<bool> deleteAccount() async {
     try {
       if (!isSignedIn) return false;
-      
+
       final userId = currentUser!.uid;
-      
+
       // Delete user document from Firestore
       await _userService.deleteUser(userId);
-      
+
       // Delete Firebase Auth account
       await currentUser!.delete();
-      
+
       return true;
     } catch (e) {
       return false;
@@ -243,12 +251,12 @@ class AuthService {
   Future<bool> reauthenticateWithPassword(String password) async {
     try {
       if (!isSignedIn) return false;
-      
+
       final credential = EmailAuthProvider.credential(
         email: currentUser!.email!,
         password: password,
       );
-      
+
       await currentUser!.reauthenticateWithCredential(credential);
       return true;
     } catch (e) {
@@ -271,7 +279,7 @@ class AuthService {
   /// Get user role without full profile (for routing)
   Future<String?> getUserRole() async {
     if (!isSignedIn) return null;
-    
+
     final userModel = await getCurrentUserProfile();
     return userModel?.role;
   }
@@ -279,7 +287,7 @@ class AuthService {
   /// Get scheduler type without full profile (for routing)
   Future<String?> getSchedulerType() async {
     if (!isSignedIn) return null;
-    
+
     final userModel = await getCurrentUserProfile();
     return userModel?.schedulerType;
   }

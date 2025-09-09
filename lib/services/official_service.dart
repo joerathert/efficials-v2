@@ -1,14 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../constants/firebase_constants.dart';
+import 'base_service.dart';
+import 'cache_service.dart';
 
-class OfficialService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class OfficialService extends BaseService {
+  // Singleton pattern
+  static final OfficialService _instance = OfficialService._internal();
+  OfficialService._internal();
+  factory OfficialService() => _instance;
+
+  // Cache service instance
+  final CacheService _cacheService = CacheService();
 
   // Debug flag - set to false to reduce console noise
   static const bool _debugEnabled = false;
 
   // Helper method for conditional debug prints
-  void _debugPrint(String message) {
+  @override
+  void debugPrint(String message) {
     if (_debugEnabled) {
       print(message);
     }
@@ -24,17 +33,17 @@ class OfficialService {
     Map<String, dynamic>? locationData,
   }) async {
     try {
-      _debugPrint('🔍 OfficialService: Filtering for sport: $sport');
-      _debugPrint(
+      debugPrint('🔍 OfficialService: Filtering for sport: $sport');
+      debugPrint(
           '🔍 Filters: ihsaLevel=$ihsaLevel, minYears=$minYears, levels=$levels, radius=$radius');
 
       // Query users collection for officials
-      Query query = _firestore
+      Query query = firestore
           .collection(FirebaseCollections.users)
           .where(FirebaseFields.role, isEqualTo: FirebaseValues.roleOfficial);
 
       final snapshot = await query.get();
-      _debugPrint('🔍 Found ${snapshot.docs.length} officials in database');
+      debugPrint('🔍 Found ${snapshot.docs.length} officials in database');
 
       // Filter results in memory (Firestore has limitations with complex nested queries)
       final filteredOfficials = snapshot.docs.where((doc) {
@@ -43,7 +52,7 @@ class OfficialService {
             data['officialProfile'] as Map<String, dynamic>?;
 
         if (officialProfile == null) {
-          _debugPrint('❌ Official ${data['email']} has no officialProfile');
+          debugPrint('❌ Official ${data['email']} has no officialProfile');
           return false;
         }
 
@@ -52,38 +61,38 @@ class OfficialService {
           final sportsData =
               officialProfile['sportsData'] as Map<String, dynamic>?;
           if (sportsData == null) {
-            _debugPrint('❌ Official ${data['email']} has no sportsData');
-            _debugPrint(
+            debugPrint('❌ Official ${data['email']} has no sportsData');
+            debugPrint(
                 '🔍 Official ${data['email']} officialProfile keys: ${officialProfile.keys.toList()}');
             return false;
           }
 
-          _debugPrint(
+          debugPrint(
               '🔍 Official ${data['email']} sportsData keys: ${sportsData.keys.toList()}');
 
           // Check the sport-specific data
           final sportData = sportsData[sport] as Map<String, dynamic>?;
           if (sportData == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no data for sport: $sport');
-            _debugPrint('   Available sports: ${sportsData.keys.toList()}');
+            debugPrint('   Available sports: ${sportsData.keys.toList()}');
             return false;
           }
 
           // Debug: Show the actual sport data structure
-          _debugPrint(
+          debugPrint(
               '🔍 Official ${data['email']} sport data keys: ${sportData.keys.toList()}');
-          _debugPrint(
+          debugPrint(
               '🔍 Official ${data['email']} full sport data: $sportData');
 
           final officialIhsaLevel = sportData['certification'];
           if (officialIhsaLevel == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no certification for $sport');
             return false;
           }
 
-          _debugPrint(
+          debugPrint(
               '✅ Official ${data['email']} certification: $officialIhsaLevel (filtering for: $ihsaLevel)');
 
           // Handle different certification formats
@@ -110,7 +119,7 @@ class OfficialService {
               break;
             case 'certified':
               if (!normalizedIhsaLevel.contains('certified')) {
-                _debugPrint(
+                debugPrint(
                     '❌ Official ${data['email']} certification $officialIhsaLevel is not certified');
                 return false;
               }
@@ -123,30 +132,30 @@ class OfficialService {
           final sportsData =
               officialProfile['sportsData'] as Map<String, dynamic>?;
           if (sportsData == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no sportsData for experience filter');
             return false;
           }
 
           final sportData = sportsData[sport] as Map<String, dynamic>?;
           if (sportData == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no data for sport: $sport (experience filter)');
             return false;
           }
 
           final experience = sportData['experience'];
           if (experience == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no experience for $sport');
             return false;
           }
 
-          _debugPrint(
+          debugPrint(
               '✅ Official ${data['email']} experience: $experience years (min required: $minYears)');
 
           if (experience < minYears) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} experience $experience < required $minYears');
             return false;
           }
@@ -157,14 +166,14 @@ class OfficialService {
           final sportsData =
               officialProfile['sportsData'] as Map<String, dynamic>?;
           if (sportsData == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no sportsData for competition levels filter');
             return false;
           }
 
           final sportData = sportsData[sport] as Map<String, dynamic>?;
           if (sportData == null) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no data for sport: $sport (competition levels filter)');
             return false;
           }
@@ -172,14 +181,14 @@ class OfficialService {
           final officialLevels =
               sportData['competitionLevels'] as List<dynamic>?;
           if (officialLevels == null || officialLevels.isEmpty) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} has no competitionLevels for $sport');
             return false;
           }
 
-          _debugPrint(
+          debugPrint(
               '✅ Official ${data['email']} competition levels: $officialLevels');
-          _debugPrint('   Required levels: $levels');
+          debugPrint('   Required levels: $levels');
 
           // Check if the official has at least one of the required competition levels
           // Handle both full names (e.g., "Varsity (17U-18U)") and short names (e.g., "Varsity")
@@ -215,10 +224,10 @@ class OfficialService {
           });
 
           if (!hasRequiredLevel) {
-            _debugPrint(
+            debugPrint(
                 '❌ Official ${data['email']} does not have any required competition levels');
-            _debugPrint('   Official has: $officialLevels');
-            _debugPrint('   Looking for: $levels');
+            debugPrint('   Official has: $officialLevels');
+            debugPrint('   Looking for: $levels');
             return false;
           }
         }
@@ -233,7 +242,7 @@ class OfficialService {
         return true;
       }).toList();
 
-      _debugPrint(
+      debugPrint(
           '🔍 After filtering: ${filteredOfficials.length} officials passed all filters');
 
       return filteredOfficials.map((doc) {
@@ -276,7 +285,7 @@ class OfficialService {
         };
       }).toList();
     } catch (e) {
-      _debugPrint('Error querying officials: $e');
+      debugPrint('Error querying officials: $e');
       return [];
     }
   }
@@ -284,13 +293,22 @@ class OfficialService {
   /// Get all officials (for simple queries without complex filtering)
   Future<List<Map<String, dynamic>>> getAllOfficials() async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .where('role', isEqualTo: 'official')
+      // Try to get from cache first
+      final cachedOfficials = await _cacheService.getCachedOfficials();
+      if (cachedOfficials != null) {
+        debugPrint('Using cached officials data');
+        return cachedOfficials;
+      }
+
+      // Fetch from Firebase
+      debugPrint('Fetching officials from Firebase');
+      final snapshot = await firestore
+          .collection(FirebaseCollections.users)
+          .where(FirebaseFields.role, isEqualTo: FirebaseValues.roleOfficial)
           .get();
 
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+      final officials = snapshot.docs.map((doc) {
+        final data = doc.data();
         final profile = data['profile'] as Map<String, dynamic>? ?? {};
         final officialProfile =
             data['officialProfile'] as Map<String, dynamic>? ?? {};
@@ -329,8 +347,13 @@ class OfficialService {
               officialProfile['availabilityStatus'] ?? 'available',
         };
       }).toList();
+
+      // Cache the results
+      await _cacheService.cacheOfficials(officials);
+
+      return officials;
     } catch (e) {
-      print('Error getting all officials: $e');
+      debugPrint('Error getting all officials: $e');
       return [];
     }
   }

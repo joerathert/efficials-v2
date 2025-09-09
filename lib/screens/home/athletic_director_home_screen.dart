@@ -468,9 +468,11 @@ class _AthleticDirectorHomeScreenState
         constraints: const BoxConstraints(maxWidth: 550),
         child: GestureDetector(
           onTap: () {
-            // TODO: Navigate to game details
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Game details coming soon!')),
+            // Navigate to game information screen
+            Navigator.pushNamed(
+              context,
+              '/game-information',
+              arguments: game,
             );
           },
           child: Container(
@@ -743,6 +745,15 @@ class _AthleticDirectorHomeScreenState
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/lists-of-officials',
                     arguments: {'fromHamburgerMenu': true});
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.location_on, color: colorScheme.primary),
+              title: Text('Locations',
+                  style: TextStyle(color: colorScheme.onSurface)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/locations');
               },
             ),
             ListTile(

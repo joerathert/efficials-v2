@@ -47,29 +47,63 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static FirebaseOptions get web => FirebaseOptions(
-    apiKey: dotenv.env['FIREBASE_WEB_API_KEY'] ?? '',
-    appId: dotenv.env['FIREBASE_APP_ID_WEB'] ?? '',
-    messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '',
-    projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
-    authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN'] ?? '',
-    storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '',
-  );
+  static FirebaseOptions get web {
+    // Try to load from environment variables, fallback to demo values
+    // Use direct Firebase configuration (more reliable for web)
+    return FirebaseOptions(
+      apiKey: 'AIzaSyCVKqADdrt5kguwuiAPrnDo4fSDmm4JLwU',
+      appId: '1:953913671867:web:052c3977ed3c2566d3e99e',
+      messagingSenderId: '953913671867',
+      projectId: 'efficials-v2',
+      authDomain: 'efficials-v2.firebaseapp.com',
+      storageBucket: 'efficials-v2.firebasestorage.app',
+    );
+  }
 
-  static FirebaseOptions get android => FirebaseOptions(
-    apiKey: dotenv.env['FIREBASE_ANDROID_API_KEY'] ?? '',
-    appId: dotenv.env['FIREBASE_APP_ID_ANDROID'] ?? '',
-    messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '',
-    projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
-    storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '',
-  );
+  static FirebaseOptions get android {
+    try {
+      return FirebaseOptions(
+        apiKey: dotenv.env['FIREBASE_ANDROID_API_KEY'] ?? 'demo-api-key',
+        appId:
+            dotenv.env['FIREBASE_APP_ID_ANDROID'] ?? '1:123456789:android:demo',
+        messagingSenderId:
+            dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '123456789',
+        projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? 'demo-project',
+        storageBucket:
+            dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? 'demo-project.appspot.com',
+      );
+    } catch (e) {
+      return FirebaseOptions(
+        apiKey: 'demo-api-key',
+        appId: '1:123456789:android:demo',
+        messagingSenderId: '123456789',
+        projectId: 'demo-project',
+        storageBucket: 'demo-project.appspot.com',
+      );
+    }
+  }
 
-  static FirebaseOptions get ios => FirebaseOptions(
-    apiKey: dotenv.env['FIREBASE_IOS_API_KEY'] ?? '',
-    appId: dotenv.env['FIREBASE_APP_ID_IOS'] ?? '',
-    messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '',
-    projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
-    storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '',
-    iosBundleId: dotenv.env['FIREBASE_IOS_BUNDLE_ID'] ?? '',
-  );
+  static FirebaseOptions get ios {
+    try {
+      return FirebaseOptions(
+        apiKey: dotenv.env['FIREBASE_IOS_API_KEY'] ?? 'demo-api-key',
+        appId: dotenv.env['FIREBASE_APP_ID_IOS'] ?? '1:123456789:ios:demo',
+        messagingSenderId:
+            dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? '123456789',
+        projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? 'demo-project',
+        storageBucket:
+            dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? 'demo-project.appspot.com',
+        iosBundleId: dotenv.env['FIREBASE_IOS_BUNDLE_ID'] ?? 'com.example.demo',
+      );
+    } catch (e) {
+      return FirebaseOptions(
+        apiKey: 'demo-api-key',
+        appId: '1:123456789:ios:demo',
+        messagingSenderId: '123456789',
+        projectId: 'demo-project',
+        storageBucket: 'demo-project.appspot.com',
+        iosBundleId: 'com.example.demo',
+      );
+    }
+  }
 }

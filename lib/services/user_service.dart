@@ -36,16 +36,30 @@ class UserService {
   /// Get user by ID
   Future<UserModel?> getUserById(String userId) async {
     try {
+      print('🔍 USER SERVICE: Looking up user ID: $userId');
       final doc = await _firestore
           .collection(FirebaseCollections.users)
           .doc(userId)
           .get();
 
+      print('🔍 USER SERVICE: Document exists: ${doc.exists}');
       if (doc.exists && doc.data() != null) {
-        return UserModel.fromMap(doc.data()!);
+        print('🔍 USER SERVICE: Document data: ${doc.data()}');
+        try {
+          final userModel = UserModel.fromMap(doc.data()!);
+          print(
+              '✅ USER SERVICE: Successfully parsed user: ${userModel.profile.firstName}');
+          return userModel;
+        } catch (parseError) {
+          print('🔴 USER SERVICE: Parse error in fromMap: $parseError');
+          print('🔴 USER SERVICE: Raw document data: ${doc.data()}');
+          rethrow;
+        }
       }
+      print('⚠️ USER SERVICE: Document not found or empty for user: $userId');
       return null;
     } catch (e) {
+      print('🔴 USER SERVICE: Failed to get user: $e');
       throw UserServiceException('Failed to get user: $e');
     }
   }

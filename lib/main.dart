@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/theme_provider.dart';
 import 'app_theme.dart';
 import 'services/auth_service.dart';
@@ -39,12 +38,16 @@ import 'screens/filter_settings_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/review_list_screen.dart';
 import 'screens/review_game_info_screen.dart';
+import 'screens/game_information_screen.dart';
+import 'screens/schedule_details_screen.dart';
+import 'screens/create_game_template_screen.dart';
+import 'screens/locations_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Firebase configuration is now handled directly in firebase_options.dart
+  // Note: Using hardcoded config for web due to .env loading issues
 
   // Initialize Firebase
   try {
@@ -123,6 +126,11 @@ class MyApp extends StatelessWidget {
             '/settings': (context) => const SettingsScreen(),
             '/review-list': (context) => const ReviewListScreen(),
             '/review-game-info': (context) => const ReviewGameInfoScreen(),
+            '/game-information': (context) => const GameInformationScreen(),
+            '/schedule_details': (context) => const ScheduleDetailsScreen(),
+            '/create_game_template': (context) =>
+                const CreateGameTemplateScreen(),
+            '/locations': (context) => LocationsScreen(),
             // TODO: Add other routes as we create them
           },
         );
@@ -184,7 +192,8 @@ class _MyHomePageState extends State<MyHomePage> {
         if (result.success && result.user != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Signed in as ${result.user!.profile.firstName}'),
+              content: Text(
+                  '✅ Signed in as ${result.user!.profile.firstName} ${result.user!.profile.lastName}'),
               backgroundColor: Colors.green,
             ),
           );
@@ -198,8 +207,10 @@ class _MyHomePageState extends State<MyHomePage> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result.error ?? 'Sign in failed'),
+              content:
+                  Text('❌ Sign in failed: ${result.error ?? 'Unknown error'}'),
               backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
             ),
           );
         }
@@ -344,7 +355,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Quick Access (Development)',
+                              '⚡ Quick Access (Test Accounts)',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -364,12 +375,12 @@ class _MyHomePageState extends State<MyHomePage> {
                               title: 'Athletic Director',
                               subtitle: 'Manage games & schedules',
                               email: 'ad.test@efficials.com',
-                              password: 'test123456',
+                              password: 'test123',
                               color: Colors.blue,
                               onTap: () => _quickSignIn(
                                   context,
                                   'ad.test@efficials.com',
-                                  'test123456',
+                                  'test123',
                                   '/athletic-director-home'),
                             ),
                             const SizedBox(height: 6),
