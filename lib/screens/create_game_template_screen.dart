@@ -23,11 +23,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   int? officialsRequired;
   bool hireAutomatically = false;
   String? method;
+  String? selectedOfficialList; // Store the selected officials list name
 
   // Include checkboxes for template fields (all start checked)
   bool includeSport = true;
-  bool includeScheduleName =
-      false; // Optional since templates can be used across schedules
   bool includeTime = true;
   bool includeLocation = true;
   bool includeLevelOfCompetition = true;
@@ -38,7 +37,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   // Dropdown data
   List<Map<String, dynamic>> locations = [];
-  List<Map<String, dynamic>> schedules = [];
   List<Map<String, dynamic>> officialLists = [];
   bool isLoadingDropdowns = true;
 
@@ -67,24 +65,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         print('📍 CreateGameTemplate: First location: ${locations.first}');
       }
 
-      // Load schedules
-      final scheduleData = await GameService().getSchedules();
-      schedules = scheduleData
-          .map((schedule) => {
-                'id': schedule['id'],
-                'name': schedule['name'],
-                'sport': schedule['sport'],
-              })
-          .toList();
-      print('📅 CreateGameTemplate: Loaded ${schedules.length} schedules');
-
       // Load official lists
       officialLists = await OfficialListService().fetchOfficialLists();
-      print(
-          '📋 CreateGameTemplate: Loaded ${officialLists.length} official lists');
-      if (officialLists.isNotEmpty) {
-        print('📋 CreateGameTemplate: First list: ${officialLists.first}');
-      }
 
       setState(() => isLoadingDropdowns = false);
     } catch (e) {
@@ -101,11 +83,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     'Volleyball'
   ];
   final List<String> competitionLevels = [
-    'Varsity',
+    'Grade School',
+    'Middle School',
+    'Underclass',
     'JV',
-    'Freshman',
-    'Sophomore',
-    'Club'
+    'Varsity',
+    'College',
+    'Adult'
   ];
   final List<String> genders = ['Boys', 'Girls', 'Co-ed'];
   final List<int> officialsOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -176,12 +160,18 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       return;
     }
 
+    if (method == 'use_list' && selectedOfficialList == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an officials list')),
+      );
+      return;
+    }
+
     // Prepare template data
     final templateData = {
       'name': _nameController.text,
       'includeSport': includeSport,
       if (includeSport) 'sport': sport,
-      'includeScheduleName': includeScheduleName,
       'includeTime': includeTime,
       if (includeTime && selectedTime != null)
         'time': {'hour': selectedTime!.hour, 'minute': selectedTime!.minute},
@@ -198,23 +188,33 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       'includeHireAutomatically': includeHireAutomatically,
       if (includeHireAutomatically) 'hireAutomatically': hireAutomatically,
       'method': method,
+      if (method == 'use_list') 'officialsListName': selectedOfficialList,
     };
 
     try {
+      debugPrint(
+          '🎯 CREATE TEMPLATE: About to save template: ${templateData['name']}');
+      debugPrint('🎯 CREATE TEMPLATE: Template data: $templateData');
+
       final result = await GameService().createTemplate(templateData);
 
       if (result != null) {
+        debugPrint(
+            '✅ CREATE TEMPLATE: Template saved successfully with ID: ${result['id']}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Template saved successfully!')),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, result); // Return the result
       } else {
+        debugPrint(
+            '❌ CREATE TEMPLATE: Failed to save template - result was null');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Failed to save template. Please try again.')),
         );
       }
     } catch (e) {
+      debugPrint('🔴 CREATE TEMPLATE: Error saving template: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving template: $e')),
       );
@@ -334,53 +334,6 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             return DropdownMenuItem(
                               value: sportName,
                               child: Text(sportName,
-                                  style: const TextStyle(color: Colors.white)),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Schedule Name - Dropdown (Optional)
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: includeScheduleName,
-                        onChanged: (value) => setState(
-                            () => includeScheduleName = value ?? false),
-                        activeColor: Colors.yellow,
-                        checkColor: Colors.black,
-                      ),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          decoration: InputDecoration(
-                            labelText: 'Schedule Name',
-                            labelStyle: const TextStyle(color: Colors.white),
-                            border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
-                              borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
-                            ),
-                            focusedBorder: const OutlineInputBorder(
-                              borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[900],
-                          ),
-                          value: null,
-                          hint: const Text('Select Schedule (Optional)',
-                              style: TextStyle(color: Colors.grey)),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
-                          dropdownColor: Colors.grey[900],
-                          onChanged: (newValue) => setState(() {}),
-                          items: schedules.map((schedule) {
-                            return DropdownMenuItem<String>(
-                              value: schedule['name'] as String,
-                              child: Text(schedule['name'] as String,
                                   style: const TextStyle(color: Colors.white)),
                             );
                           }).toList(),
@@ -762,7 +715,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   if (method == 'use_list') ...[
                     Row(
                       children: [
-                        const SizedBox(width: 24), // Align with checkbox space
+                        const SizedBox(
+                            width:
+                                36), // Slightly wider to the left for better alignment
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             decoration: InputDecoration(
@@ -780,13 +735,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               filled: true,
                               fillColor: Colors.grey[900],
                             ),
-                            value: null,
+                            value: selectedOfficialList,
                             hint: const Text('Choose a saved list',
                                 style: TextStyle(color: Colors.grey)),
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 16),
                             dropdownColor: Colors.grey[900],
-                            onChanged: (newValue) => setState(() {}),
+                            onChanged: (newValue) =>
+                                setState(() => selectedOfficialList = newValue),
                             items: isLoadingDropdowns
                                 ? [
                                     const DropdownMenuItem<String>(
@@ -799,17 +755,17 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                     ? [
                                         const DropdownMenuItem<String>(
                                           value: null,
-                                          child: Text('No official lists found',
+                                          child: Text(
+                                              'No official lists found - Create one first!',
                                               style: TextStyle(
                                                   color: Colors.grey)),
                                         )
                                       ]
                                     : officialLists.map((list) {
-                                        print(
-                                            '📋 Dropdown item: ${list['name']}');
+                                        final listName = list['name'] as String;
                                         return DropdownMenuItem<String>(
-                                          value: list['name'] as String,
-                                          child: Text(list['name'] as String,
+                                          value: listName,
+                                          child: Text(listName,
                                               style: const TextStyle(
                                                   color: Colors.white)),
                                         );
@@ -821,7 +777,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   ] else if (method == 'advanced') ...[
                     Row(
                       children: [
-                        const SizedBox(width: 24), // Align with checkbox space
+                        const SizedBox(
+                            width:
+                                36), // Slightly wider to the left for better alignment
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.all(12),
@@ -850,7 +808,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   ] else if (method == 'hire_crew') ...[
                     Row(
                       children: [
-                        const SizedBox(width: 24), // Align with checkbox space
+                        const SizedBox(
+                            width:
+                                36), // Slightly wider to the left for better alignment
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.all(12),

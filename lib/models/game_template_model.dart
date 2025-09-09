@@ -9,8 +9,6 @@ class GameTemplateModel {
   final DateTime createdAt;
 
   // Basic game details
-  final bool includeScheduleName;
-  final String? scheduleName;
   final bool includeDate;
   final DateTime? date;
   final bool includeTime;
@@ -49,8 +47,6 @@ class GameTemplateModel {
     this.includeSport = true,
     this.description,
     required this.createdAt,
-    this.includeScheduleName = false,
-    this.scheduleName,
     this.includeDate = false,
     this.date,
     this.includeTime = false,
@@ -89,8 +85,6 @@ class GameTemplateModel {
       includeSport: json['includeSport'] as bool? ?? true,
       description: json['description'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      includeScheduleName: json['includeScheduleName'] as bool? ?? false,
-      scheduleName: json['scheduleName'] as String?,
       includeDate: json['includeDate'] as bool? ?? false,
       date:
           json['date'] != null ? DateTime.parse(json['date'] as String) : null,
@@ -146,8 +140,6 @@ class GameTemplateModel {
       'includeSport': includeSport,
       'description': description,
       'createdAt': createdAt.toIso8601String(),
-      'includeScheduleName': includeScheduleName,
-      'scheduleName': scheduleName,
       'includeDate': includeDate,
       'date': date?.toIso8601String(),
       'includeTime': includeTime,
@@ -187,8 +179,6 @@ class GameTemplateModel {
     bool? includeSport,
     String? description,
     DateTime? createdAt,
-    bool? includeScheduleName,
-    String? scheduleName,
     bool? includeDate,
     DateTime? date,
     bool? includeTime,
@@ -225,8 +215,6 @@ class GameTemplateModel {
       includeSport: includeSport ?? this.includeSport,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
-      includeScheduleName: includeScheduleName ?? this.includeScheduleName,
-      scheduleName: scheduleName ?? this.scheduleName,
       includeDate: includeDate ?? this.includeDate,
       date: date ?? this.date,
       includeTime: includeTime ?? this.includeTime,

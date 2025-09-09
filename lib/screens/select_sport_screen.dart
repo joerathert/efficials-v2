@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/form_section.dart';
-import '../widgets/standard_button.dart';
 
 class SelectSportScreen extends StatefulWidget {
   const SelectSportScreen({super.key});
@@ -34,12 +32,21 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
 
   void _handleContinue() {
     if (selectedSport != null) {
-      Navigator.pushNamed(
-        context,
-        '/name-schedule',
-        arguments: {'sport': selectedSport},
-      );
-      // No need to handle result here since NameScheduleScreen navigates directly back
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final fromListsScreen = args?['fromListsScreen'] == true;
+
+      if (fromListsScreen) {
+        // Return the selected sport to the lists screen
+        Navigator.pop(context, selectedSport);
+      } else {
+        // Normal flow - navigate to name schedule
+        Navigator.pushNamed(
+          context,
+          '/name-schedule',
+          arguments: {'sport': selectedSport},
+        );
+      }
     }
   }
 
@@ -47,9 +54,12 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final fromListsScreen = args?['fromListsScreen'] == true;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Icon(
@@ -69,7 +79,7 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 550),
+            constraints: const BoxConstraints(maxWidth: 400),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -89,7 +99,9 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Choose the sport for your new schedule',
+                    fromListsScreen
+                        ? 'Choose the sport for your new list of officials'
+                        : 'Choose the sport for your new schedule',
                     style: TextStyle(
                       fontSize: 16,
                       color: colorScheme.onSurfaceVariant,
@@ -97,64 +109,115 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  FormSection(
-                    children: [
-                      DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: 'Select a sport',
-                          labelStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.primary,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: colorScheme.surface,
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.shadow.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                        value: selectedSport,
-                        dropdownColor: colorScheme.surface,
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 16,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Choose your sport',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        onChanged: (newValue) {
-                          setState(() {
-                            selectedSport = newValue;
-                          });
-                        },
-                        items: sports.map((sport) {
-                          return DropdownMenuItem(
-                            value: sport,
-                            child: Text(
-                              sport,
-                              style: TextStyle(color: colorScheme.onSurface),
+                        const SizedBox(height: 24),
+                        DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: 'Select a sport',
+                            labelStyle: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.primary,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: colorScheme.surface,
+                          ),
+                          value: selectedSport,
+                          dropdownColor: colorScheme.surface,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                          ),
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedSport = newValue;
+                            });
+                          },
+                          items: sports.map((sport) {
+                            return DropdownMenuItem(
+                              value: sport,
+                              child: Text(
+                                sport,
+                                style: TextStyle(color: colorScheme.onSurface),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 40),
-                  StandardButton(
-                    text: 'Continue',
-                    onPressed: selectedSport != null ? _handleContinue : null,
-                    enabled: selectedSport != null,
+                  SizedBox(
+                    width: 400,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: selectedSport != null ? _handleContinue : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedSport != null
+                            ? colorScheme.primary
+                            : colorScheme.surfaceVariant,
+                        foregroundColor: selectedSport != null
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 32,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: selectedSport != null
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],

@@ -58,42 +58,50 @@ class OfficialService extends BaseService {
 
         // IHSA level filter - check sport-specific data
         if (ihsaLevel != null) {
+          debugPrint(
+              '🔍 Checking IHSA level for ${data['email']} - filtering for: $ihsaLevel');
+
+          // First try sport-specific data
           final sportsData =
               officialProfile['sportsData'] as Map<String, dynamic>?;
-          if (sportsData == null) {
+          String? officialIhsaLevel;
+
+          if (sportsData != null) {
+            debugPrint(
+                '🔍 Official ${data['email']} sportsData keys: ${sportsData.keys.toList()}');
+
+            // Check the sport-specific data
+            final sportData = sportsData[sport] as Map<String, dynamic>?;
+            if (sportData != null) {
+              debugPrint(
+                  '🔍 Official ${data['email']} sport data keys: ${sportData.keys.toList()}');
+              officialIhsaLevel = sportData['certification'];
+              debugPrint(
+                  '✅ Found sport-specific certification: $officialIhsaLevel');
+            } else {
+              debugPrint(
+                  '❌ Official ${data['email']} has no data for sport: $sport');
+              debugPrint('   Available sports: ${sportsData.keys.toList()}');
+            }
+          } else {
             debugPrint('❌ Official ${data['email']} has no sportsData');
-            debugPrint(
-                '🔍 Official ${data['email']} officialProfile keys: ${officialProfile.keys.toList()}');
-            return false;
           }
 
-          debugPrint(
-              '🔍 Official ${data['email']} sportsData keys: ${sportsData.keys.toList()}');
-
-          // Check the sport-specific data
-          final sportData = sportsData[sport] as Map<String, dynamic>?;
-          if (sportData == null) {
-            debugPrint(
-                '❌ Official ${data['email']} has no data for sport: $sport');
-            debugPrint('   Available sports: ${sportsData.keys.toList()}');
-            return false;
+          // If no sport-specific certification, try top-level ihsaLevel
+          if (officialIhsaLevel == null) {
+            officialIhsaLevel =
+                data['ihsaLevel'] ?? officialProfile['ihsaLevel'];
+            debugPrint('🔄 Using top-level certification: $officialIhsaLevel');
           }
 
-          // Debug: Show the actual sport data structure
-          debugPrint(
-              '🔍 Official ${data['email']} sport data keys: ${sportData.keys.toList()}');
-          debugPrint(
-              '🔍 Official ${data['email']} full sport data: $sportData');
-
-          final officialIhsaLevel = sportData['certification'];
           if (officialIhsaLevel == null) {
             debugPrint(
-                '❌ Official ${data['email']} has no certification for $sport');
+                '❌ Official ${data['email']} has no certification data at all');
             return false;
           }
 
           debugPrint(
-              '✅ Official ${data['email']} certification: $officialIhsaLevel (filtering for: $ihsaLevel)');
+              '✅ Official ${data['email']} final certification: $officialIhsaLevel (filtering for: $ihsaLevel)');
 
           // Handle different certification formats
           final normalizedIhsaLevel =
@@ -161,39 +169,47 @@ class OfficialService extends BaseService {
           }
         }
 
-        // Competition levels filter - check sport-specific data
+        // Competition levels filter - check sport-specific data first, then top-level
         if (levels != null && levels.isNotEmpty) {
+          debugPrint(
+              '🔍 Checking competition levels for ${data['email']} - required: $levels');
+
+          List<dynamic>? officialLevels;
+
+          // First try sport-specific competition levels
           final sportsData =
               officialProfile['sportsData'] as Map<String, dynamic>?;
-          if (sportsData == null) {
-            debugPrint(
-                '❌ Official ${data['email']} has no sportsData for competition levels filter');
-            return false;
+          if (sportsData != null) {
+            final sportData = sportsData[sport] as Map<String, dynamic>?;
+            if (sportData != null) {
+              officialLevels = sportData['competitionLevels'] as List<dynamic>?;
+              debugPrint(
+                  '✅ Found sport-specific competition levels: $officialLevels');
+            }
           }
 
-          final sportData = sportsData[sport] as Map<String, dynamic>?;
-          if (sportData == null) {
+          // If no sport-specific levels, try top-level competition levels
+          if (officialLevels == null || officialLevels.isEmpty) {
+            officialLevels =
+                officialProfile['competitionLevels'] as List<dynamic>?;
             debugPrint(
-                '❌ Official ${data['email']} has no data for sport: $sport (competition levels filter)');
-            return false;
+                '🔄 Using top-level competition levels: $officialLevels');
           }
 
-          final officialLevels =
-              sportData['competitionLevels'] as List<dynamic>?;
           if (officialLevels == null || officialLevels.isEmpty) {
             debugPrint(
-                '❌ Official ${data['email']} has no competitionLevels for $sport');
+                '❌ Official ${data['email']} has no competition levels data');
             return false;
           }
 
           debugPrint(
-              '✅ Official ${data['email']} competition levels: $officialLevels');
+              '✅ Official ${data['email']} final competition levels: $officialLevels');
           debugPrint('   Required levels: $levels');
 
           // Check if the official has at least one of the required competition levels
           // Handle both full names (e.g., "Varsity (17U-18U)") and short names (e.g., "Varsity")
           final hasRequiredLevel = levels.any((requiredLevel) {
-            return officialLevels.any((officialLevel) {
+            return officialLevels!.any((officialLevel) {
               // Check for exact match first
               if (officialLevel == requiredLevel) return true;
 

@@ -35,6 +35,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
+    print(
+        '📱 ListsOfOfficialsScreen: didChangeDependencies called with args=$args');
     if (args != null) {
       setState(() {
         // Show green arrow during game creation flow (unless explicitly from hamburger menu)
@@ -154,6 +156,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final sport = args?['sport'] as String? ?? 'Unknown Sport';
     final fromTemplateCreation = args?['fromTemplateCreation'] == true;
+
+    print(
+        '🔍 ListsOfOfficialsScreen: build() called, sport="$sport", args=$args');
 
     // Filter out special items for the main list display
     List<Map<String, dynamic>> actualLists =
@@ -277,24 +282,86 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                             height: 50,
                                             child: ElevatedButton.icon(
                                               onPressed: () {
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  '/name-list',
-                                                  arguments: {
-                                                    'sport': sport,
-                                                    'existingLists': <String>[],
-                                                    // Pass through game creation context
-                                                    ...?args,
-                                                  },
-                                                ).then((result) {
-                                                  if (result != null &&
-                                                      mounted) {
-                                                    // Handle the result when a list is created
-                                                    _handleNewListFromReview(
-                                                        result as Map<String,
-                                                            dynamic>);
-                                                  }
-                                                });
+                                                // Re-evaluate sport from current args at button press time
+                                                final currentArgs = ModalRoute
+                                                            .of(context)!
+                                                        .settings
+                                                        .arguments
+                                                    as Map<String, dynamic>?;
+                                                final currentSport =
+                                                    currentArgs?['sport']
+                                                            as String? ??
+                                                        'Unknown Sport';
+                                                print(
+                                                    '🔍 ListsOfOfficials: Create New List pressed');
+                                                print(
+                                                    '   - Build time sport: "$sport"');
+                                                print(
+                                                    '   - Current sport: "$currentSport"');
+                                                print(
+                                                    '   - Current args: $currentArgs');
+
+                                                if (currentSport ==
+                                                    'Unknown Sport') {
+                                                  // Not in game creation flow - need to select sport first
+                                                  print(
+                                                      '🔄 ListsOfOfficials: Navigating to select sport screen');
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    '/select-sport',
+                                                    arguments: {
+                                                      'fromListsScreen': true,
+                                                      'existingLists':
+                                                          <String>[],
+                                                    },
+                                                  ).then((sportResult) {
+                                                    if (sportResult != null &&
+                                                        sportResult is String &&
+                                                        mounted) {
+                                                      // Now navigate to name list with the selected sport
+                                                      Navigator.pushNamed(
+                                                        context,
+                                                        '/name-list',
+                                                        arguments: {
+                                                          'sport': sportResult,
+                                                          'existingLists':
+                                                              <String>[],
+                                                          'fromListsScreen':
+                                                              true,
+                                                        },
+                                                      ).then((result) {
+                                                        if (result != null &&
+                                                            mounted) {
+                                                          _handleNewListFromReview(
+                                                              result as Map<
+                                                                  String,
+                                                                  dynamic>);
+                                                        }
+                                                      });
+                                                    }
+                                                  });
+                                                } else {
+                                                  // Already in game creation flow with sport selected - go directly to name list
+                                                  print(
+                                                      '🔄 ListsOfOfficials: Going directly to name list with sport="$currentSport"');
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    '/name-list',
+                                                    arguments: {
+                                                      'sport': currentSport,
+                                                      'existingLists':
+                                                          <String>[],
+                                                      ...?args,
+                                                    },
+                                                  ).then((result) {
+                                                    if (result != null &&
+                                                        mounted) {
+                                                      _handleNewListFromReview(
+                                                          result as Map<String,
+                                                              dynamic>);
+                                                    }
+                                                  });
+                                                }
                                               },
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor:
@@ -303,8 +370,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                     colorScheme.onPrimary,
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        vertical: 15,
-                                                        horizontal: 32),
+                                                  vertical: 15,
+                                                  horizontal: 32,
+                                                ),
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius:
                                                       BorderRadius.circular(8),
@@ -485,25 +553,80 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                 height: 50,
                                 child: ElevatedButton.icon(
                                   onPressed: () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/name-list',
-                                      arguments: {
-                                        'sport': sport,
-                                        'existingLists': actualLists
-                                            .map((list) =>
-                                                list['name'] as String)
-                                            .toList(),
-                                        // Pass through game creation context
-                                        ...?args,
-                                      },
-                                    ).then((result) {
-                                      if (result != null && mounted) {
-                                        // Handle the result when a list is created
-                                        _handleNewListFromReview(
-                                            result as Map<String, dynamic>);
-                                      }
-                                    });
+                                    // Re-evaluate sport from current args at button press time
+                                    final currentArgs = ModalRoute.of(context)!
+                                        .settings
+                                        .arguments as Map<String, dynamic>?;
+                                    final currentSport =
+                                        currentArgs?['sport'] as String? ??
+                                            'Unknown Sport';
+                                    print(
+                                        '🔍 ListsOfOfficials: Bottom Create New List pressed');
+                                    print('   - Build time sport: "$sport"');
+                                    print(
+                                        '   - Current sport: "$currentSport"');
+                                    print('   - Current args: $currentArgs');
+
+                                    if (currentSport == 'Unknown Sport') {
+                                      // Not in game creation flow - need to select sport first
+                                      print(
+                                          '🔄 ListsOfOfficials: Bottom button - Navigating to select sport screen');
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/select-sport',
+                                        arguments: {
+                                          'fromListsScreen': true,
+                                          'existingLists': actualLists
+                                              .map((list) =>
+                                                  list['name'] as String)
+                                              .toList(),
+                                        },
+                                      ).then((sportResult) {
+                                        if (sportResult != null &&
+                                            sportResult is String &&
+                                            mounted) {
+                                          // Now navigate to name list with the selected sport
+                                          Navigator.pushNamed(
+                                            context,
+                                            '/name-list',
+                                            arguments: {
+                                              'sport': sportResult,
+                                              'existingLists': actualLists
+                                                  .map((list) =>
+                                                      list['name'] as String)
+                                                  .toList(),
+                                              'fromListsScreen': true,
+                                            },
+                                          ).then((result) {
+                                            if (result != null && mounted) {
+                                              _handleNewListFromReview(result
+                                                  as Map<String, dynamic>);
+                                            }
+                                          });
+                                        }
+                                      });
+                                    } else {
+                                      // Already in game creation flow with sport selected - go directly to name list
+                                      print(
+                                          '🔄 ListsOfOfficials: Bottom button - Going directly to name list with sport="$currentSport"');
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/name-list',
+                                        arguments: {
+                                          'sport': currentSport,
+                                          'existingLists': actualLists
+                                              .map((list) =>
+                                                  list['name'] as String)
+                                              .toList(),
+                                          ...?currentArgs,
+                                        },
+                                      ).then((result) {
+                                        if (result != null && mounted) {
+                                          _handleNewListFromReview(
+                                              result as Map<String, dynamic>);
+                                        }
+                                      });
+                                    }
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: colorScheme.primary,

@@ -71,8 +71,15 @@ class _NameListScreenState extends State<NameListScreen> {
     final colorScheme = theme.colorScheme;
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final sport = args?['sport'] as String? ?? 'Football';
+    String? sport = args?['sport'] as String?;
     final existingLists = args?['existingLists'] as List<String>? ?? [];
+    final fromListsScreen = args?['fromListsScreen'] == true;
+
+    // If no sport is provided and we're coming from lists screen, this shouldn't happen
+    // but provide a fallback just in case
+    if (sport == null && fromListsScreen) {
+      sport = 'Football'; // Default fallback
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -136,7 +143,9 @@ class _NameListScreenState extends State<NameListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Name your list of $sport officials',
+                            sport != null && sport != 'Unknown Sport'
+                                ? 'Name your list of $sport officials'
+                                : 'Name your list of officials',
                             style: TextStyle(
                               fontSize: 18,
                               color: colorScheme.onSurface,
@@ -147,7 +156,10 @@ class _NameListScreenState extends State<NameListScreen> {
                           TextField(
                             controller: _nameController,
                             decoration: InputDecoration(
-                              hintText: 'Ex. Varsity $sport Officials',
+                              hintText:
+                                  sport != null && sport != 'Unknown Sport'
+                                      ? 'Ex. Varsity $sport Officials'
+                                      : 'Ex. Varsity Football Officials',
                               hintStyle: TextStyle(
                                 color: colorScheme.onSurfaceVariant,
                                 fontSize: 16,

@@ -76,9 +76,6 @@ class OfficialListService extends BaseService {
           .orderBy('updatedAt', descending: true)
           .get();
 
-      print(
-          '📊 OfficialListService: Firestore query returned ${snapshot.docs.length} documents');
-
       final lists = snapshot.docs.map((doc) {
         final data = doc.data();
         print(

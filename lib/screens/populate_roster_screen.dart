@@ -37,22 +37,17 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       sport = args['sport'] as String?;
       listName = args['listName'] as String?;
       isFromGameCreation = args['fromGameCreation'] == true;
+      // Also handle lists screen flow
+      final fromListsScreen = args['fromListsScreen'] == true;
+      if (fromListsScreen && !isFromGameCreation) {
+        isFromGameCreation =
+            false; // Not from game creation, but from lists screen
+      }
     }
   }
 
   void _applyFilters(Map<String, dynamic>? filterSettings) {
     if (filterSettings != null) {
-      // Debug prints for filter application
-      const bool debugEnabled = true; // Set to true to enable debug prints
-      if (debugEnabled) {
-        print('🎯 PopulateRoster: Applying filters:');
-        print('   Sport: ${filterSettings['sport']}');
-        print('   IHSA Level: ${filterSettings['ihsaLevel']}');
-        print('   Min Years: ${filterSettings['minYears']}');
-        print('   Levels: ${filterSettings['levels']}');
-        print('   Radius: ${filterSettings['radius']}');
-      }
-
       setState(() {
         isLoading = true;
         hasAppliedFilters = true;
@@ -71,11 +66,6 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       )
           .then((results) {
         if (mounted) {
-          if (debugEnabled) {
-            print(
-                '📊 PopulateRoster: Received ${results.length} filtered results');
-          }
-
           setState(() {
             officials = results;
             filteredOfficials = List.from(results);
@@ -137,6 +127,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
             {};
 
+    final fromListsScreen = args['fromListsScreen'] == true;
+
     final reviewArgs = {
       ...args,
       'selectedOfficials': selected,
@@ -144,8 +136,13 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       'sport': sport,
     };
 
-    // Navigate to Review List screen
-    Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
+    if (fromListsScreen) {
+      // Coming from lists screen - navigate to review list screen
+      Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
+    } else {
+      // Coming from game creation - navigate to review list screen
+      Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
+    }
   }
 
   Widget _buildOfficialsList() {

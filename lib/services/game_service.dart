@@ -13,8 +13,8 @@ class GameService extends BaseService {
   GameService._internal();
   factory GameService() => _instance;
 
-  // Debug flag - set to false to reduce console noise
-  static const bool _debugEnabled = false;
+  // Debug flag - temporarily enabled for debugging template issues
+  static const bool _debugEnabled = true;
 
   // Helper method for conditional debug prints
   @override
@@ -39,6 +39,7 @@ class GameService extends BaseService {
           '🔍 GAME SERVICE: Fetching templates for user: $currentUserId');
 
       // Query Firebase for templates created by the current user
+      // Note: This query requires a composite index on (createdBy, createdAt)
       final querySnapshot = await firestore
           .collection(FirebaseCollections.gameTemplates)
           .where(FirebaseFields.createdBy, isEqualTo: currentUserId)
