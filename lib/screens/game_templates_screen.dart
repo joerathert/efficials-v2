@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart'; // We'll create this
@@ -16,11 +17,40 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   bool isLoading = true;
   List<String> sports = [];
   Map<String, List<GameTemplateModel>> groupedTemplates = {};
+  String? expandedTemplateId;
+
+  // For schedule association
+  String? scheduleName;
+  String? sport;
+  bool isFromScheduleDetails = false;
 
   @override
   void initState() {
     super.initState();
     _fetchTemplates();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Get arguments from navigation
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      scheduleName = args['scheduleName'] as String?;
+      sport = args['sport'] as String?;
+      isFromScheduleDetails = scheduleName != null;
+
+      debugPrint(
+          '🎯 TEMPLATES SCREEN: From schedule details: $isFromScheduleDetails');
+      debugPrint('🎯 TEMPLATES SCREEN: Schedule: $scheduleName, Sport: $sport');
+
+      // Refresh templates with filtering if needed
+      if (isFromScheduleDetails) {
+        _fetchTemplates();
+      }
+    }
   }
 
   Future<void> _fetchTemplates() async {
@@ -37,6 +67,18 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
             .where((template) =>
                 template.id != '1' && template.id != '2' && template.id != '3')
             .toList(); // Filter out mock templates
+
+        // Apply sport filtering if coming from schedule details
+        if (isFromScheduleDetails && sport != null && sport != 'Unknown') {
+          templates = templates.where((template) {
+            // Include templates that don't specify a sport, or match the schedule's sport
+            return !template.includeSport ||
+                template.sport == null ||
+                template.sport == sport;
+          }).toList();
+          debugPrint(
+              '🎯 TEMPLATES SCREEN: Filtered by sport "$sport": ${templates.length} templates');
+        }
 
         debugPrint(
             '📋 TEMPLATES SCREEN: After filtering: ${templates.length} templates');
@@ -172,26 +214,189 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
 
   Future<void> _useTemplate(GameTemplateModel template) async {
     try {
-      // Navigate to date/time screen with template
-      Navigator.pushNamed(
-        context,
-        '/date-time',
-        arguments: {
-          'sport': template.sport,
-          'template': template,
-        },
-      );
+      debugPrint('🎯 Using template: ${template.name}');
+
+      // Check if we're associating template with schedule or creating new game
+      if (isFromScheduleDetails && scheduleName != null) {
+        debugPrint(
+            '🎯 TEMPLATES SCREEN: Associating template with schedule: $scheduleName');
+
+        // Associate template with schedule in Firestore
+        final gameService = GameService();
+        await gameService.saveTemplateAssociation(
+          scheduleName!,
+          template.id,
+          template.toJson(),
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Template "${template.name}" associated with schedule "$scheduleName"'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate back to schedule details
+          Navigator.pop(context, true);
+        }
+      } else {
+        debugPrint('📋 Template config:');
+        debugPrint(
+            '   - Location: ${template.includeLocation && template.location != null ? template.location : 'not set'}');
+        debugPrint(
+            '   - Time: ${template.includeTime && template.time != null ? template.time!.format(context) : 'not set'}');
+        debugPrint(
+            '   - Date: ${template.includeDate && template.date != null ? template.date : 'not set'}');
+        debugPrint(
+            '   - Include flags: Date=${template.includeDate}, Time=${template.includeTime}, Location=${template.includeLocation}');
+
+        // Always start with schedule selection - every game needs a schedule
+        debugPrint(
+            '📅 Starting with schedule selection for template: ${template.name}');
+        Navigator.pushNamed(
+          context,
+          '/select-schedule',
+          arguments: {
+            'sport': template.sport,
+            'template': template,
+          },
+        );
+      }
     } catch (e) {
-      // Fallback to select schedule screen
-      Navigator.pushNamed(
-        context,
-        '/select-schedule',
-        arguments: {
-          'sport': template.sport,
-          'template': template,
-        },
-      );
+      debugPrint('🔴 Error using template: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
+  }
+
+  Widget _buildTemplateDetails(GameTemplateModel template) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Template Details',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Basic Information
+        if (template.includeDate && template.date != null)
+          _buildDetailRow(
+              'Date', DateFormat('EEEE, MMMM d, y').format(template.date!)),
+
+        if (template.includeTime && template.time != null)
+          _buildDetailRow('Time', template.time!.format(context)),
+
+        if (template.includeLocation && template.location?.isNotEmpty == true)
+          _buildDetailRow('Location', template.location!),
+
+        if (template.includeOpponent && template.opponent?.isNotEmpty == true)
+          _buildDetailRow('Opponent', template.opponent!),
+
+        if (template.includeLevelOfCompetition &&
+            template.levelOfCompetition?.isNotEmpty == true)
+          _buildDetailRow('Level', template.levelOfCompetition!),
+
+        if (template.includeGender && template.gender?.isNotEmpty == true)
+          _buildDetailRow('Gender', template.gender!),
+
+        if (template.includeOfficialsRequired &&
+            template.officialsRequired != null)
+          _buildDetailRow(
+              'Officials Required', '${template.officialsRequired}'),
+
+        if (template.includeGameFee && template.gameFee?.isNotEmpty == true)
+          _buildDetailRow('Game Fee', '\$${template.gameFee}'),
+
+        if (template.includeHireAutomatically &&
+            template.hireAutomatically != null)
+          _buildDetailRow(
+              'Auto Hire', template.hireAutomatically! ? 'Yes' : 'No'),
+
+        // Officials Information
+        if (template.method != null) ...[
+          const SizedBox(height: 8),
+          const Divider(color: Colors.grey, thickness: 0.5),
+          const SizedBox(height: 8),
+          const Text(
+            'Officials Assignment',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildDetailRow('Method', _getMethodDisplayName(template.method)),
+        ],
+
+        // Show officials list name if method is use_list
+        if (template.method == 'use_list' &&
+            template.officialsListName?.isNotEmpty == true)
+          _buildDetailRow('Selected List', template.officialsListName!),
+
+        const SizedBox(height: 8),
+        Text(
+          'Created: ${template.createdAt.toString().split(' ')[0]}',
+          style: TextStyle(
+            fontSize: 12,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getMethodDisplayName(String? method) {
+    switch (method) {
+      case 'use_list':
+        return 'Single List';
+      case 'standard':
+        return 'Standard Selection';
+      case 'advanced':
+        return 'Multiple Lists';
+      case 'hire_crew':
+        return 'Hire a Crew';
+      default:
+        return 'Not Set';
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 16),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -349,6 +554,9 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                       itemCount: templates.length,
                                       itemBuilder: (context, index) {
                                         final template = templates[index];
+                                        final isExpanded =
+                                            expandedTemplateId == template.id;
+
                                         return Padding(
                                           padding: const EdgeInsets.only(
                                               bottom: 12.0),
@@ -366,129 +574,214 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                 ),
                                               ],
                                             ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(16),
-                                              child: Row(
-                                                children: [
-                                                  Container(
+                                            child: Column(
+                                              children: [
+                                                // Header section - always visible
+                                                InkWell(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      expandedTemplateId =
+                                                          isExpanded
+                                                              ? null
+                                                              : template.id;
+                                                    });
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: Padding(
                                                     padding:
                                                         const EdgeInsets.all(
-                                                            12),
-                                                    decoration: BoxDecoration(
-                                                      color: colorScheme.primary
-                                                          .withOpacity(0.1),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                    ),
-                                                    child: Icon(
-                                                      Icons.description,
-                                                      color:
-                                                          colorScheme.primary,
-                                                      size: 24,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 16),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
+                                                            16),
+                                                    child: Row(
                                                       children: [
-                                                        Text(
-                                                          template.name,
-                                                          style: TextStyle(
-                                                            fontSize: 18,
-                                                            fontWeight:
-                                                                FontWeight.bold,
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(12),
+                                                          decoration:
+                                                              BoxDecoration(
                                                             color: colorScheme
-                                                                .onSurface,
+                                                                .primary
+                                                                .withOpacity(
+                                                                    0.1),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                          ),
+                                                          child: Icon(
+                                                            Icons.description,
+                                                            color: colorScheme
+                                                                .primary,
+                                                            size: 24,
                                                           ),
                                                         ),
                                                         const SizedBox(
-                                                            height: 4),
-                                                        Text(
-                                                          template.sport ??
-                                                              'Unknown Sport',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            color: colorScheme
-                                                                .onSurfaceVariant,
+                                                            width: 16),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Row(
+                                                                children: [
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      template
+                                                                          .name,
+                                                                      style:
+                                                                          TextStyle(
+                                                                        fontSize:
+                                                                            18,
+                                                                        fontWeight:
+                                                                            FontWeight.bold,
+                                                                        color: colorScheme
+                                                                            .onSurface,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  // Expand/collapse caret icon
+                                                                  Container(
+                                                                    padding:
+                                                                        const EdgeInsets
+                                                                            .all(
+                                                                            4),
+                                                                    decoration:
+                                                                        BoxDecoration(
+                                                                      color: colorScheme
+                                                                          .primary
+                                                                          .withOpacity(
+                                                                              0.1),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              4),
+                                                                    ),
+                                                                    child: Icon(
+                                                                      isExpanded
+                                                                          ? Icons
+                                                                              .expand_less
+                                                                          : Icons
+                                                                              .expand_more,
+                                                                      color: colorScheme
+                                                                          .primary,
+                                                                      size: 16,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 4),
+                                                              Text(
+                                                                template.sport ??
+                                                                    'Unknown Sport',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 14,
+                                                                  color: colorScheme
+                                                                      .onSurfaceVariant,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 8),
+                                                            ],
                                                           ),
                                                         ),
-                                                        if (template
-                                                                .description !=
-                                                            null) ...[
-                                                          const SizedBox(
-                                                              height: 4),
-                                                          Text(
-                                                            template
-                                                                .description!,
-                                                            style: TextStyle(
-                                                              fontSize: 14,
-                                                              color: colorScheme
-                                                                  .onSurfaceVariant,
+                                                        const SizedBox(
+                                                            width: 12),
+                                                        // Action buttons column
+                                                        Column(
+                                                          children: [
+                                                            IconButton(
+                                                              onPressed: () {
+                                                                _useTemplate(
+                                                                    template);
+                                                              },
+                                                              icon: Icon(
+                                                                Icons
+                                                                    .arrow_forward,
+                                                                color: Colors
+                                                                    .green,
+                                                                size: 20,
+                                                              ),
+                                                              tooltip:
+                                                                  'Use Template',
                                                             ),
-                                                          ),
-                                                        ],
+                                                            IconButton(
+                                                              onPressed: () {
+                                                                // TODO: Navigate to edit template screen
+                                                                ScaffoldMessenger.of(
+                                                                        context)
+                                                                    .showSnackBar(
+                                                                  const SnackBar(
+                                                                      content: Text(
+                                                                          'Edit template coming soon!')),
+                                                                );
+                                                              },
+                                                              icon: Icon(
+                                                                Icons.edit,
+                                                                color:
+                                                                    colorScheme
+                                                                        .primary,
+                                                                size: 20,
+                                                              ),
+                                                              tooltip:
+                                                                  'Edit Template',
+                                                            ),
+                                                            IconButton(
+                                                              onPressed: () {
+                                                                _showDeleteConfirmationDialog(
+                                                                    template
+                                                                        .name,
+                                                                    template);
+                                                              },
+                                                              icon: Icon(
+                                                                Icons
+                                                                    .delete_outline,
+                                                                color: Colors
+                                                                    .red
+                                                                    .shade600,
+                                                                size: 20,
+                                                              ),
+                                                              tooltip:
+                                                                  'Delete Template',
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
-                                                  Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      IconButton(
-                                                        onPressed: () {
-                                                          _useTemplate(
-                                                              template);
-                                                        },
-                                                        icon: Icon(
-                                                          Icons.arrow_forward,
-                                                          color: Colors.green,
-                                                          size: 20,
-                                                        ),
-                                                        tooltip: 'Use Template',
-                                                      ),
-                                                      IconButton(
-                                                        onPressed: () {
-                                                          // TODO: Navigate to edit template screen
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            const SnackBar(
-                                                                content: Text(
-                                                                    'Edit template coming soon!')),
-                                                          );
-                                                        },
-                                                        icon: Icon(
-                                                          Icons.edit,
-                                                          color: colorScheme
-                                                              .primary,
-                                                          size: 20,
-                                                        ),
-                                                        tooltip:
-                                                            'Edit Template',
-                                                      ),
-                                                      IconButton(
-                                                        onPressed: () {
-                                                          _showDeleteConfirmationDialog(
-                                                              template.name,
-                                                              template);
-                                                        },
-                                                        icon: Icon(
-                                                          Icons.delete_outline,
-                                                          color: Colors
-                                                              .red.shade600,
-                                                          size: 20,
-                                                        ),
-                                                        tooltip:
-                                                            'Delete Template',
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
+                                                ),
+                                                // Expandable details section
+                                                AnimatedSize(
+                                                  duration: const Duration(
+                                                      milliseconds: 300),
+                                                  child: isExpanded
+                                                      ? Column(
+                                                          children: [
+                                                            const Divider(
+                                                              color:
+                                                                  Colors.grey,
+                                                              thickness: 0.5,
+                                                              height: 1,
+                                                            ),
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .fromLTRB(
+                                                                      16,
+                                                                      16,
+                                                                      16,
+                                                                      20),
+                                                              child:
+                                                                  _buildTemplateDetails(
+                                                                      template),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : const SizedBox.shrink(),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         );

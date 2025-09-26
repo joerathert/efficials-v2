@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/form_section.dart';
-import '../widgets/standard_button.dart';
 import '../services/game_service.dart';
 
 class NameScheduleScreen extends StatefulWidget {
@@ -60,7 +58,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
         !existingScheduleNames.contains(scheduleName);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Icon(
@@ -80,7 +78,7 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 550),
+            constraints: const BoxConstraints(maxWidth: 400),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -110,73 +108,133 @@ class _NameScheduleScreenState extends State<NameScheduleScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  FormSection(
-                    children: [
-                      TextFormField(
-                        controller: _scheduleNameController,
-                        decoration: InputDecoration(
-                          labelText: 'Schedule Name',
-                          hintText: 'e.g., Varsity Basketball',
-                          labelStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          errorText:
-                              existingScheduleNames.contains(scheduleName) &&
-                                      scheduleName.isNotEmpty
-                                  ? 'A schedule with this name already exists'
-                                  : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: colorScheme.primary,
-                              width: 2,
-                            ),
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.red,
-                              width: 1,
-                            ),
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: Colors.red,
-                              width: 2,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: colorScheme.surface,
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.shadow.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 16,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Enter schedule details',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        onChanged: (value) {
-                          setState(() {});
-                        },
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        TextFormField(
+                          controller: _scheduleNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Schedule Name',
+                            hintText: 'e.g., Varsity Basketball',
+                            labelStyle: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            errorText:
+                                existingScheduleNames.contains(scheduleName) &&
+                                        scheduleName.isNotEmpty
+                                    ? 'A schedule with this name already exists'
+                                    : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: colorScheme.primary,
+                                width: 2,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.red,
+                                width: 1,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: colorScheme.surface,
+                          ),
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                          ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 40),
-                  StandardButton(
-                    text: 'Create Schedule',
-                    onPressed: isValidName ? _createSchedule : null,
-                    enabled: isValidName,
-                    isLoading: _isLoading,
+                  SizedBox(
+                    width: 400,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: isValidName ? _createSchedule : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isValidName
+                            ? colorScheme.primary
+                            : colorScheme.surfaceVariant,
+                        foregroundColor: isValidName
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 32,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Create Schedule',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isValidName
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],

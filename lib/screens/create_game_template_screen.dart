@@ -18,6 +18,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   final _gameFeeController = TextEditingController();
   String? sport;
   TimeOfDay? selectedTime;
+  String? selectedLocation; // Store the selected location
   String? levelOfCompetition;
   String? gender;
   int? officialsRequired;
@@ -138,6 +139,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       return;
     }
 
+    if (includeLocation && selectedLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a location')),
+      );
+      return;
+    }
+
     if (includeLevelOfCompetition && levelOfCompetition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a level of competition')),
@@ -176,6 +184,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       if (includeTime && selectedTime != null)
         'time': {'hour': selectedTime!.hour, 'minute': selectedTime!.minute},
       'includeLocation': includeLocation,
+      if (includeLocation && selectedLocation != null)
+        'location': selectedLocation,
       'includeLevelOfCompetition': includeLevelOfCompetition,
       if (includeLevelOfCompetition) 'levelOfCompetition': levelOfCompetition,
       'includeGender': includeGender,
@@ -188,12 +198,21 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       'includeHireAutomatically': includeHireAutomatically,
       if (includeHireAutomatically) 'hireAutomatically': hireAutomatically,
       'method': method,
+      'includeOfficialsList': method == 'use_list',
+      'includeSelectedOfficials': method == 'standard',
+      'includeSelectedLists': method == 'advanced',
+      'includeSelectedCrews': method == 'hire_crew',
       if (method == 'use_list') 'officialsListName': selectedOfficialList,
     };
 
     try {
       debugPrint(
           '🎯 CREATE TEMPLATE: About to save template: ${templateData['name']}');
+      debugPrint('🎯 CREATE TEMPLATE: Selected location: $selectedLocation');
+      debugPrint('🎯 CREATE TEMPLATE: Include location: $includeLocation');
+      debugPrint('🎯 CREATE TEMPLATE: Method: $method');
+      debugPrint(
+          '🎯 CREATE TEMPLATE: Selected officials list: $selectedOfficialList');
       debugPrint('🎯 CREATE TEMPLATE: Template data: $templateData');
 
       final result = await GameService().createTemplate(templateData);
@@ -413,13 +432,14 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             filled: true,
                             fillColor: Colors.grey[900],
                           ),
-                          value: null,
+                          value: selectedLocation,
                           hint: const Text('Select Location',
                               style: TextStyle(color: Colors.grey)),
                           style: const TextStyle(
                               color: Colors.white, fontSize: 16),
                           dropdownColor: Colors.grey[800],
-                          onChanged: (newValue) => setState(() {}),
+                          onChanged: (newValue) =>
+                              setState(() => selectedLocation = newValue),
                           items: locations.map((location) {
                             print(
                                 '🏠 Location dropdown item: ${location['name']}');

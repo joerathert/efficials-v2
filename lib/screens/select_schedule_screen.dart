@@ -181,7 +181,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -211,7 +211,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
+                        color: colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -357,7 +357,6 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                   ),
                                 ),
                           const SizedBox(height: 40),
-                          const SizedBox(height: 20),
                           SizedBox(
                             width: 400,
                             height: 50,
@@ -382,26 +381,56 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                           'scheduleName': selectedSchedule,
                                           'sport': selected['sport'],
                                           'template': template,
+                                          'prepopulateTime': template != null &&
+                                              template!.includeTime &&
+                                              template!.time != null,
+                                          'time': template?.time,
+                                          'skipLocation': template != null &&
+                                              template!.includeLocation &&
+                                              template!.location != null &&
+                                              template!.location!.isNotEmpty,
                                         },
                                       );
+                                      debugPrint(
+                                          '🎯 SELECT_SCHEDULE: Navigation to date-time');
+                                      debugPrint(
+                                          '🎯 SELECT_SCHEDULE: prepopulateTime: ${template != null && template!.includeTime && template!.time != null}');
+                                      debugPrint(
+                                          '🎯 SELECT_SCHEDULE: skipLocation: ${template != null && template!.includeLocation && template!.location != null && template!.location!.isNotEmpty}');
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                disabledBackgroundColor: Colors.grey[600],
-                                disabledForegroundColor: Colors.grey[300],
+                                backgroundColor: (selectedSchedule == null ||
+                                        selectedSchedule ==
+                                            'No schedules available' ||
+                                        selectedSchedule ==
+                                            '+ Create new schedule')
+                                    ? colorScheme.surfaceVariant
+                                    : colorScheme.primary,
+                                foregroundColor: (selectedSchedule == null ||
+                                        selectedSchedule ==
+                                            'No schedules available' ||
+                                        selectedSchedule ==
+                                            '+ Create new schedule')
+                                    ? colorScheme.onSurfaceVariant
+                                    : colorScheme.onPrimary,
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 15, horizontal: 50),
+                                    vertical: 16, horizontal: 32),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               child: Text(
                                 'Continue',
                                 style: TextStyle(
-                                  color: colorScheme.onPrimary,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
+                                  color: (selectedSchedule == null ||
+                                          selectedSchedule ==
+                                              'No schedules available' ||
+                                          selectedSchedule ==
+                                              '+ Create new schedule')
+                                      ? colorScheme.onSurfaceVariant
+                                      : colorScheme.onPrimary,
                                 ),
                               ),
                             ),
@@ -426,17 +455,17 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                       backgroundColor: Colors.red,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 15, horizontal: 50),
+                                          vertical: 16, horizontal: 32),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
                                     child: Text(
                                       'Delete',
                                       style: TextStyle(
-                                        color: Colors.white,
                                         fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
                                       ),
                                     ),
                                   ),

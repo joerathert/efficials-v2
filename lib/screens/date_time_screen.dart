@@ -16,6 +16,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   GameTemplateModel? template;
   String? scheduleName;
   String? sport;
+  bool prepopulateTime = false;
+  bool skipLocation = false;
 
   @override
   void didChangeDependencies() {
@@ -28,6 +30,21 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         scheduleName = args['scheduleName'] as String?;
         sport = args['sport'] as String?;
         template = args['template'] as GameTemplateModel?;
+        prepopulateTime = args['prepopulateTime'] as bool? ?? false;
+        skipLocation = args['skipLocation'] as bool? ?? false;
+
+        // Pre-populate time from template if available, or from edit arguments
+        if (args['time'] is TimeOfDay) {
+          selectedTime = args['time'] as TimeOfDay;
+          debugPrint(
+              '⏰ Pre-populated time: ${selectedTime!.format(context)} (from ${prepopulateTime ? 'template' : 'edit'})');
+        }
+
+        // Pre-populate date from template if available, or from edit arguments
+        if (args['date'] is DateTime) {
+          selectedDate = args['date'] as DateTime;
+          debugPrint('📅 Pre-populated date: $selectedDate (from edit)');
+        }
       }
     }
   }
@@ -64,7 +81,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
@@ -239,39 +256,85 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                             width: 400,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed:
-                                  (selectedDate != null && selectedTime != null)
-                                      ? () {
-                                          Navigator.pushNamed(
-                                            context,
-                                            '/choose-location',
-                                            arguments: {
-                                              'scheduleName': scheduleName,
-                                              'sport': sport,
-                                              'template': template,
-                                              'date': selectedDate,
-                                              'time': selectedTime,
-                                            },
-                                          );
-                                        }
-                                      : null,
+                              onPressed: (selectedDate != null)
+                                  ? () {
+                                      // Use selectedTime if user chose it, otherwise use pre-populated time
+                                      TimeOfDay? finalTime = selectedTime;
+                                      if (finalTime == null &&
+                                          prepopulateTime) {
+                                        final args = ModalRoute.of(context)
+                                            ?.settings
+                                            .arguments as Map<String, dynamic>?;
+                                        finalTime = args?['time'] as TimeOfDay?;
+                                      }
+
+                                      debugPrint(
+                                          '📅 Final date/time selection - Date: $selectedDate, Time: ${finalTime?.format(context)}');
+
+                                      if (skipLocation) {
+                                        // Location is already set in template, skip to additional game info
+                                        debugPrint(
+                                            '✅ Skipping location selection, going to additional game info');
+                                        final templateLocation =
+                                            template?.location;
+                                        final isAwayGame =
+                                            templateLocation == 'Away Game';
+
+                                        Navigator.pushNamed(
+                                          context,
+                                          isAwayGame
+                                              ? '/additional-game-info-condensed'
+                                              : '/additional-game-info',
+                                          arguments: {
+                                            'scheduleName': scheduleName,
+                                            'sport': sport,
+                                            'template': template,
+                                            'date': selectedDate,
+                                            'time': finalTime,
+                                            'location': templateLocation,
+                                            'isAwayGame': isAwayGame,
+                                            'isAway': isAwayGame,
+                                          },
+                                        );
+                                      } else {
+                                        // Go to location selection as normal
+                                        debugPrint(
+                                            '📍 Going to location selection');
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/choose-location',
+                                          arguments: {
+                                            'scheduleName': scheduleName,
+                                            'sport': sport,
+                                            'template': template,
+                                            'date': selectedDate,
+                                            'time': finalTime,
+                                          },
+                                        );
+                                      }
+                                    }
+                                  : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                disabledBackgroundColor: Colors.grey[600],
-                                disabledForegroundColor: Colors.grey[300],
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 15),
+                                backgroundColor: selectedDate != null
+                                    ? colorScheme.primary
+                                    : colorScheme.surfaceVariant,
+                                foregroundColor: selectedDate != null
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 32),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               child: Text(
                                 'Continue',
                                 style: TextStyle(
-                                  color: colorScheme.onPrimary,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedDate != null
+                                      ? colorScheme.onPrimary
+                                      : colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ),

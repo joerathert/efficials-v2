@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 /// 🎨 TEMPLATE FOR NEW SCREENS - Copy and customize this template
 /// Follows Efficials Design System guidelines

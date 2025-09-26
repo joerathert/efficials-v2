@@ -32,6 +32,7 @@ import 'screens/additional_game_info_screen.dart';
 import 'screens/additional_game_info_condensed_screen.dart';
 import 'screens/select_officials_screen.dart';
 import 'screens/lists_of_officials_screen.dart';
+import 'screens/multiple_lists_setup_screen.dart';
 import 'screens/name_list_screen.dart';
 import 'screens/populate_roster_screen.dart';
 import 'screens/filter_settings_screen.dart';
@@ -39,9 +40,11 @@ import 'screens/settings_screen.dart';
 import 'screens/review_list_screen.dart';
 import 'screens/review_game_info_screen.dart';
 import 'screens/game_information_screen.dart';
+import 'screens/edit_game_info_screen.dart';
 import 'screens/schedule_details_screen.dart';
 import 'screens/create_game_template_screen.dart';
 import 'screens/locations_screen.dart';
+import 'screens/unpublished_games_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,6 +123,8 @@ class MyApp extends StatelessWidget {
                 const AdditionalGameInfoCondensedScreen(),
             '/select-officials': (context) => const SelectOfficialsScreen(),
             '/lists-of-officials': (context) => const ListsOfOfficialsScreen(),
+            '/multiple-lists-setup': (context) =>
+                const MultipleListsSetupScreen(),
             '/name-list': (context) => const NameListScreen(),
             '/populate-roster': (context) => const PopulateRosterScreen(),
             '/filter-settings': (context) => const FilterSettingsScreen(),
@@ -127,10 +132,12 @@ class MyApp extends StatelessWidget {
             '/review-list': (context) => const ReviewListScreen(),
             '/review-game-info': (context) => const ReviewGameInfoScreen(),
             '/game-information': (context) => const GameInformationScreen(),
+            '/edit_game_info': (context) => const EditGameInfoScreen(),
             '/schedule_details': (context) => const ScheduleDetailsScreen(),
             '/create_game_template': (context) =>
                 const CreateGameTemplateScreen(),
             '/locations': (context) => LocationsScreen(),
+            '/unpublished-games': (context) => const UnpublishedGamesScreen(),
             // TODO: Add other routes as we create them
           },
         );

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/theme_provider.dart';
+import '../services/auth_service.dart';
+import '../services/game_service.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -22,6 +24,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool? isCoachScheduler;
   String? teamName;
   bool isUsingTemplate = false;
+  final GameService _gameService = GameService();
   bool _isPublishing = false;
   bool _showButtonLoading = false;
   bool _hasInitialized = false;
@@ -178,6 +181,13 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
       gameData['status'] = 'Published';
 
+      // Get current user ID
+      final authService = AuthService();
+      final currentUser = authService.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
       if (gameData['scheduleName'] == null) {
         gameData['scheduleName'] = 'Team Schedule';
       }
@@ -185,6 +195,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       // Save the game to Firestore
       try {
         final gameDataForDB = {
+          'userId': currentUser.uid,
           'scheduleId': args['scheduleId'],
           'scheduleName': gameData['scheduleName'],
           'sport': gameData['sport'],
@@ -229,12 +240,19 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           _showButtonLoading = false;
         });
 
-        // Show template creation dialog
-        final shouldCreateTemplate = await _showCreateTemplateDialog();
-        debugPrint('Template dialog result: $shouldCreateTemplate');
+        // Skip template creation dialog if game was already created from a template
+        bool createTemplate = false;
+        if (isUsingTemplate) {
+          debugPrint(
+              '🎯 REVIEW_GAME_INFO: Game was created from template, skipping template creation dialog');
+        } else {
+          // Show template creation dialog
+          final shouldCreateTemplate = await _showCreateTemplateDialog();
+          debugPrint('Template dialog result: $shouldCreateTemplate');
 
-        // Treat null as false (user dismissed dialog)
-        final createTemplate = shouldCreateTemplate == true;
+          // Treat null as false (user dismissed dialog)
+          createTemplate = shouldCreateTemplate == true;
+        }
 
         if (createTemplate && !isAwayGame) {
           debugPrint('Navigating to template creation screen');
@@ -323,46 +341,41 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         gameData['scheduleName'] = 'Team Schedule';
       }
 
-      // Save the game to Firestore as unpublished
-      try {
-        final gameDataForDB = {
-          'scheduleId': args['scheduleId'],
-          'scheduleName': gameData['scheduleName'],
-          'sport': gameData['sport'],
-          'date': gameData['date']?.toIso8601String(),
-          'time': gameData['time'] != null
-              ? '${gameData['time'].hour}:${gameData['time'].minute.toString().padLeft(2, '0')}'
-              : null,
-          'location': gameData['location'],
-          'opponent': gameData['opponent'],
-          'officialsRequired': gameData['officialsRequired'],
-          'gameFee': gameData['gameFee'],
-          'gender': gameData['gender'],
-          'levelOfCompetition': gameData['levelOfCompetition'],
-          'hireAutomatically': gameData['hireAutomatically'],
-          'method': gameData['method'],
-          'selectedOfficials': gameData['selectedOfficials'],
-          'selectedCrews': gameData['selectedCrews'],
-          'selectedCrew': gameData['selectedCrew'],
-          'selectedListName': gameData['selectedListName'],
-          'selectedLists': gameData['selectedLists'],
-          'officialsHired': gameData['officialsHired'],
-          'status': gameData['status'],
-          'createdAt': gameData['createdAt'],
-          'isAway': gameData['isAway'] ?? false,
-          'homeTeam': gameData['homeTeam'],
-          'awayTeam': gameData['awayTeam'],
-        };
+      // Prepare game data for saving
+      final gameDataForDB = {
+        'scheduleId': args['scheduleId'],
+        'scheduleName': gameData['scheduleName'],
+        'sport': gameData['sport'],
+        'date': gameData['date']?.toIso8601String(),
+        'time': gameData['time'] != null
+            ? '${gameData['time'].hour}:${gameData['time'].minute.toString().padLeft(2, '0')}'
+            : null,
+        'location': gameData['location'],
+        'opponent': gameData['opponent'],
+        'officialsRequired': gameData['officialsRequired'],
+        'gameFee': gameData['gameFee'],
+        'gender': gameData['gender'],
+        'levelOfCompetition': gameData['levelOfCompetition'],
+        'hireAutomatically': gameData['hireAutomatically'],
+        'method': gameData['method'],
+        'selectedOfficials': gameData['selectedOfficials'],
+        'selectedCrews': gameData['selectedCrews'],
+        'selectedCrew': gameData['selectedCrew'],
+        'selectedListName': gameData['selectedListName'],
+        'selectedLists': gameData['selectedLists'],
+        'officialsHired': gameData['officialsHired'],
+        'status': gameData['status'],
+        'createdAt': gameData['createdAt'],
+        'isAway': gameData['isAway'] ?? false,
+        'homeTeam': gameData['homeTeam'],
+        'awayTeam': gameData['awayTeam'],
+      };
 
-        // Save to Firestore games collection as unpublished
-        final firestore = FirebaseFirestore.instance;
-        final gameRef = await firestore.collection('games').add(gameDataForDB);
+      // Save using GameService
+      final success = await _gameService.saveUnpublishedGame(gameDataForDB);
 
-        debugPrint(
-            'Unpublished game saved to Firestore with ID: ${gameRef.id}');
-      } catch (e) {
-        debugPrint('Error saving unpublished game to Firestore: $e');
-        throw Exception('Failed to save game: $e');
+      if (!success) {
+        throw Exception('Failed to save game to unpublished games');
       }
 
       if (mounted) {
@@ -370,7 +383,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           const SnackBar(
               content: Text('Game saved to Unpublished Games list!')),
         );
-        _navigateBack();
+        // Navigate to unpublished games screen instead of going back
+        Navigator.pushNamed(context, '/unpublished-games');
       }
     } finally {
       if (mounted) {
@@ -689,6 +703,26 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                   ),
                                 ),
                               )),
+                            ] else if (args['method'] == 'multiple_lists' &&
+                                args['selectedLists'] != null) ...[
+                              ...((args['selectedLists']
+                                      as List<Map<String, dynamic>>)
+                                  .where((list) =>
+                                      list['list'] != null &&
+                                      list['list'].toString().isNotEmpty)
+                                  .map(
+                                    (list) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 4),
+                                      child: Text(
+                                        '${list['list']}: Min ${list['min']}, Max ${list['max']}',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                  )),
                             ] else ...[
                               ...(args['selectedOfficials'] as List<dynamic>)
                                   .map((item) => item as Map<String, dynamic>)

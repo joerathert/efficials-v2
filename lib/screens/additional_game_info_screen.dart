@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
+import '../services/official_list_service.dart';
 
 class AdditionalGameInfoScreen extends StatefulWidget {
   const AdditionalGameInfoScreen({super.key});
@@ -23,6 +24,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
   bool _isFromEdit = false;
   bool _isInitialized = false;
   GameTemplateModel? template;
+  final OfficialListService _listService = OfficialListService();
 
   final List<String> _competitionLevels = [
     '6U',
@@ -106,6 +108,16 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       _isFromEdit = args['isEdit'] == true;
 
       template = args['template'] as GameTemplateModel?;
+      debugPrint(
+          '🎯 ADDITIONAL_GAME_INFO: Received template: ${template?.name}');
+      debugPrint(
+          '🎯 ADDITIONAL_GAME_INFO: Template includeLevelOfCompetition: ${template?.includeLevelOfCompetition}');
+      debugPrint(
+          '🎯 ADDITIONAL_GAME_INFO: Template levelOfCompetition: ${template?.levelOfCompetition}');
+      debugPrint(
+          '🎯 ADDITIONAL_GAME_INFO: Template includeGender: ${template?.includeGender}');
+      debugPrint(
+          '🎯 ADDITIONAL_GAME_INFO: Template gender: ${template?.gender}');
 
       // Pre-fill fields from the template if available, otherwise use args
       if (template != null) {
@@ -134,6 +146,13 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                 template!.hireAutomatically != null
             ? template!.hireAutomatically!
             : (args['hireAutomatically'] as bool? ?? false);
+
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Pre-filled values:');
+        debugPrint('   - _levelOfCompetition: $_levelOfCompetition');
+        debugPrint('   - _gender: $_gender');
+        debugPrint('   - _officialsRequired: $_officialsRequired');
+        debugPrint('   - _gameFeeController.text: ${_gameFeeController.text}');
+        debugPrint('   - _hireAutomatically: $_hireAutomatically');
       } else {
         _levelOfCompetition = args['levelOfCompetition'] as String?;
         _updateCurrentGenders();
@@ -216,12 +235,90 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
         },
       );
     } else {
-      // Normal game creation flow
-      Navigator.pushNamed(
-        context,
-        '/select-officials',
-        arguments: updatedArgs,
-      );
+      // Check if template has pre-selected list - skip to review screen
+      if (template != null &&
+          template!.method == 'use_list' &&
+          template!.officialsListName != null &&
+          template!.officialsListName!.isNotEmpty) {
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template has pre-selected list, fetching list data...');
+
+        // Fetch all lists to find the one specified in the template
+        _listService.fetchOfficialLists().then((lists) {
+          final selectedList = lists.firstWhere(
+            (list) => list['name'] == template!.officialsListName,
+            orElse: () => <String, dynamic>{},
+          );
+
+          if (selectedList.isNotEmpty) {
+            debugPrint(
+                '✅ ADDITIONAL_GAME_INFO: Found list "${selectedList['name']}", navigating to review');
+
+            final reviewArgs = {
+              ...updatedArgs,
+              'method': 'use_list',
+              'selectedListName': template!.officialsListName,
+              'selectedOfficials': selectedList['officials'] ?? [],
+              'selectedList': selectedList,
+            };
+
+            if (mounted) {
+              Navigator.pushNamed(
+                context,
+                '/review-game-info',
+                arguments: reviewArgs,
+              );
+            }
+          } else {
+            debugPrint(
+                '❌ ADDITIONAL_GAME_INFO: List "${template!.officialsListName}" not found');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        'Template list "${template!.officialsListName}" not found. Please select a list manually.')),
+              );
+              // Fall back to normal flow
+              Navigator.pushNamed(
+                context,
+                '/select-officials',
+                arguments: updatedArgs,
+              );
+            }
+          }
+        }).catchError((error) {
+          debugPrint('❌ ADDITIONAL_GAME_INFO: Error fetching lists: $error');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text(
+                      'Error loading template list. Please select a list manually.')),
+            );
+            // Fall back to normal flow
+            Navigator.pushNamed(
+              context,
+              '/select-officials',
+              arguments: updatedArgs,
+            );
+          }
+        });
+      } else {
+        // Normal game creation flow
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: No pre-selected template, navigating to select officials');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template method: ${template?.method}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template includeOfficialsList: ${template?.includeOfficialsList}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template officialsListName: ${template?.officialsListName}');
+
+        Navigator.pushNamed(
+          context,
+          '/select-officials',
+          arguments: updatedArgs,
+        );
+      }
     }
   }
 

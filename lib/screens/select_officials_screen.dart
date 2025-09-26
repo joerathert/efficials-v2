@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
+import '../services/official_list_service.dart';
 
 class SelectOfficialsScreen extends StatefulWidget {
   const SelectOfficialsScreen({super.key});
@@ -14,6 +15,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
   GameTemplateModel? template;
   List<Map<String, dynamic>> _selectedOfficials = [];
+  final OfficialListService _listService = OfficialListService();
 
   @override
   void didChangeDependencies() {
@@ -22,6 +24,13 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       template = args['template'] as GameTemplateModel?;
+
+      debugPrint('🎯 SELECT_OFFICIALS: Received template: ${template?.name}');
+      debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template?.method}');
+      debugPrint(
+          '🎯 SELECT_OFFICIALS: Template includeOfficialsList: ${template?.includeOfficialsList}');
+      debugPrint(
+          '🎯 SELECT_OFFICIALS: Template officialsListName: ${template?.officialsListName}');
 
       // Check for template with crew selection first
       if (template != null &&
@@ -68,6 +77,34 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           }
         });
       }
+      // If the template uses single list method, navigate directly to lists selection
+      else if (template != null &&
+          template!.method == 'use_list' &&
+          template!.officialsListName != null &&
+          template!.officialsListName!.isNotEmpty) {
+        debugPrint('🎯 SELECT_OFFICIALS: Single list routing triggered!');
+        debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Template includeOfficialsList: ${template!.includeOfficialsList}');
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Template officialsListName: ${template!.officialsListName}');
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/lists-of-officials',
+              arguments: <String, dynamic>{
+                ...args,
+                'sport': args['sport'] ?? 'Football',
+                'fromGameCreation': true,
+                'template': template,
+                'preSelectedList': template!.officialsListName,
+                'method': 'use_list',
+              },
+            );
+          }
+        });
+      }
     }
   }
 
@@ -104,12 +141,29 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     );
   }
 
+  Future<int> _getListsCountForSport(String sport) async {
+    try {
+      // For now, return a mock count - in a real implementation,
+      // this would query the database for lists of the specific sport
+      final allLists = await _listService.fetchOfficialLists();
+      // Filter lists by sport - this is a simplified implementation
+      final sportLists = allLists.where((list) {
+        final listSport = list['sport'] as String?;
+        return listSport == null || listSport.isEmpty || listSport == sport;
+      }).toList();
+      return sportLists.length;
+    } catch (e) {
+      debugPrint('Error getting lists count for sport $sport: $e');
+      return 0;
+    }
+  }
+
   void _showInsufficientListsDialog() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final sport = args?['sport'] as String? ?? 'Baseball';
+    final sport = args?['sport'] as String? ?? 'Unknown Sport';
 
     showDialog(
       context: context,
@@ -124,7 +178,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           ),
         ),
         content: Text(
-          'The Advanced method requires at least two lists of officials. Would you like to create a new list?',
+          'The Multiple Lists method requires at least two lists of officials for $sport. Would you like to create a new list?',
           style: TextStyle(color: colorScheme.onSurface),
         ),
         actions: [
@@ -138,13 +192,15 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Navigate to create list screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Create list functionality not yet implemented for $sport',
-                  ),
-                ),
+              // Navigate to lists screen to create new list
+              Navigator.pushNamed(
+                context,
+                '/lists-of-officials',
+                arguments: {
+                  'sport': sport,
+                  'fromGameCreation': false,
+                  'fromTemplateCreation': false,
+                },
               );
             },
             child: Text(
@@ -284,10 +340,33 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                             width: 250,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: () {
-                                // Check if user has enough lists for advanced method
-                                // For now, just show insufficient lists dialog
-                                _showInsufficientListsDialog();
+                              onPressed: () async {
+                                // Check if user has enough lists for multiple lists method
+                                final listsCount =
+                                    await _getListsCountForSport(sport);
+                                if (listsCount >= 2) {
+                                  // Navigate to Multiple Lists setup screen
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/multiple-lists-setup',
+                                    arguments: <String, dynamic>{
+                                      ...?args,
+                                      'sport': sport,
+                                    },
+                                  ).then((result) {
+                                    if (result != null && mounted) {
+                                      // Navigate to review screen with multiple lists configuration
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/review-game-info',
+                                        arguments: result,
+                                      );
+                                    }
+                                  });
+                                } else {
+                                  // Show insufficient lists dialog
+                                  _showInsufficientListsDialog();
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: colorScheme.primary,

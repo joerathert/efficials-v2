@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../models/game_template_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_service.dart';
@@ -125,6 +126,121 @@ class GameService extends BaseService {
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to create template: $e');
       return null;
+    }
+  }
+
+  Future<void> saveTemplateAssociation(String scheduleName, String templateId,
+      Map<String, dynamic> templateData) async {
+    try {
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        throw Exception(
+            'User must be authenticated to save template associations');
+      }
+
+      final associationData = {
+        'scheduleName': scheduleName,
+        'templateId': templateId,
+        'templateData': templateData,
+        'userId': currentUserId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await firestore.collection('template_associations').add(associationData);
+
+      debugPrint(
+          '✅ GAME SERVICE: Template association saved for schedule: $scheduleName');
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error saving template association: $e');
+      throw Exception('Failed to save template association: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTemplateAssociations(
+      String scheduleName) async {
+    try {
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return [];
+      }
+
+      debugPrint(
+          '🔍 GAME SERVICE: Fetching template associations for user (will filter by schedule: $scheduleName)');
+
+      // Query by userId only (single field query) to avoid composite index requirement
+      final querySnapshot = await firestore
+          .collection('template_associations')
+          .where('userId', isEqualTo: currentUserId)
+          .get();
+
+      // Filter by scheduleName and sort by createdAt in memory
+      final associations = querySnapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            return {
+              ...data,
+              'id': doc.id,
+            };
+          })
+          .where((association) => association['scheduleName'] == scheduleName)
+          .toList()
+        // Sort by createdAt descending to get most recent first
+        ..sort((a, b) {
+          final aTime = a['createdAt'] as Timestamp?;
+          final bTime = b['createdAt'] as Timestamp?;
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          return bTime.compareTo(aTime); // descending order
+        });
+
+      debugPrint(
+          '✅ GAME SERVICE: Found ${associations.length} template associations for schedule: $scheduleName (filtered from ${querySnapshot.docs.length} total user associations)');
+      return associations;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error fetching template associations: $e');
+      return [];
+    }
+  }
+
+  Future<bool> removeTemplateAssociation(String scheduleName) async {
+    try {
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return false;
+      }
+
+      debugPrint(
+          '🔄 GAME SERVICE: Removing template association for schedule: $scheduleName');
+
+      // Query for the association to delete
+      final querySnapshot = await firestore
+          .collection('template_associations')
+          .where('userId', isEqualTo: currentUserId)
+          .where('scheduleName', isEqualTo: scheduleName)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Delete the association
+        await querySnapshot.docs.first.reference.delete();
+        debugPrint('✅ GAME SERVICE: Template association removed successfully');
+        return true;
+      } else {
+        debugPrint('⚠️ GAME SERVICE: No template association found to remove');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error removing template association: $e');
+      return false;
     }
   }
 
@@ -256,35 +372,235 @@ class GameService extends BaseService {
   }
 
   Future<List<Map<String, dynamic>>> getGames() async {
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      debugPrint('🔄 GAME SERVICE: Getting all games from Firestore');
 
-    return [
-      {
-        'id': '1',
-        'scheduleName': 'Varsity Basketball',
-        'sport': 'Basketball',
-        'date': DateTime.now().add(const Duration(days: 7)),
-        'time': '7:00 PM',
-        'opponent': 'Lincoln High',
-        'location': 'Home Gym',
-        'officialsRequired': 3,
-        'officialsHired': 2,
-        'isAway': false,
-      },
-      {
-        'id': '2',
-        'scheduleName': 'JV Soccer',
-        'sport': 'Soccer',
-        'date': DateTime.now().add(const Duration(days: 3)),
-        'time': '4:30 PM',
-        'opponent': 'Washington Prep',
-        'location': 'Away Field',
-        'officialsRequired': 2,
-        'officialsHired': 0,
-        'isAway': true,
-      },
-    ];
+      // Query Firestore for all games
+      final querySnapshot = await firestore.collection('games').get();
+
+      debugPrint(
+          '✅ GAME SERVICE: Retrieved ${querySnapshot.docs.length} games from Firestore');
+
+      final games = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          ...data,
+          'id': doc.id,
+        };
+      }).toList();
+
+      debugPrint('🎯 GAME SERVICE: Processed ${games.length} games');
+      return games;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error fetching games: $e');
+      // Return empty list on error instead of mock data
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUnpublishedGames() async {
+    try {
+      debugPrint(
+          '🔄 GAME SERVICE: Getting unpublished games from Firestore (will sort by game date/time)');
+
+      // Get current user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return [];
+      }
+
+      // Query Firestore for unpublished games by current user
+      // Use single field query and filter in memory to avoid composite index requirement
+      final querySnapshot = await firestore
+          .collection('games')
+          .where('userId', isEqualTo: currentUserId)
+          .get();
+
+      debugPrint(
+          '✅ GAME SERVICE: Retrieved ${querySnapshot.docs.length} games from Firestore for user');
+
+      // Filter unpublished games and sort in memory
+      final unpublishedGames = querySnapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            return {
+              ...data,
+              'id': doc.id,
+            };
+          })
+          .where((game) => game['status'] == 'Unpublished')
+          .toList();
+
+      // Sort by game date and time in ascending order (earliest first)
+      unpublishedGames.sort((a, b) {
+        final aDate = a['date'];
+        final bDate = b['date'];
+        final aTime = a['time'];
+        final bTime = b['time'];
+
+        // Handle null dates - games without dates go to the end
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+
+        try {
+          // Parse dates
+          final aDateTime = aDate is DateTime ? aDate : DateTime.parse(aDate);
+          final bDateTime = bDate is DateTime ? bDate : DateTime.parse(bDate);
+
+          // Compare dates first
+          final dateComparison = aDateTime.compareTo(bDateTime);
+          if (dateComparison != 0) return dateComparison;
+
+          // If dates are the same, compare times
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+
+          // Parse time strings (format: "HH:MM AM/PM" or "HH:MM")
+          final aTimeStr = aTime.toString();
+          final bTimeStr = bTime.toString();
+
+          try {
+            // Try to parse as TimeOfDay format
+            final aTimeOfDay = _parseTimeString(aTimeStr);
+            final bTimeOfDay = _parseTimeString(bTimeStr);
+
+            if (aTimeOfDay != null && bTimeOfDay != null) {
+              final aMinutes = aTimeOfDay.hour * 60 + aTimeOfDay.minute;
+              final bMinutes = bTimeOfDay.hour * 60 + bTimeOfDay.minute;
+              return aMinutes.compareTo(bMinutes);
+            }
+          } catch (e) {
+            debugPrint('⚠️ GAME SERVICE: Error parsing time: $e');
+          }
+
+          // Fallback to string comparison
+          return aTimeStr.compareTo(bTimeStr);
+        } catch (e) {
+          debugPrint('⚠️ GAME SERVICE: Error parsing game date: $e');
+          return 0;
+        }
+      });
+
+      debugPrint(
+          '🎯 GAME SERVICE: Filtered and sorted ${unpublishedGames.length} unpublished games by game date/time (ascending)');
+      return unpublishedGames;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error fetching unpublished games: $e');
+      return [];
+    }
+  }
+
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      // Handle various time formats
+      final cleanTime = timeStr.trim().toUpperCase();
+
+      // Handle "HH:MM AM/PM" format (e.g., "2:30 PM")
+      final amPmRegex = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$');
+      final amPmMatch = amPmRegex.firstMatch(cleanTime);
+      if (amPmMatch != null) {
+        final hour = int.parse(amPmMatch.group(1)!);
+        final minute = int.parse(amPmMatch.group(2)!);
+        final isPm = amPmMatch.group(3) == 'PM';
+
+        final adjustedHour = isPm && hour != 12
+            ? hour + 12
+            : !isPm && hour == 12
+                ? 0
+                : hour;
+
+        return TimeOfDay(hour: adjustedHour, minute: minute);
+      }
+
+      // Handle "HH:MM" format (24-hour)
+      final hourMinRegex = RegExp(r'^(\d{1,2}):(\d{2})$');
+      final hourMinMatch = hourMinRegex.firstMatch(cleanTime);
+      if (hourMinMatch != null) {
+        final hour = int.parse(hourMinMatch.group(1)!);
+        final minute = int.parse(hourMinMatch.group(2)!);
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ GAME SERVICE: Error parsing time string "$timeStr": $e');
+      return null;
+    }
+  }
+
+  Future<bool> publishGames(List<String> gameIds) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Publishing ${gameIds.length} games');
+
+      // Update each game to published status
+      for (final gameId in gameIds) {
+        await firestore
+            .collection('games')
+            .doc(gameId)
+            .update({'status': 'Published'});
+      }
+
+      debugPrint(
+          '✅ GAME SERVICE: Successfully published ${gameIds.length} games');
+      return true;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error publishing games: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteGame(String gameId) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Deleting game $gameId');
+
+      await firestore.collection('games').doc(gameId).delete();
+
+      debugPrint('✅ GAME SERVICE: Successfully deleted game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error deleting game: $e');
+      return false;
+    }
+  }
+
+  Future<bool> saveUnpublishedGame(Map<String, dynamic> gameData) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Saving unpublished game');
+
+      // Get current user
+      final authService = AuthService();
+      final currentUser = authService.currentUser;
+      if (currentUser == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return false;
+      }
+
+      // Prepare game data for unpublished status
+      final unpublishedGameData = {
+        ...gameData,
+        'userId': currentUser.uid,
+        'status': 'Unpublished',
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      // Remove id if it exists (let Firestore generate it)
+      unpublishedGameData.remove('id');
+
+      // Save to games collection
+      await firestore.collection('games').add(unpublishedGameData);
+
+      debugPrint('✅ GAME SERVICE: Successfully saved unpublished game');
+      return true;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error saving unpublished game: $e');
+      return false;
+    }
   }
 
   // Game Information Screen Methods
@@ -368,20 +684,6 @@ class GameService extends BaseService {
       return true;
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to remove official: $e');
-      return false;
-    }
-  }
-
-  Future<bool> deleteGame(int gameId) async {
-    try {
-      debugPrint('🗑️ GAME SERVICE: Deleting game $gameId');
-      // Mock implementation - in real app, this would delete from Firestore
-      await Future.delayed(
-          const Duration(milliseconds: 200)); // Simulate network delay
-      debugPrint('✅ GAME SERVICE: Successfully deleted game');
-      return true;
-    } catch (e) {
-      debugPrint('🔴 GAME SERVICE: Failed to delete game: $e');
       return false;
     }
   }

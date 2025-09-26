@@ -40,6 +40,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         template = args['template'] as GameTemplateModel?;
         selectedDate = args['date'] as DateTime?;
         selectedTime = args['time'] as TimeOfDay?;
+        // Pre-select the location if it exists in the arguments
+        if (args.containsKey('location') && args['location'] != null) {
+          selectedLocation = args['location'] as String?;
+        }
+        debugPrint('🎯 CHOOSE_LOCATION: Received template: ${template?.name}');
+        debugPrint(
+            '🎯 CHOOSE_LOCATION: Template location: ${template?.location}');
+        debugPrint(
+            '🎯 CHOOSE_LOCATION: Template includeLocation: ${template?.includeLocation}');
+        debugPrint(
+            '🎯 CHOOSE_LOCATION: Pre-selected location: $selectedLocation');
       }
     }
   }

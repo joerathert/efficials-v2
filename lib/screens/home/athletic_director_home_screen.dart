@@ -757,6 +757,15 @@ class _AthleticDirectorHomeScreenState
               },
             ),
             ListTile(
+              leading: Icon(Icons.edit_note, color: colorScheme.primary),
+              title: Text('Draft Games',
+                  style: TextStyle(color: colorScheme.onSurface)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/unpublished-games');
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.settings, color: colorScheme.primary),
               title: Text('Settings',
                   style: TextStyle(color: colorScheme.onSurface)),

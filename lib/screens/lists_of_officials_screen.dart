@@ -38,12 +38,28 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     print(
         '📱 ListsOfOfficialsScreen: didChangeDependencies called with args=$args');
     if (args != null) {
+      final isEdit = args['isEdit'] == true;
+
       setState(() {
         // Show green arrow during game creation flow (unless explicitly from hamburger menu)
+        // For edit mode, show a different indicator (we'll use a different approach)
         isFromGameCreation = args['fromGameCreation'] == true &&
-            args['fromHamburgerMenu'] != true;
+            args['fromHamburgerMenu'] != true &&
+            !isEdit;
         template = args['template'] as GameTemplateModel?;
       });
+
+      // Handle pre-selected list from template
+      if (args['preSelectedList'] != null && args['method'] == 'use_list') {
+        final preSelectedListName = args['preSelectedList'] as String;
+        print(
+            '🎯 ListsOfOfficialsScreen: Pre-selected list: $preSelectedListName');
+
+        // Wait for lists to be fetched, then find and select the pre-selected list
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _selectPreSelectedList(preSelectedListName, args);
+        });
+      }
 
       // Handle new list creation from review_list_screen
       if (args['newListCreated'] != null) {
@@ -61,6 +77,51 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         isFromGameCreation = false;
       });
       _fetchLists();
+    }
+  }
+
+  Future<void> _selectPreSelectedList(
+      String listName, Map<String, dynamic> originalArgs) async {
+    // Wait a bit for the lists to be fetched and rendered
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (!mounted) return;
+
+    // Find the list in the current lists
+    final listIndex = lists.indexWhere((list) => list['name'] == listName);
+
+    if (listIndex != -1) {
+      print(
+          '✅ ListsOfOfficialsScreen: Found pre-selected list at index $listIndex');
+
+      // Simulate selecting this list and navigating to review
+      final selectedList = lists[listIndex];
+      final result = {
+        ...originalArgs,
+        'selectedList': selectedList,
+        'method': 'use_list',
+        'officials': selectedList['officials'] ?? [],
+      };
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/review-game-info',
+          arguments: result,
+        );
+      }
+    } else {
+      print(
+          '❌ ListsOfOfficialsScreen: Pre-selected list "$listName" not found in current lists');
+      // If list not found, show an error and continue with normal flow
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Template list "$listName" not found. Please select a list manually.'),
+          ),
+        );
+      }
     }
   }
 
@@ -156,6 +217,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
     final sport = args?['sport'] as String? ?? 'Unknown Sport';
     final fromTemplateCreation = args?['fromTemplateCreation'] == true;
+    final isEdit = args?['isEdit'] == true;
 
     print(
         '🔍 ListsOfOfficialsScreen: build() called, sport="$sport", args=$args');
@@ -518,24 +580,33 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                         ),
                                                         tooltip: 'Delete List',
                                                       ),
-                                                      if (isFromGameCreation)
+                                                      if (isFromGameCreation ||
+                                                          isEdit)
                                                         IconButton(
                                                           onPressed: () {
-                                                            setState(() {
-                                                              selectedList =
-                                                                  listName;
-                                                            });
-                                                            // Navigate to Review Game Info screen
+                                                            if (!isEdit) {
+                                                              setState(() {
+                                                                selectedList =
+                                                                    listName;
+                                                              });
+                                                            }
+                                                            // Navigate to Review Game Info screen or return result for edit
                                                             _navigateToReviewGameInfo(
                                                                 list);
                                                           },
                                                           icon: Icon(
-                                                            Icons.arrow_forward,
-                                                            color: Colors.green,
+                                                            isEdit
+                                                                ? Icons.check
+                                                                : Icons
+                                                                    .arrow_forward,
+                                                            color: isEdit
+                                                                ? Colors.blue
+                                                                : Colors.green,
                                                             size: 20,
                                                           ),
-                                                          tooltip:
-                                                              'Use This List',
+                                                          tooltip: isEdit
+                                                              ? 'Select This List'
+                                                              : 'Use This List',
                                                         ),
                                                     ],
                                                   ),
@@ -689,18 +760,33 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
             {};
 
-    // Prepare game data with selected list
-    final gameData = {
-      ...args,
-      'method': 'use_list',
-      'selectedListName': list['name'],
-      'selectedOfficials': list['officials'] ?? [],
-    };
+    // Check if this is edit mode
+    final isEdit = args['isEdit'] == true;
 
-    Navigator.pushNamed(
-      context,
-      '/review-game-info',
-      arguments: gameData,
-    );
+    if (isEdit) {
+      // In edit mode, return the selected list data back to the calling screen
+      final result = {
+        ...args,
+        'method': 'use_list',
+        'selectedListName': list['name'],
+        'selectedOfficials': list['officials'] ?? [],
+      };
+
+      Navigator.pop(context, result);
+    } else {
+      // Normal game creation flow
+      final gameData = {
+        ...args,
+        'method': 'use_list',
+        'selectedListName': list['name'],
+        'selectedOfficials': list['officials'] ?? [],
+      };
+
+      Navigator.pushNamed(
+        context,
+        '/review-game-info',
+        arguments: gameData,
+      );
+    }
   }
 }
