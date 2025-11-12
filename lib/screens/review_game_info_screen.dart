@@ -163,14 +163,33 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         return;
       }
 
-      if (!isAwayGame &&
-              !(args['hireAutomatically'] == true) &&
-              args['selectedOfficials'] == null ||
-          (args['selectedOfficials'] as List).isEmpty) {
+      // Check if we have a valid method configuration or selected officials
+      bool hasValidConfiguration = false;
+
+      if (args['hireAutomatically'] == true) {
+        hasValidConfiguration = true; // Hiring automatically is valid
+      } else if (args['method'] == 'hire_crew' &&
+          (args['selectedCrews'] != null || args['selectedCrew'] != null)) {
+        hasValidConfiguration = true; // Crew selection is valid
+      } else if (args['method'] == 'use_list' &&
+          args['selectedListName'] != null) {
+        hasValidConfiguration = true; // List selection is valid
+      } else if (args['method'] == 'multiple_lists' &&
+          args['selectedLists'] != null) {
+        hasValidConfiguration = true; // Multiple lists configuration is valid
+      } else if (args['method'] == 'advanced' &&
+          args['selectedLists'] != null) {
+        hasValidConfiguration = true; // Advanced method configuration is valid
+      } else if (args['selectedOfficials'] != null &&
+          (args['selectedOfficials'] as List).isNotEmpty) {
+        hasValidConfiguration = true; // Individual officials selected
+      }
+
+      if (!isAwayGame && !hasValidConfiguration) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(
-                  'Please select at least one official for non-away games.')),
+                  'Please select at least one official or configure a selection method for non-away games.')),
         );
         return;
       }
@@ -195,7 +214,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       // Save the game to Firestore
       try {
         final gameDataForDB = {
-          'userId': currentUser.uid,
+          'schedulerId': currentUser.uid,
           'scheduleId': args['scheduleId'],
           'scheduleName': gameData['scheduleName'],
           'sport': gameData['sport'],
@@ -270,7 +289,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
 
             Navigator.pushNamed(
               context,
-              '/new_game_template',
+              '/create_game_template',
               arguments: templateData,
             ).then((result) {
               if (result == true && mounted) {
@@ -284,11 +303,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           }
         } else {
           debugPrint('Navigating directly back to home screen');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Game published successfully!')),
-            );
-          }
+          // AD home screen will show the success message, no need to duplicate here
           // Ensure navigation happens even if not mounted
           Future.delayed(Duration.zero, () {
             if (mounted) {
@@ -408,24 +423,14 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         },
       );
     } else {
-      debugPrint('Navigating to athletic director home');
-      // Try a different route first to test if routing works
-      debugPrint('Available routes: ${ModalRoute.of(context)?.settings.name}');
-      try {
-        debugPrint('Attempting navigation to /ad-home');
-        Navigator.of(context).pushNamed(
-          '/ad-home',
-          arguments: {'refresh': true, 'gamePublished': true},
-        );
-      } catch (e) {
-        debugPrint('Navigation to /ad-home failed: $e');
-        try {
-          debugPrint('Trying navigation to /role-selection');
-          Navigator.of(context).pushNamed('/role-selection');
-        } catch (e2) {
-          debugPrint('Fallback navigation to /role-selection also failed: $e2');
-        }
-      }
+      debugPrint('Navigating back to athletic director home');
+      // Replace the current navigation stack with a fresh AD home screen
+      // This ensures the screen refreshes and shows the newly published game
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/ad-home',
+        (route) => false, // Remove all routes
+        arguments: {'refresh': true, 'gamePublished': true},
+      );
     }
   }
 
@@ -469,17 +474,27 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     final isPublished = args['status'] == 'Published';
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -677,16 +692,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                   ),
                                 ),
                               ),
-                            ] else if (args['selectedOfficials'] == null ||
-                                (args['selectedOfficials'] as List).isEmpty)
-                              Text(
-                                'No officials selected.',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              )
-                            else if (args['method'] == 'advanced' &&
+                            ] else if (args['method'] == 'advanced' &&
                                 args['selectedLists'] != null) ...[
                               ...((args['selectedLists']
                                       as List<Map<String, dynamic>>)
@@ -695,7 +701,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 4),
                                   child: Text(
-                                    '${list['name']}: Min ${list['minOfficials']}, Max ${list['maxOfficials']}',
+                                    '${list['list']}: Min ${list['min']}, Max ${list['max']}',
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: colorScheme.onSurface,
@@ -723,7 +729,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                       ),
                                     ),
                                   )),
-                            ] else ...[
+                            ] else if (args['selectedOfficials'] == null ||
+                                (args['selectedOfficials'] as List).isEmpty)
+                              Text(
+                                'No officials selected.',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              )
+                            else ...[
                               ...(args['selectedOfficials'] as List<dynamic>)
                                   .map((item) => item as Map<String, dynamic>)
                                   .map(

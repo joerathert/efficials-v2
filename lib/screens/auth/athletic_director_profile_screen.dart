@@ -199,6 +199,9 @@ class _AthleticDirectorProfileScreenState
         ),
       ),
       body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Form(
@@ -479,6 +482,8 @@ class _AthleticDirectorProfileScreenState
 
                 const SizedBox(height: 20),
               ],
+            ),
+          ),
             ),
           ),
         ),

@@ -224,18 +224,29 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     };
 
     if (_isFromEdit) {
-      // When editing an existing game, navigate directly to review screen
-      Navigator.pushReplacementNamed(
-        context,
-        '/review_game_info',
-        arguments: {
-          ...updatedArgs,
-          'isEdit': true,
-          'isFromGameInfo': args['isFromGameInfo'] ?? false
-        },
-      );
+      // Check if officialsRequired has changed - if so, we need to reset selection method
+      final originalOfficialsRequired = args['officialsRequired'];
+      final officialsRequiredChanged = _officialsRequired != originalOfficialsRequired;
+
+      if (officialsRequiredChanged) {
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Officials required changed from $originalOfficialsRequired to $_officialsRequired, resetting selection method');
+
+        // Clear any existing selection method data since it may no longer be valid
+        updatedArgs.addAll({
+          'method': null, // Reset to no method selected
+          'selectedListName': null,
+          'selectedLists': null,
+          'selectedCrews': null,
+          'selectedCrew': null,
+          'selectedOfficials': [], // Clear any manually selected officials
+        });
+      }
+
+      // When editing an existing game, return the updated data
+      debugPrint('🎯 ADDITIONAL_GAME_INFO: Returning updated data for edit');
+      Navigator.pop(context, updatedArgs);
     } else {
-      // Check if template has pre-selected list - skip to review screen
+      // Check if template has pre-selected configuration - skip to review screen
       if (template != null &&
           template!.method == 'use_list' &&
           template!.officialsListName != null &&
@@ -302,6 +313,55 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
             );
           }
         });
+      }
+      // Check if template has pre-configured multiple lists - skip to review screen
+      else if (template != null &&
+          template!.method == 'advanced' &&
+          template!.selectedLists != null &&
+          template!.selectedLists!.isNotEmpty) {
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template has pre-configured multiple lists, navigating to review');
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template selectedLists: ${template!.selectedLists}');
+
+        final reviewArgs = {
+          ...updatedArgs,
+          'method': 'advanced',
+          'selectedLists': template!.selectedLists,
+        };
+
+        if (mounted) {
+          Navigator.pushNamed(
+            context,
+            '/review-game-info',
+            arguments: reviewArgs,
+          );
+        }
+      }
+      // Check if template has hire_crew method - skip to review screen
+      else if (template != null &&
+          template!.method == 'hire_crew' &&
+          template!.selectedCrews != null &&
+          template!.selectedCrews!.isNotEmpty) {
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template has pre-selected crew, navigating to review');
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
+        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template selectedCrews: ${template!.selectedCrews}');
+
+        final reviewArgs = {
+          ...updatedArgs,
+          'method': 'hire_crew',
+          'selectedCrews': template!.selectedCrews,
+          'selectedCrew': template!.selectedCrews!.first,
+        };
+
+        if (mounted) {
+          Navigator.pushNamed(
+            context,
+            '/review-game-info',
+            arguments: reviewArgs,
+          );
+        }
       } else {
         // Normal game creation flow
         debugPrint(
@@ -333,17 +393,27 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),

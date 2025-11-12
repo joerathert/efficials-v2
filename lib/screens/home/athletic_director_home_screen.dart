@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import '../../providers/theme_provider.dart';
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
@@ -17,20 +16,20 @@ class _AthleticDirectorHomeScreenState
     extends State<AthleticDirectorHomeScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> publishedGames = [];
+
+  @override
+  void initState() {
+    super.initState();
+    print('🏟️ AD HOME SCREEN: initState called');
+    _initializeData();
+  }
   int _alertDays = 7;
   String _alertUnit = 'days';
   bool isFabExpanded = false;
   bool showPastGames = false;
   bool isPullingDown = false;
   double pullDistance = 0.0;
-  static const double pullThreshold = 80.0;
   ScrollController scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeData();
-  }
 
   Future<void> _initializeData() async {
     await _loadAlertPreferences();
@@ -111,9 +110,26 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _fetchGames() async {
     try {
-      // Fetch games from Firestore (both published and unpublished)
+      // Get current user
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        setState(() {
+          publishedGames = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Fetch games from Firestore (only for current user)
+      // Note: Also check for 'userId' field for games saved before the field name fix
       final firestore = FirebaseFirestore.instance;
-      final snapshot = await firestore.collection('games').get();
+      final snapshot = await firestore
+          .collection('games')
+          .where(Filter.or(
+            Filter('schedulerId', isEqualTo: currentUser.uid),
+            Filter('userId', isEqualTo: currentUser.uid),
+          ))
+          .get();
 
       final games = snapshot.docs.map((doc) {
         final data = doc.data();
@@ -274,26 +290,27 @@ class _AthleticDirectorHomeScreenState
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            isFabExpanded = true;
-                          });
-                        },
-                        icon: const Icon(Icons.add_circle_outline, size: 24),
-                        label: const Text(
-                          'Add Your First Game',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                      SizedBox(
+                        width: 400,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isFabExpanded = true;
+                            });
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 24),
+                          label: const Text(
+                            'Add Your First Game',
+                            style: TextStyle(fontSize: 18),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -473,7 +490,14 @@ class _AthleticDirectorHomeScreenState
               context,
               '/game-information',
               arguments: game,
-            );
+            ).then((result) {
+              // Refresh the games list when returning from game information screen
+              // result == true means game was deleted, result == null means normal return,
+              // result is a Map means game was updated
+              if (result == true || result == null || result is Map) {
+                _fetchGames();
+              }
+            });
           },
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -568,50 +592,6 @@ class _AthleticDirectorHomeScreenState
     );
   }
 
-  void _onShowPastGames() {
-    setState(() {
-      showPastGames = true;
-      pullDistance = 0.0;
-      isPullingDown = false;
-    });
-
-    // Ensure layout is complete and adjust scroll position
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        final pastGames = _filterGamesByTime(publishedGames, true);
-        final upcomingGames = _filterGamesByTime(publishedGames, false);
-        if (upcomingGames.isNotEmpty) {
-          // Calculate the index where upcoming games start
-          final firstUpcomingIndex = pastGames.length;
-          // Estimate the height of each game tile (adjust based on actual measurement)
-          const double estimatedTileHeight = 160.0; // Current estimate
-          // Initial target offset
-          double targetOffset = firstUpcomingIndex * estimatedTileHeight;
-          // Get initial max scroll extent
-          final initialMaxScrollExtent =
-              scrollController.position.maxScrollExtent;
-
-          // If maxScrollExtent is too small, delay and retry with a longer wait
-          if (targetOffset > initialMaxScrollExtent) {
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (scrollController.hasClients) {
-                final updatedMaxScrollExtent =
-                    scrollController.position.maxScrollExtent;
-                targetOffset = firstUpcomingIndex *
-                    estimatedTileHeight.clamp(0.0, updatedMaxScrollExtent);
-                scrollController
-                    .jumpTo(targetOffset.clamp(0.0, updatedMaxScrollExtent));
-              }
-            });
-          } else {
-            scrollController
-                .jumpTo(targetOffset.clamp(0.0, initialMaxScrollExtent));
-          }
-        }
-      }
-    });
-  }
-
   void _handleLogout() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -658,6 +638,7 @@ class _AthleticDirectorHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    print('🏟️ AD HOME SCREEN: build() called, isLoading: $_isLoading');
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -677,15 +658,20 @@ class _AthleticDirectorHomeScreenState
       backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Consumer<ThemeProvider>(
-          builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color:
-                  themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
-              size: 32,
+        title: IconButton(
+          icon: Icon(
+            Icons.sports,
+            color: colorScheme.primary,
+            size: 32,
+          ),
+          onPressed: () {
+            // Navigate to Athletic Director home screen (already here, so just refresh)
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/ad-home',
+              (route) => false, // Remove all routes
             );
           },
+          tooltip: 'Home',
         ),
         centerTitle: true,
         elevation: 0,

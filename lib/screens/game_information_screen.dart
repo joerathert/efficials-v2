@@ -16,6 +16,7 @@ class GameInformationScreen extends StatefulWidget {
 class _GameInformationScreenState extends State<GameInformationScreen> {
   late Map<String, dynamic> args;
   late ColorScheme colorScheme;
+  bool _hasUpdatedArgs = false;
 
   // Game details
   late String scheduleName;
@@ -56,11 +57,106 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     final newArgs = route.settings.arguments as Map<String, dynamic>?;
     if (newArgs == null) return;
 
-    args = newArgs;
-    _initializeData();
+    // Only update args if we haven't already updated them from an edit operation
+    if (!_hasUpdatedArgs) {
+      args = newArgs;
+      _initializeData();
+    }
+  }
+
+  Future<void> _saveUpdatedOfficialsData(String gameId, Map<String, dynamic> updatedData) async {
+    try {
+      debugPrint('🎯 GAME_INFO: Saving updated officials data for game $gameId');
+
+      // Only save the officials-related fields that can be changed
+      final dataToSave = {
+        'method': updatedData['method'],
+        'selectedListName': updatedData['selectedListName'],
+        'selectedLists': updatedData['selectedLists'],
+        'selectedCrews': updatedData['selectedCrews'],
+        'selectedCrew': updatedData['selectedCrew'],
+        'selectedOfficials': updatedData['selectedOfficials'],
+      };
+
+      final success = await _gameService.updateGame(gameId, dataToSave);
+
+      if (success && mounted) {
+        debugPrint('🎯 GAME_INFO: Successfully saved updated officials data');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Officials selection updated successfully')),
+        );
+      } else if (mounted) {
+        debugPrint('🎯 GAME_INFO: Failed to save updated officials data');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update officials selection')),
+        );
+      }
+    } catch (e) {
+      debugPrint('🎯 GAME_INFO: Error saving updated officials data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating officials selection: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveUpdatedGameData(String gameId, Map<String, dynamic> updatedData) async {
+    try {
+      debugPrint('🎯 GAME_INFO: Saving updated game data for game $gameId');
+
+      // Only save the fields that can be edited
+      final dataToSave = {
+        'location': updatedData['location'],
+        'date': updatedData['date'] != null ? (updatedData['date'] as DateTime).toIso8601String() : null,
+        'time': updatedData['time'] != null
+            ? '${(updatedData['time'] as TimeOfDay).hour.toString().padLeft(2, '0')}:${(updatedData['time'] as TimeOfDay).minute.toString().padLeft(2, '0')}'
+            : null,
+        'levelOfCompetition': updatedData['levelOfCompetition'],
+        'gender': updatedData['gender'],
+        'officialsRequired': updatedData['officialsRequired'],
+        'gameFee': updatedData['gameFee'],
+        'opponent': updatedData['opponent'],
+        'hireAutomatically': updatedData['hireAutomatically'],
+      };
+
+      final success = await _gameService.updateGame(gameId, dataToSave);
+
+      if (success && mounted) {
+        debugPrint('🎯 GAME_INFO: Successfully saved updated game data');
+
+        // Check if officialsRequired changed and selection method was reset
+        if (updatedData['method'] == null && args['method'] != null) {
+          debugPrint('🎯 GAME_INFO: Selection method was reset due to officialsRequired change');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Officials selection reset due to required officials change. Please re-select officials.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Game updated successfully')),
+          );
+        }
+      } else if (mounted) {
+        debugPrint('🎯 GAME_INFO: Failed to save updated game data');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update game')),
+        );
+      }
+    } catch (e) {
+      debugPrint('🎯 GAME_INFO: Error saving updated game data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating game: $e')),
+        );
+      }
+    }
   }
 
   void _initializeData() {
+    debugPrint('🎯 GAME_INFO: _initializeData called with location: ${args['location']}');
     scheduleName = args['scheduleName'] as String? ?? '';
     sport = args['sport'] as String? ?? '';
     selectedDate = args['date'] != null
@@ -80,6 +176,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
             : args['time'] as TimeOfDay)
         : const TimeOfDay(hour: 19, minute: 0);
     location = args['location'] as String? ?? '';
+    debugPrint('🎯 GAME_INFO: _initializeData set location to: $location');
     levelOfCompetition = args['levelOfCompetition'] as String? ?? '';
     gender = args['gender'] as String? ?? '';
     officialsRequired = args['officialsRequired'] != null
@@ -114,6 +211,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
     _loadGameDetails();
     _loadInterestedOfficials();
+
+    // Trigger UI rebuild with updated data
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _loadGameDetails() {
@@ -199,7 +301,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.yellow)),
+                                  color: colorScheme.primary)),
                         ),
                         // Action buttons on the right
                         Positioned(
@@ -210,7 +312,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                               IconButton(
                                 onPressed: () => _createTemplateFromGame(),
                                 icon: Icon(Icons.content_copy,
-                                    color: Colors.yellow),
+                                    color: colorScheme.primary),
                                 tooltip: 'Create Template from Game',
                               ),
                               TextButton(
@@ -225,10 +327,30 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                     'scheduleName': args['scheduleName'],
                                     'scheduleId': args['scheduleId'],
                                   },
-                                ),
+                                ).then((result) {
+                                  debugPrint('🎯 GAME_INFO: Received result from edit: $result');
+                                  if (result != null && mounted) {
+                                    final updatedArgs = result as Map<String, dynamic>;
+                                    debugPrint('🎯 GAME_INFO: Updated location: ${updatedArgs['location']}');
+                                    // Update the screen with the edited data
+                                    setState(() {
+                                      args = updatedArgs;
+                                      _hasUpdatedArgs = true;
+                                    });
+                                    _initializeData();
+
+                                    // Save the updated game data to Firestore
+                                    final gameId = args['id'] as String?;
+                                    if (gameId != null) {
+                                      _saveUpdatedGameData(gameId, updatedArgs);
+                                    }
+                                  } else {
+                                    debugPrint('🎯 GAME_INFO: No result received or not mounted');
+                                  }
+                                }),
                                 child: Text('Edit',
                                     style: TextStyle(
-                                        color: Colors.yellow, fontSize: 14)),
+                                        color: colorScheme.primary, fontSize: 14)),
                               ),
                             ],
                           ),
@@ -278,10 +400,10 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                         child: Text(
                                           e.value,
                                           style: TextStyle(
-                                            color: Colors.yellow,
+                                            color: colorScheme.primary,
                                             decoration:
                                                 TextDecoration.underline,
-                                            decorationColor: Colors.yellow,
+                                            decorationColor: colorScheme.primary,
                                           ),
                                         ),
                                       )
@@ -478,9 +600,122 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   Widget _buildSelectedOfficialsSection() {
-    // Show the list name as a clickable link
-    final selectedListName = args['selectedListName'] as String?;
+    // Check if method is null (officials selection was reset)
+    final method = args['method'] as String?;
+    if (method == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.error.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Officials Selection Required',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The number of required officials has changed. Please re-select your officials method.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/select-officials',
+                    arguments: {
+                      ...args,
+                      'isEdit': true,
+                      'isFromGameInfo': true,
+                    },
+                  ).then((result) {
+                    if (result != null && mounted) {
+                      final updatedArgs = result as Map<String, dynamic>;
+                      setState(() {
+                        args = updatedArgs;
+                        _hasUpdatedArgs = true;
+                      });
+                      _initializeData();
+                      // Save the updated officials selection to Firestore
+                      final gameId = args['id'] as String?;
+                      if (gameId != null) {
+                        _saveUpdatedOfficialsData(gameId, updatedArgs);
+                      }
+                    }
+                  }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                  ),
+                  child: const Text('Select Officials'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
+    // Check for multiple lists first (Multiple Lists method)
+    final selectedLists = args['selectedLists'] as List<dynamic>?;
+    if (selectedLists != null && selectedLists.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              'Multiple Lists Used:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          ...selectedLists.map((list) {
+            if (list is Map<String, dynamic>) {
+              final listName = list['list'] as String? ?? 'Unknown List';
+              final min = list['min'] ?? 0;
+              final max = list['max'] ?? 1;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: GestureDetector(
+                  onTap: () => _showListOfficials(listName),
+                  child: Text(
+                    '$listName: Min $min, Max $max',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }).toList(),
+        ],
+      );
+    }
+
+    // Check for single list (Single List method)
+    final selectedListName = args['selectedListName'] as String?;
     if (selectedListName == null || selectedListName.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),

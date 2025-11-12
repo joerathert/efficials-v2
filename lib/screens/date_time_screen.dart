@@ -18,6 +18,10 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   String? sport;
   bool prepopulateTime = false;
   bool skipLocation = false;
+  bool isEdit = false;
+  Map<String, dynamic>? originalArgs;
+  bool _userHasSelectedDate = false;
+  bool _userHasSelectedTime = false;
 
   @override
   void didChangeDependencies() {
@@ -32,16 +36,18 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         template = args['template'] as GameTemplateModel?;
         prepopulateTime = args['prepopulateTime'] as bool? ?? false;
         skipLocation = args['skipLocation'] as bool? ?? false;
+        isEdit = args['isEdit'] as bool? ?? false;
+        originalArgs = Map<String, dynamic>.from(args);
 
         // Pre-populate time from template if available, or from edit arguments
-        if (args['time'] is TimeOfDay) {
+        if (!_userHasSelectedTime && args['time'] is TimeOfDay) {
           selectedTime = args['time'] as TimeOfDay;
           debugPrint(
               '⏰ Pre-populated time: ${selectedTime!.format(context)} (from ${prepopulateTime ? 'template' : 'edit'})');
         }
 
         // Pre-populate date from template if available, or from edit arguments
-        if (args['date'] is DateTime) {
+        if (!_userHasSelectedDate && args['date'] is DateTime) {
           selectedDate = args['date'] as DateTime;
           debugPrint('📅 Pre-populated date: $selectedDate (from edit)');
         }
@@ -59,7 +65,9 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
+        _userHasSelectedDate = true;
       });
+      debugPrint('📅 User selected date: $selectedDate');
     }
   }
 
@@ -71,7 +79,9 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     if (picked != null && picked != selectedTime) {
       setState(() {
         selectedTime = picked;
+        _userHasSelectedTime = true;
       });
+      debugPrint('⏰ User selected time: ${selectedTime!.format(context)}');
     }
   }
 
@@ -81,16 +91,27 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color:
-                  themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary
+                    : Colors.black,
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -269,9 +290,18 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                       }
 
                                       debugPrint(
-                                          '📅 Final date/time selection - Date: $selectedDate, Time: ${finalTime?.format(context)}');
+                                          '📅 Final date/time selection - Date: $selectedDate, Time: ${finalTime?.format(context)}, isEdit: $isEdit');
 
-                                      if (skipLocation) {
+                                      if (isEdit) {
+                                        // When editing, return updated date/time data
+                                        debugPrint('🎯 DATE_TIME: Returning updated date/time for edit');
+                                        Navigator.pop(context, {
+                                          ...?originalArgs,
+                                          'date': selectedDate,
+                                          'time': finalTime,
+                                          'isEdit': true,
+                                        });
+                                      } else if (skipLocation) {
                                         // Location is already set in template, skip to additional game info
                                         debugPrint(
                                             '✅ Skipping location selection, going to additional game info');

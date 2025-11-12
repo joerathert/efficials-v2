@@ -46,11 +46,11 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
           '🎯 TEMPLATES SCREEN: From schedule details: $isFromScheduleDetails');
       debugPrint('🎯 TEMPLATES SCREEN: Schedule: $scheduleName, Sport: $sport');
 
-      // Refresh templates with filtering if needed
-      if (isFromScheduleDetails) {
-        _fetchTemplates();
-      }
+      // Always refresh templates to ensure we have the latest data
     }
+
+    // Always refresh templates to ensure we have the latest data
+    _fetchTemplates();
   }
 
   Future<void> _fetchTemplates() async {
@@ -192,7 +192,11 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
 
   Future<void> _deleteTemplate(GameTemplateModel template) async {
     try {
-      // For now, just remove from local list - we'll replace with actual service call
+      // Delete from Firestore
+      final gameService = GameService();
+      await gameService.deleteTemplate(template.id);
+
+      // Remove from local list
       setState(() {
         templates.removeWhere((t) => t.id == template.id);
         _groupTemplatesBySport();
@@ -346,6 +350,32 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
             template.officialsListName?.isNotEmpty == true)
           _buildDetailRow('Selected List', template.officialsListName!),
 
+        // Show selected lists if method is advanced (Multiple Lists)
+        if (template.method == 'advanced' &&
+            template.selectedLists != null &&
+            template.selectedLists!.isNotEmpty) ...[
+          ...template.selectedLists!.map(
+            (list) => _buildDetailRow(
+              'List',
+              '${list['list'] ?? 'Unknown'}: Min ${list['min'] ?? 0}, Max ${list['max'] ?? 1}',
+            ),
+          ),
+        ],
+
+        // Show selected crew if method is hire_crew
+        if (template.method == 'hire_crew' &&
+            template.selectedCrews != null &&
+            template.selectedCrews!.isNotEmpty) ...[
+          ...template.selectedCrews!.map(
+            (crew) => _buildDetailRow(
+              'Crew',
+              crew is Map<String, dynamic>
+                  ? crew['name'] ?? 'Unknown Crew'
+                  : (crew as dynamic).name ?? 'Unknown Crew',
+            ),
+          ),
+        ],
+
         const SizedBox(height: 8),
         Text(
           'Created: ${template.createdAt.toString().split(' ')[0]}',
@@ -410,12 +440,22 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),

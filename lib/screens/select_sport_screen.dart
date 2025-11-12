@@ -59,15 +59,25 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
     final fromListsScreen = args?['fromListsScreen'] == true;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Icon(
-          Icons.sports,
-          color: theme.brightness == Brightness.dark
-              ? colorScheme.primary
-              : Colors.black,
-          size: 32,
+        title: IconButton(
+          icon: Icon(
+            Icons.sports,
+            color: theme.brightness == Brightness.dark
+                ? colorScheme.primary
+                : Colors.black,
+            size: 32,
+          ),
+          onPressed: () {
+            // Navigate to Athletic Director home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/ad-home',
+              (route) => false, // Remove all routes
+            );
+          },
+          tooltip: 'Home',
         ),
         centerTitle: true,
         elevation: 0,

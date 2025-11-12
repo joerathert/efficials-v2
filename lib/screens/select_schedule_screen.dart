@@ -154,17 +154,27 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -449,7 +459,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                           (s) => s['name'] == selectedSchedule);
                                       _showDeleteConfirmationDialog(
                                           selectedSchedule!,
-                                          selected['id'] as int);
+                                          selected['id'] as String);
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,
@@ -485,7 +495,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     );
   }
 
-  void _showDeleteConfirmationDialog(String scheduleName, int scheduleId) {
+  void _showDeleteConfirmationDialog(String scheduleName, String scheduleId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -536,7 +546,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   }
 
   void _showSecondDeleteConfirmationDialog(
-      String scheduleName, int scheduleId) {
+      String scheduleName, String scheduleId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -591,17 +601,30 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     );
   }
 
-  Future<void> _deleteSchedule(String scheduleName, int scheduleId) async {
-    // For now, just remove from local list - we'll replace with actual service call
-    setState(() {
-      schedules.removeWhere((s) => s['name'] == scheduleName);
-    });
+  Future<void> _deleteSchedule(String scheduleName, String scheduleId) async {
+    try {
+      // Delete the schedule from Firestore (this also deletes associated games)
+      final gameService = GameService();
+      await gameService.deleteSchedule(scheduleId);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Schedule "$scheduleName" deleted successfully')),
-      );
+      // Remove from local list
+      setState(() {
+        schedules.removeWhere((s) => s['name'] == scheduleName);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Schedule "$scheduleName" deleted successfully')),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ SELECT_SCHEDULE: Error deleting schedule: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting schedule: $e')),
+        );
+      }
     }
   }
 }

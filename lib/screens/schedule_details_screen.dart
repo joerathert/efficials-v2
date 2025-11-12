@@ -585,27 +585,22 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.sports,
-              color: colorScheme.primary,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Schedule Details',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        title: GestureDetector(
+          onTap: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/athletic-director-home',
+              (route) => false,
+            );
+          },
+          child: Icon(
+            Icons.sports,
+            color: colorScheme.primary,
+            size: 32,
+          ),
         ),
         elevation: 0,
         centerTitle: true,
@@ -619,7 +614,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               // Fallback to AD home screen if navigation stack is empty
               Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/athletic_director_home',
+                '/athletic-director-home',
                 (route) => false,
               );
             }
@@ -1278,10 +1273,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                     'isAssignerFlow': false, // This is AD flow
                   },
                 ).then((result) {
-                  // Refresh template information after association
-                  if (result == true) {
-                    _loadAssociatedTemplate();
-                  }
+                  // Refresh template information after any template operation (association, deletion, etc.)
+                  _loadAssociatedTemplate();
                 });
               },
               backgroundColor: colorScheme.primary,

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
 import '../services/official_list_service.dart';
 
@@ -16,6 +14,9 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   List<Map<String, dynamic>> lists = [];
   bool isLoading = true;
   bool isFromGameCreation = false;
+  bool isFromInsufficientLists = false;
+  String? insufficientListsSport;
+  Map<String, dynamic>? gameArgs;
   GameTemplateModel? template;
   final OfficialListService _listService = OfficialListService();
 
@@ -46,8 +47,25 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         isFromGameCreation = args['fromGameCreation'] == true &&
             args['fromHamburgerMenu'] != true &&
             !isEdit;
+
+        // Handle Insufficient Lists navigation context
+        isFromInsufficientLists = args['fromInsufficientLists'] == true;
+        gameArgs = args['gameArgs'] as Map<String, dynamic>?;
+
+        // For Insufficient Lists, use the sport from gameArgs (game creation context)
+        // Otherwise use the sport from args (direct navigation)
+        if (isFromInsufficientLists && gameArgs != null) {
+          insufficientListsSport = gameArgs!['sport'] as String?;
+        } else {
+          insufficientListsSport = args['sport'] as String?;
+        }
+
         template = args['template'] as GameTemplateModel?;
+
+        print('🎯 ListsOfOfficialsScreen: Initial context - fromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: ${gameArgs != null ? 'present' : 'null'}');
       });
+
+      print('📱 ListsOfOfficialsScreen: Navigation context - fromInsufficientLists: $isFromInsufficientLists, sport: $insufficientListsSport');
 
       // Handle pre-selected list from template
       if (args['preSelectedList'] != null && args['method'] == 'use_list') {
@@ -64,6 +82,24 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       // Handle new list creation from review_list_screen
       if (args['newListCreated'] != null) {
         final newListData = args['newListCreated'] as Map<String, dynamic>;
+        print('🎯 ListsOfOfficialsScreen: Handling newListCreated: ${newListData['listName']}');
+
+        // Check if Insufficient Lists context is embedded in the result OR at top level
+        final embeddedFromInsufficientLists = newListData['fromInsufficientLists'] as bool?;
+        final embeddedGameArgs = newListData['gameArgs'] as Map<String, dynamic>?;
+
+        final topLevelFromInsufficientLists = args['fromInsufficientLists'] as bool?;
+        final topLevelGameArgs = args['gameArgs'] as Map<String, dynamic>?;
+
+        if ((embeddedFromInsufficientLists == true && embeddedGameArgs != null) ||
+            (topLevelFromInsufficientLists == true && topLevelGameArgs != null)) {
+          print('🎯 ListsOfOfficialsScreen: Found Insufficient Lists context (embedded or top-level)');
+          isFromInsufficientLists = true;
+          insufficientListsSport = (embeddedGameArgs ?? topLevelGameArgs)?['sport'] as String?;
+          gameArgs = embeddedGameArgs ?? topLevelGameArgs;
+          print('🎯 ListsOfOfficialsScreen: Set isFromInsufficientLists=$isFromInsufficientLists, sport=$insufficientListsSport');
+        }
+
         _handleNewListFromReview(newListData);
       } else {
         // Refresh lists when coming from other routes
@@ -128,30 +164,36 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   Future<void> _fetchLists() async {
     try {
       print('🔍 ListsOfOfficialsScreen: Starting to fetch lists...');
-      setState(() {
-        isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = true;
+        });
+      }
 
       final fetchedLists = await _listService.fetchOfficialLists();
       print(
           '✅ ListsOfOfficialsScreen: Fetched ${fetchedLists.length} lists from database');
 
-      setState(() {
-        lists.clear();
+      if (mounted) {
+        setState(() {
+          lists.clear();
 
-        // Add the fetched lists
-        lists.addAll(fetchedLists);
-        print(
-            '📋 ListsOfOfficialsScreen: Added ${fetchedLists.length} lists to display');
+          // Add the fetched lists
+          lists.addAll(fetchedLists);
+          print(
+              '📋 ListsOfOfficialsScreen: Added ${fetchedLists.length} lists to display');
 
-        isLoading = false;
-      });
+          isLoading = false;
+        });
+      }
     } catch (e) {
       print('❌ ListsOfOfficialsScreen: Error fetching lists: $e');
-      setState(() {
-        lists = [];
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          lists = [];
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -235,26 +277,27 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Consumer<ThemeProvider>(
-          builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+        title: IconButton(
+          icon: Icon(
+            Icons.sports, // Whistle-like sports icon
+            color: colorScheme.primary,
+            size: 32,
+          ),
+          onPressed: () {
+            // Navigate back to Athletic Director home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/ad-home',
+              (route) => false, // Remove all routes
             );
           },
+          tooltip: 'Back to Home',
         ),
         centerTitle: true,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false, // Completely disable automatic back arrow
       ),
       body: SafeArea(
         child: Center(
@@ -406,18 +449,29 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                   // Already in game creation flow with sport selected - go directly to name list
                                                   print(
                                                       '🔄 ListsOfOfficials: Going directly to name list with sport="$currentSport"');
+                                                  final topNameListArgs = {
+                                                    'sport': currentSport,
+                                                    'existingLists':
+                                                        <String>[],
+                                                    ...?args,
+                                                  };
+
+                                                  debugPrint('🎯 ListsOfOfficialsScreen: Top button passing to name_list_screen - fromInsufficientLists: ${args?['fromInsufficientLists']}, gameArgs: ${args?['gameArgs'] != null ? 'present' : 'null'}');
+                                                  debugPrint('🎯 ListsOfOfficialsScreen: TopNameListArgs keys: ${topNameListArgs.keys.toList()}');
+
                                                   Navigator.pushNamed(
                                                     context,
                                                     '/name-list',
-                                                    arguments: {
-                                                      'sport': currentSport,
-                                                      'existingLists':
-                                                          <String>[],
-                                                      ...?args,
-                                                    },
+                                                    arguments: topNameListArgs,
                                                   ).then((result) {
                                                     if (result != null &&
                                                         mounted) {
+                                                      // Restore Insufficient Lists context if it was lost
+                                                      if (isFromInsufficientLists && result is Map<String, dynamic>) {
+                                                        result['fromInsufficientLists'] = true;
+                                                        result['gameArgs'] = gameArgs;
+                                                        print('🎯 Restored Insufficient Lists context to result');
+                                                      }
                                                       _handleNewListFromReview(
                                                           result as Map<String,
                                                               dynamic>);
@@ -547,15 +601,21 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                     children: [
                                                       IconButton(
                                                         onPressed: () {
-                                                          // TODO: Navigate to edit list screen
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            const SnackBar(
-                                                              content: Text(
-                                                                  'Edit functionality not yet implemented'),
-                                                            ),
-                                                          );
+                                                          Navigator.pushNamed(
+                                                            context,
+                                                            '/edit-list',
+                                                            arguments: {
+                                                              'listName': listName,
+                                                              'listId': list['id'],
+                                                              'officials': list['officials'] ?? [],
+                                                              'isEdit': true,
+                                                            },
+                                                          ).then((result) {
+                                                            if (result != null && mounted) {
+                                                              // Refresh the lists to show any updates
+                                                              _fetchLists();
+                                                            }
+                                                          });
                                                         },
                                                         icon: Icon(
                                                           Icons.edit,
@@ -680,17 +740,22 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                       // Already in game creation flow with sport selected - go directly to name list
                                       print(
                                           '🔄 ListsOfOfficials: Bottom button - Going directly to name list with sport="$currentSport"');
+                                      final nameListArgs = {
+                                        'sport': currentSport,
+                                        'existingLists': actualLists
+                                            .map((list) =>
+                                                list['name'] as String)
+                                            .toList(),
+                                        ...?currentArgs,
+                                      };
+
+                                      debugPrint('🎯 ListsOfOfficialsScreen: Passing to name_list_screen - fromInsufficientLists: ${currentArgs?['fromInsufficientLists']}, gameArgs: ${currentArgs?['gameArgs'] != null ? 'present' : 'null'}');
+                                      debugPrint('🎯 ListsOfOfficialsScreen: NameListArgs keys: ${nameListArgs.keys.toList()}');
+
                                       Navigator.pushNamed(
                                         context,
                                         '/name-list',
-                                        arguments: {
-                                          'sport': currentSport,
-                                          'existingLists': actualLists
-                                              .map((list) =>
-                                                  list['name'] as String)
-                                              .toList(),
-                                          ...?currentArgs,
-                                        },
+                                        arguments: nameListArgs,
                                       ).then((result) {
                                         if (result != null && mounted) {
                                           _handleNewListFromReview(
@@ -738,20 +803,209 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   void _handleNewListFromReview(Map<String, dynamic> newListData) async {
+    print('🎯 _handleNewListFromReview: Called with newListData: $newListData');
+
     // Refresh the lists to show the newly created list
     await _fetchLists();
 
-    setState(() {
-      selectedList = newListData['listName'] as String;
-    });
+    if (mounted) {
+      setState(() {
+        selectedList = newListData['listName'] as String;
+      });
+    }
 
     if (mounted) {
+      print('🎯 _handleNewListFromReview: SHOWING SNACKBAR');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Your list was created successfully!'),
           duration: Duration(seconds: 3),
         ),
       );
+      print('🎯 _handleNewListFromReview: SNACKBAR SHOWN');
+    }
+
+    // Special handling for Insufficient Lists flow
+    print('🎯 _handleNewListFromReview: Checking Insufficient Lists');
+    print('🎯 _handleNewListFromReview: - isFromInsufficientLists: $isFromInsufficientLists');
+    print('🎯 _handleNewListFromReview: - insufficientListsSport: $insufficientListsSport');
+    print('🎯 _handleNewListFromReview: - gameArgs: $gameArgs');
+    print('🎯 _handleNewListFromReview: - current route args: ${ModalRoute.of(context)?.settings.arguments}');
+
+    if (isFromInsufficientLists && insufficientListsSport != null) {
+      print('🎯 _handleNewListFromReview: Triggering Insufficient Lists flow');
+      // Add a small delay to ensure the UI is updated before showing the prompt
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _handleInsufficientListsFlow(newListData);
+        }
+      });
+    } else {
+      print('🎯 _handleNewListFromReview: NOT triggering Insufficient Lists flow');
+    }
+  }
+
+  Future<void> _handleInsufficientListsFlow(Map<String, dynamic> newListData) async {
+    print('🎯 Insufficient Lists Flow: Starting flow check');
+    print('🎯 Insufficient Lists Flow: isFromInsufficientLists = $isFromInsufficientLists');
+    print('🎯 Insufficient Lists Flow: insufficientListsSport = $insufficientListsSport');
+    print('🎯 Insufficient Lists Flow: gameArgs = $gameArgs');
+    print('🎯 Insufficient Lists Flow: Total lists in memory = ${lists.length}');
+
+    // Count lists for the specific sport
+    final sportLists = lists.where((list) {
+      final listSport = list['sport'] as String?;
+      final listName = list['name'] as String?;
+      final isValidList = listName != 'No saved lists' && listName != '+ Create new list';
+      final matchesSport = listSport == insufficientListsSport;
+
+      print('🎯 Checking list: "$listName", sport: "$listSport", valid: $isValidList, matches sport: $matchesSport');
+
+      return matchesSport && isValidList;
+    }).toList();
+
+    final listCount = sportLists.length;
+
+    print('🎯 Insufficient Lists Flow: Created ${newListData['listName']} for $insufficientListsSport, now have $listCount valid lists for this sport');
+    print('🎯 Insufficient Lists Flow: Sport lists: ${sportLists.map((l) => l['name']).toList()}');
+
+    if (listCount >= 2) {
+      // We now have 2+ lists, navigate to Multiple Lists Setup
+      print('🎯 Insufficient Lists Flow: Have $listCount lists, navigating to Multiple Lists Setup');
+      await _navigateToMultipleListsSetup();
+    } else if (listCount == 1) {
+      // We have exactly 1 list, show prompt to create second list
+      print('🎯 Insufficient Lists Flow: Have exactly 1 list, showing prompt to create second');
+      await _showCreateSecondListPrompt();
+    } else {
+      print('🎯 Insufficient Lists Flow: Have $listCount lists (should be 1 or 2+) - unexpected state');
+    }
+  }
+
+  Future<void> _navigateToMultipleListsSetup() async {
+    print('🎯 Navigating to Multiple Lists Setup');
+    print('🎯 gameArgs: $gameArgs');
+    print('🎯 insufficientListsSport: $insufficientListsSport');
+
+    if (gameArgs == null) {
+      print('🎯 ERROR: gameArgs is null, cannot navigate to Multiple Lists Setup');
+      return;
+    }
+
+    // Prepare arguments for Multiple Lists Setup screen
+    final setupArgs = {
+      ...gameArgs!,
+      'sport': insufficientListsSport,
+    };
+
+    print('🎯 Multiple Lists Setup args: $setupArgs');
+
+    // Navigate to Multiple Lists Setup screen
+    Navigator.pushNamed(
+      context,
+      '/multiple-lists-setup',
+      arguments: setupArgs,
+    ).then((result) {
+      if (result != null && mounted) {
+        print('🎯 Multiple Lists Setup returned result, navigating to review screen');
+        // Navigate to review screen with multiple lists configuration
+        Navigator.pushNamed(
+          context,
+          '/review-game-info',
+          arguments: result,
+        );
+      }
+    });
+  }
+
+  Future<void> _showCreateSecondListPrompt() async {
+    print('🎯 Showing Create Second List Prompt');
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colorScheme.surface,
+        title: Text(
+          'Create Second List',
+          style: TextStyle(
+            color: colorScheme.primary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'You now have 1 $insufficientListsSport list. The Multiple Lists method requires at least 2 lists. Would you like to create a second list?',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              print('🎯 User chose "Maybe Later" - dismissing dialog');
+              Navigator.pop(context, false); // Return false to indicate no action
+            },
+            child: Text(
+              'Maybe Later',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              print('🎯 User chose to create second list - closing dialog and starting creation flow');
+              Navigator.pop(context, true); // Return true to indicate create second list
+            },
+            child: Text(
+              'Create Second List',
+              style: TextStyle(color: colorScheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    print('🎯 Create Second List Prompt dialog result: $result');
+
+    // Handle the user's choice
+    if (result == true) {
+      // User wants to create second list - navigate to name list screen
+      _navigateToCreateSecondList();
+    }
+    // If result is false or null, do nothing (user chose "Maybe Later" or dismissed dialog)
+  }
+
+  void _navigateToCreateSecondList() {
+    print('🎯 Navigating to create second list');
+    print('🎯 Create Second List: instance vars - isFromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: $gameArgs');
+
+    final nameListArgs = {
+      'sport': insufficientListsSport ?? 'Unknown Sport',
+      'existingLists': <String>[], // Start with empty since we're creating second list
+      // Explicitly pass Insufficient Lists context from instance variables
+      'fromInsufficientLists': isFromInsufficientLists,
+      'gameArgs': gameArgs,
+    };
+
+    print('🎯 Create Second List: final args for navigation: $nameListArgs');
+    print('🎯 Create Second List: sport = ${insufficientListsSport ?? 'Unknown Sport'}');
+    print('🎯 Create Second List: context mounted = $mounted');
+
+    if (mounted) {
+      Navigator.pushNamed(
+        context,
+        '/name-list',
+        arguments: nameListArgs,
+      ).then((result) {
+        print('🎯 Create Second List: navigation completed, result = $result');
+        if (result != null && mounted) {
+          print('🎯 Create Second List: returned from name-list with result');
+          _handleNewListFromReview(result as Map<String, dynamic>);
+        } else {
+          print('🎯 Create Second List: no result or not mounted');
+        }
+      });
+    } else {
+      print('🎯 Create Second List: context not mounted, skipping navigation');
     }
   }
 

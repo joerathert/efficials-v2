@@ -20,6 +20,9 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   String? sport;
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
+  bool isEdit = false;
+  Map<String, dynamic>? originalArgs;
+  bool _userHasSelectedLocation = false;
 
   @override
   void initState() {
@@ -35,13 +38,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     if (route != null) {
       final args = route.settings.arguments;
       if (args is Map<String, dynamic>) {
+        // Store all original args for edit mode
+        originalArgs = Map<String, dynamic>.from(args);
+
         scheduleName = args['scheduleName'] as String?;
         sport = args['sport'] as String?;
         template = args['template'] as GameTemplateModel?;
         selectedDate = args['date'] as DateTime?;
         selectedTime = args['time'] as TimeOfDay?;
-        // Pre-select the location if it exists in the arguments
-        if (args.containsKey('location') && args['location'] != null) {
+        isEdit = args['isEdit'] as bool? ?? false;
+        // Pre-select the location if it exists in the arguments and user hasn't selected one yet
+        if (!_userHasSelectedLocation && args.containsKey('location') && args['location'] != null) {
           selectedLocation = args['location'] as String?;
         }
         debugPrint('🎯 CHOOSE_LOCATION: Received template: ${template?.name}');
@@ -263,6 +270,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                         fontSize: 16,
                                       ),
                                       onChanged: (newValue) {
+                                        debugPrint('🎯 CHOOSE_LOCATION: Dropdown onChanged - newValue: $newValue');
                                         if (newValue ==
                                             '+ Create new location') {
                                           Navigator.pushNamed(
@@ -292,12 +300,16 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                                 selectedLocation =
                                                     newLoc['name'];
                                               });
+                                              debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to new location: $selectedLocation');
                                             }
                                           });
                                         } else {
                                           setState(() {
                                             selectedLocation = newValue;
+                                            _userHasSelectedLocation = true;
                                           });
+                                          debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to: $selectedLocation');
+                                          debugPrint('🎯 CHOOSE_LOCATION: _userHasSelectedLocation set to: $_userHasSelectedLocation');
                                         }
                                       },
                                       items: locations.map((location) {
@@ -321,24 +333,40 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                       selectedLocation !=
                                           '+ Create new location')
                                   ? () {
-                                      final isAwayGame =
-                                          selectedLocation == 'Away Game';
-                                      Navigator.pushNamed(
-                                        context,
-                                        isAwayGame
-                                            ? '/additional-game-info-condensed'
-                                            : '/additional-game-info',
-                                        arguments: {
-                                          'scheduleName': scheduleName,
-                                          'sport': sport,
-                                          'template': template,
-                                          'date': selectedDate,
-                                          'time': selectedTime,
+                                      if (isEdit) {
+                                        // When editing, return all original args merged with updated location data
+                                        final isAwayGame =
+                                            selectedLocation == 'Away Game';
+                                        debugPrint('🎯 CHOOSE_LOCATION: Popping with selected location: $selectedLocation');
+                                        Navigator.pop(context, {
+                                          ...?originalArgs,
                                           'location': selectedLocation,
                                           'isAwayGame': isAwayGame,
                                           'isAway': isAwayGame,
-                                        },
-                                      );
+                                          'isEdit': true,
+                                          'isFromGameInfo': true,
+                                        });
+                                      } else {
+                                        // Normal game creation flow
+                                        final isAwayGame =
+                                            selectedLocation == 'Away Game';
+                                        Navigator.pushNamed(
+                                          context,
+                                          isAwayGame
+                                              ? '/additional-game-info-condensed'
+                                              : '/additional-game-info',
+                                          arguments: {
+                                            'scheduleName': scheduleName,
+                                            'sport': sport,
+                                            'template': template,
+                                            'date': selectedDate,
+                                            'time': selectedTime,
+                                            'location': selectedLocation,
+                                            'isAwayGame': isAwayGame,
+                                            'isAway': isAwayGame,
+                                          },
+                                        );
+                                      }
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(

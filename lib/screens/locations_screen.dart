@@ -74,7 +74,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
     }
   }
 
-  void _showDeleteConfirmationDialog(String locationName, int locationId) {
+  void _showDeleteConfirmationDialog(String locationName, String locationId) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -120,7 +120,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
               Navigator.pop(context);
               try {
                 // Use LocationService to delete from database
-                await _locationService.deleteLocation(locationId.toString());
+                await _locationService.deleteLocation(locationId);
 
                 // Refresh the locations list
                 await _fetchLocations();
@@ -415,7 +415,7 @@ class _LocationsScreenState extends State<LocationsScreen> {
                                           (l) => l['name'] == selectedLocation);
                                       _showDeleteConfirmationDialog(
                                           selectedLocation!,
-                                          selected['id'] as int? ?? 0);
+                                          selected['id'] as String);
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,

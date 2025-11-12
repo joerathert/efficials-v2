@@ -109,6 +109,9 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
         ],
       ),
       body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -214,6 +217,8 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
 
               const SizedBox(height: 20),
             ],
+          ),
+        ),
           ),
         ),
       ),

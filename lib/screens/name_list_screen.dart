@@ -20,6 +20,11 @@ class _NameListScreenState extends State<NameListScreen> {
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final creatingSecondList = args?['creatingSecondList'] as bool? ?? false;
 
+      debugPrint('🎯 NameListScreen: RECEIVED ARGS:');
+      debugPrint('🎯 NameListScreen: - fromInsufficientLists: ${args?['fromInsufficientLists']}');
+      debugPrint('🎯 NameListScreen: - gameArgs present: ${args?['gameArgs'] != null}');
+      debugPrint('🎯 NameListScreen: - all keys: ${args?.keys.toList()}');
+
       if (creatingSecondList) {
         _showSecondListExplanationDialog();
       }
@@ -82,17 +87,27 @@ class _NameListScreenState extends State<NameListScreen> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -231,18 +246,27 @@ class _NameListScreenState extends State<NameListScreen> {
                               ),
                             );
                           } else {
+                            final populateArgs = {
+                              'sport': sport,
+                              'listName': name,
+                              'fromGameCreation': true,
+                              // Pass through ALL game creation context
+                              ...?args,
+                              // Explicitly exclude selectedOfficials to start with clean slate
+                              'selectedOfficials': null,
+                            };
+
+                            debugPrint('🎯 NameListScreen: CREATING POPULATE ARGS:');
+                            debugPrint('🎯 NameListScreen: - args fromInsufficientLists: ${args?['fromInsufficientLists']}');
+                            debugPrint('🎯 NameListScreen: - args gameArgs present: ${args?['gameArgs'] != null}');
+                            debugPrint('🎯 NameListScreen: - populateArgs keys: ${populateArgs.keys.toList()}');
+                            debugPrint('🎯 NameListScreen: - populateArgs[fromInsufficientLists]: ${populateArgs['fromInsufficientLists']}');
+                            debugPrint('🎯 NameListScreen: - populateArgs[gameArgs]: ${populateArgs['gameArgs']}');
+
                             Navigator.pushNamed(
                               context,
                               '/populate-roster',
-                              arguments: {
-                                'sport': sport,
-                                'listName': name,
-                                'fromGameCreation': true,
-                                // Pass through ALL game creation context
-                                ...?args,
-                                // Explicitly exclude selectedOfficials to start with clean slate
-                                'selectedOfficials': null,
-                              },
+                              arguments: populateArgs,
                             ).then((result) {
                               if (result != null && mounted) {
                                 // Pass the result back to the lists screen

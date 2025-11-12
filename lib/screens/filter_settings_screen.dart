@@ -69,7 +69,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
     final isAwayGame = args?['isAwayGame'] as bool? ?? false;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
@@ -357,7 +357,8 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                     ),
                     const SizedBox(height: 30),
                     SizedBox(
-                      width: 300,
+                      width: 400,
+                      height: 50,
                       child: ElevatedButton(
                         onPressed: () {
                           if (!competitionLevels.values
@@ -404,8 +405,7 @@ class _FilterSettingsScreenState extends State<FilterSettingsScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 50),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

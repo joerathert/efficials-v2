@@ -35,10 +35,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   
-  # Firebase dependencies (Flutter 3.22.0/Dart 3.4.0 compatible versions)
-  firebase_core: ^2.15.1
-  firebase_auth: ^4.7.3
-  cloud_firestore: ^4.8.5
+  # Firebase dependencies (Latest compatible versions)
+  firebase_core: ^3.0.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
 
   # Environment variables
   flutter_dotenv: ^5.1.0

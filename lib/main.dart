@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'app_theme.dart';
 import 'services/auth_service.dart';
 import 'screens/auth/role_selection_screen.dart';
 import 'screens/auth/basic_profile_screen.dart';
+import 'screens/auth/sign_in_screen.dart';
 import 'screens/auth/official_profile_screen.dart';
 import 'screens/auth/official_step2_screen.dart';
 import 'screens/auth/official_step3_screen.dart';
@@ -38,6 +40,7 @@ import 'screens/populate_roster_screen.dart';
 import 'screens/filter_settings_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/review_list_screen.dart';
+import 'screens/edit_list_screen.dart';
 import 'screens/review_game_info_screen.dart';
 import 'screens/game_information_screen.dart';
 import 'screens/edit_game_info_screen.dart';
@@ -91,8 +94,10 @@ class MyApp extends StatelessWidget {
           theme: themeProvider.themeData,
           darkTheme: AppTheme.dark,
           themeMode: themeProvider.themeMode,
-          home: const MyHomePage(),
+          initialRoute: '/auth',
           routes: {
+            '/auth': (context) => const AuthWrapper(),
+            '/sign-in': (context) => const SignInScreen(),
             '/role-selection': (context) => const RoleSelectionScreen(),
             '/basic-profile': (context) => const BasicProfileScreen(),
             '/scheduler-type': (context) => const SchedulerTypeScreen(),
@@ -130,6 +135,7 @@ class MyApp extends StatelessWidget {
             '/filter-settings': (context) => const FilterSettingsScreen(),
             '/settings': (context) => const SettingsScreen(),
             '/review-list': (context) => const ReviewListScreen(),
+            '/edit-list': (context) => const EditListScreen(),
             '/review-game-info': (context) => const ReviewGameInfoScreen(),
             '/game-information': (context) => const GameInformationScreen(),
             '/edit_game_info': (context) => const EditGameInfoScreen(),
@@ -249,16 +255,10 @@ class _MyHomePageState extends State<MyHomePage> {
       backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
-        title: Consumer<ThemeProvider>(
-          builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
-            );
-          },
+        title: Icon(
+          Icons.sports,
+          color: colorScheme.primary,
+          size: 32,
         ),
         centerTitle: true,
         actions: [
@@ -442,14 +442,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     constraints: const BoxConstraints(maxWidth: 400),
                     child: SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // TODO: Navigate to sign in screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Sign In - Coming Soon!')),
-                          );
-                        },
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/sign-in');
+                          },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -570,5 +566,138 @@ class _QuickAccessButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+
+  @override
+  Widget build(BuildContext context) {
+    print('🏗️ AUTH WRAPPER: Building AuthWrapper');
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        print('🏗️ AUTH WRAPPER: StreamBuilder snapshot - connectionState: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          print('🏗️ AUTH WRAPPER: Showing loading spinner');
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          print('🏗️ AUTH WRAPPER: User authenticated, userId: ${snapshot.data!.uid}');
+          // User is signed in, navigate to appropriate home screen
+          print('🏗️ AUTH WRAPPER: Creating FutureBuilder for user profile');
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: _getUserProfile(snapshot.data!.uid),
+            builder: (context, userSnapshot) {
+              print('🏗️ AUTH WRAPPER: FutureBuilder snapshot - connectionState: ${userSnapshot.connectionState}, hasData: ${userSnapshot.hasData}, hasError: ${userSnapshot.hasError}');
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                print('🏗️ AUTH WRAPPER: FutureBuilder showing loading spinner');
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (userSnapshot.hasData && userSnapshot.data != null) {
+                final userData = userSnapshot.data!;
+                final userType = userData['role']; // Field name in Firestore
+                final schedulerProfile = userData['schedulerProfile'] as Map<String, dynamic>?;
+                final schedulerType = schedulerProfile?['type']; // Nested in schedulerProfile
+
+                print('🔄 AUTH WRAPPER: userType=$userType, schedulerType=$schedulerType');
+
+                // Use post-frame callback to navigate after build is complete
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && context.mounted) {
+                    String routeName;
+                    switch (userType) {
+                      case 'scheduler':
+                        switch (schedulerType) {
+                          case 'Athletic Director': // Exact string from Firestore
+                            routeName = '/athletic-director-home';
+                            break;
+                          case 'coach':
+                            routeName = '/coach-home';
+                            break;
+                          case 'assigner':
+                            routeName = '/assigner-home';
+                            break;
+                          default:
+                            routeName = '/'; // Fallback to welcome screen
+                            break;
+                        }
+                        break;
+                      case 'official':
+                        routeName = '/official-profile';
+                        break;
+                      default:
+                        routeName = '/'; // Fallback to welcome screen
+                        break;
+                    }
+
+                    print('🏈 AUTH WRAPPER: Navigating to $routeName');
+                    print('🏈 AUTH WRAPPER: Current navigator context: ${Navigator.of(context).toString()}');
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      routeName,
+                      (route) => false,
+                    ).then((_) {
+                      print('🏈 AUTH WRAPPER: Navigation to $routeName completed');
+                    });
+                  }
+                });
+
+                // Return loading screen while navigation happens
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              // If we can't get user profile, show welcome screen
+              return const MyHomePage();
+            },
+          );
+        } else {
+          // User is not signed in, show welcome screen
+          return const MyHomePage();
+        }
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>?> _getUserProfile(String userId) async {
+    print('🏗️ AUTH WRAPPER: _getUserProfile called for userId: $userId');
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      print('🏗️ AUTH WRAPPER: Firestore doc exists: ${doc.exists}');
+      if (doc.exists && doc.data() != null) {
+        print('🏗️ AUTH WRAPPER: Returning user profile data');
+        return doc.data();
+      } else {
+        print('🏗️ AUTH WRAPPER: Doc exists but no data, returning null');
+      }
+    } catch (e) {
+      print('🏗️ AUTH WRAPPER: Error getting user profile: $e');
+    }
+    print('🏗️ AUTH WRAPPER: Returning null from _getUserProfile');
+    return null;
   }
 }

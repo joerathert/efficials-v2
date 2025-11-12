@@ -205,4 +205,14 @@ class OfficialListService extends BaseService {
       throw Exception('Failed to fetch official list: $e');
     }
   }
+
+  /// Update just the name of an official list
+  Future<void> updateListName(String listId, String newName) async {
+    await updateOfficialList(listId: listId, listName: newName);
+  }
+
+  /// Update just the officials in an official list
+  Future<void> updateListOfficials(String listId, List<Map<String, dynamic>> officials) async {
+    await updateOfficialList(listId: listId, officials: officials);
+  }
 }

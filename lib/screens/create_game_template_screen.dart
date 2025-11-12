@@ -35,6 +35,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   bool includeOfficialsRequired = true;
   bool includeGameFee = true;
   bool includeHireAutomatically = true;
+  bool includeSelectedLists = true;
+
+  // Advanced method configuration
+  List<Map<String, dynamic>> selectedMultipleLists = [
+    {'list': null, 'min': null, 'max': null},
+    {'list': null, 'min': null, 'max': null},
+  ];
 
   // Dropdown data
   List<Map<String, dynamic>> locations = [];
@@ -42,9 +49,123 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   bool isLoadingDropdowns = true;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Initialize from arguments if available
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _initializeFromArgs(args);
+    }
+
     _loadDropdownData();
+  }
+
+  void _initializeFromArgs(Map<String, dynamic> args) {
+    print('🎯 CreateGameTemplate: Initializing from args: $args');
+    print('🎯 CreateGameTemplate: Args keys: ${args.keys.toList()}');
+    print('🎯 CreateGameTemplate: Args types: ${args.map((k, v) => MapEntry(k, v.runtimeType))}');
+
+    // Leave template name blank - user will fill it in
+    // _nameController.text remains empty
+
+    // Pre-populate sport
+    if (args['sport'] != null) {
+      sport = args['sport'] as String;
+      includeSport = true;
+    }
+
+    // Pre-populate time (convert from string back to TimeOfDay)
+    if (args['time'] != null) {
+      if (args['time'] is String) {
+        final timeParts = (args['time'] as String).split(':');
+        if (timeParts.length >= 2) {
+          selectedTime = TimeOfDay(
+            hour: int.tryParse(timeParts[0]) ?? 0,
+            minute: int.tryParse(timeParts[1]) ?? 0,
+          );
+          includeTime = true;
+        }
+      } else if (args['time'] is TimeOfDay) {
+        selectedTime = args['time'] as TimeOfDay;
+        includeTime = true;
+      }
+    }
+
+    // Pre-populate location
+    if (args['location'] != null) {
+      selectedLocation = args['location'] as String;
+      includeLocation = true;
+    }
+
+    // Pre-populate level of competition
+    if (args['levelOfCompetition'] != null) {
+      levelOfCompetition = args['levelOfCompetition'] as String;
+      includeLevelOfCompetition = true;
+    }
+
+    // Pre-populate gender
+    if (args['gender'] != null) {
+      gender = args['gender'] as String;
+      includeGender = true;
+    }
+
+    // Pre-populate officials required
+    if (args['officialsRequired'] != null) {
+      officialsRequired = args['officialsRequired'] is int
+          ? args['officialsRequired'] as int
+          : int.tryParse(args['officialsRequired'].toString());
+      includeOfficialsRequired = true;
+    }
+
+    // Pre-populate game fee
+    if (args['gameFee'] != null) {
+      _gameFeeController.text = args['gameFee'].toString();
+      includeGameFee = true;
+    }
+
+    // Pre-populate hire automatically
+    if (args['hireAutomatically'] != null) {
+      hireAutomatically = args['hireAutomatically'] as bool? ?? false;
+      includeHireAutomatically = true;
+    }
+
+    // Pre-populate method and related data
+    if (args['method'] != null) {
+      String gameMethod = args['method'] as String;
+
+      // Map game methods to template methods
+      if (gameMethod == 'multiple_lists') {
+        method =
+            'advanced'; // Multiple lists maps to advanced method in templates
+      } else {
+        method = gameMethod;
+      }
+
+      // Handle different methods
+      if (method == 'use_list' && args['selectedListName'] != null) {
+        selectedOfficialList = args['selectedListName'] as String;
+      } else if (method == 'advanced' && args['selectedLists'] != null) {
+        // Pre-populate the multiple lists configuration
+        final gameLists = args['selectedLists'] as List<dynamic>;
+        selectedMultipleLists = gameLists.map((list) {
+          final listData = list as Map<String, dynamic>;
+          return {
+            'list': listData['list'] as String?,
+            'min': listData['min'] as int?,
+            'max': listData['max'] as int?,
+          };
+        }).toList();
+      }
+    }
+
+    print('✅ CreateGameTemplate: Initialized fields from args');
+
+    // Force UI update to reflect pre-populated values
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadDropdownData() async {
@@ -203,6 +324,15 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       'includeSelectedLists': method == 'advanced',
       'includeSelectedCrews': method == 'hire_crew',
       if (method == 'use_list') 'officialsListName': selectedOfficialList,
+      if (method == 'advanced' && includeSelectedLists)
+        'selectedLists': selectedMultipleLists
+            .where((list) => list['list'] != null)
+            .map((list) => {
+                  'list': list['list'],
+                  'min': list['min'] ?? 0,
+                  'max': list['max'] ?? 1,
+                })
+            .toList(),
     };
 
     try {
@@ -242,11 +372,22 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.grey[900],
-        title: const Icon(Icons.sports, color: Colors.yellow, size: 32),
+        backgroundColor: colorScheme.surface,
+        title: IconButton(
+          icon: Icon(Icons.sports, color: colorScheme.primary, size: 32),
+          onPressed: () {
+            // Navigate to Athletic Director home screen
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/ad-home',
+              (route) => false, // Remove all routes
+            );
+          },
+          tooltip: 'Home',
+        ),
         centerTitle: true,
         elevation: 0,
         leading: IconButton(
@@ -263,12 +404,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Center(
+                  Center(
                     child: Text('Template Configuration',
                         style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.yellow)),
+                            color: colorScheme.primary)),
                   ),
                   const SizedBox(height: 8),
                   const Center(
@@ -285,23 +426,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value:
                             true, // Always checked since template name is required
                         onChanged: null, // Disabled since it's always required
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
                         child: TextField(
                           controller: _nameController,
                           decoration: InputDecoration(
-                            labelText: 'Template Name',
-                            labelStyle: const TextStyle(color: Colors.white),
+                            hintText: 'Template Name',
+                            hintStyle: const TextStyle(color: Colors.grey),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -321,7 +462,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeSport,
                         onChanged: (value) =>
                             setState(() => includeSport = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -330,13 +471,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Sport',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -369,7 +510,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeTime,
                         onChanged: (value) =>
                             setState(() => includeTime = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -382,7 +523,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               color: Colors.grey[900],
                               borderRadius: BorderRadius.circular(4),
                               border:
-                                  Border.all(color: Colors.yellow, width: 1.5),
+                                  Border.all(color: colorScheme.primary, width: 1.5),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -394,8 +535,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                   style: const TextStyle(
                                       fontSize: 16, color: Colors.white),
                                 ),
-                                const Icon(Icons.access_time,
-                                    color: Colors.yellow),
+                                Icon(Icons.access_time,
+                                    color: colorScheme.primary),
                               ],
                             ),
                           ),
@@ -412,7 +553,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeLocation,
                         onChanged: (value) =>
                             setState(() => includeLocation = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -421,13 +562,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Location',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -440,15 +581,31 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                           dropdownColor: Colors.grey[800],
                           onChanged: (newValue) =>
                               setState(() => selectedLocation = newValue),
-                          items: locations.map((location) {
-                            print(
-                                '🏠 Location dropdown item: ${location['name']}');
-                            return DropdownMenuItem<String>(
-                              value: location['name'] as String,
-                              child: Text(location['name'] as String,
-                                  style: const TextStyle(color: Colors.white)),
-                            );
-                          }).toList(),
+                          items: isLoadingDropdowns
+                              ? [
+                                  const DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text('Loading locations...',
+                                        style: TextStyle(color: Colors.grey)),
+                                  )
+                                ]
+                              : locations.isEmpty
+                                  ? [
+                                      const DropdownMenuItem<String>(
+                                        value: null,
+                                        child: Text('No locations found',
+                                            style: TextStyle(color: Colors.grey)),
+                                      )
+                                    ]
+                                  : locations.map((location) {
+                                      print(
+                                          '🏠 Location dropdown item: ${location['name']}');
+                                      return DropdownMenuItem<String>(
+                                        value: location['name'] as String,
+                                        child: Text(location['name'] as String,
+                                            style: const TextStyle(color: Colors.white)),
+                                      );
+                                    }).toList(),
                         ),
                       ),
                     ],
@@ -462,7 +619,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeLevelOfCompetition,
                         onChanged: (value) => setState(
                             () => includeLevelOfCompetition = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -471,13 +628,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Level of Competition',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -512,7 +669,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeGender,
                         onChanged: (value) =>
                             setState(() => includeGender = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -521,13 +678,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Gender',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -561,7 +718,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeOfficialsRequired,
                         onChanged: (value) => setState(
                             () => includeOfficialsRequired = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -570,13 +727,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: '# of Officials Required',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -611,7 +768,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeGameFee,
                         onChanged: (value) =>
                             setState(() => includeGameFee = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -621,13 +778,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Game Fee per Official',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -657,7 +814,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: includeHireAutomatically,
                         onChanged: (value) => setState(
                             () => includeHireAutomatically = value ?? false),
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       const Text('Hire Automatically',
@@ -667,8 +824,8 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value: hireAutomatically,
                         onChanged: (value) =>
                             setState(() => hireAutomatically = value),
-                        activeColor: Colors.yellow,
-                        activeTrackColor: Colors.yellow.withOpacity(0.3),
+                        activeColor: colorScheme.primary,
+                        activeTrackColor: colorScheme.primary.withOpacity(0.3),
                       ),
                     ],
                   ),
@@ -681,7 +838,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                         value:
                             true, // Selection method is always included when set
                         onChanged: null, // Disabled since it's always included
-                        activeColor: Colors.yellow,
+                        activeColor: colorScheme.primary,
                         checkColor: Colors.black,
                       ),
                       Expanded(
@@ -690,13 +847,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             labelText: 'Selection Method',
                             labelStyle: const TextStyle(color: Colors.white),
                             border: const OutlineInputBorder(),
-                            enabledBorder: const OutlineInputBorder(
+                            enabledBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 1.5),
+                                  BorderSide(color: colorScheme.primary, width: 1.5),
                             ),
-                            focusedBorder: const OutlineInputBorder(
+                            focusedBorder: OutlineInputBorder(
                               borderSide:
-                                  BorderSide(color: Colors.yellow, width: 2),
+                                  BorderSide(color: colorScheme.primary, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.grey[900],
@@ -744,13 +901,13 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               labelText: 'Select Official List',
                               labelStyle: const TextStyle(color: Colors.white),
                               border: const OutlineInputBorder(),
-                              enabledBorder: const OutlineInputBorder(
+                              enabledBorder: OutlineInputBorder(
                                 borderSide: BorderSide(
-                                    color: Colors.yellow, width: 1.5),
+                                    color: colorScheme.primary, width: 1.5),
                               ),
-                              focusedBorder: const OutlineInputBorder(
+                              focusedBorder: OutlineInputBorder(
                                 borderSide:
-                                    BorderSide(color: Colors.yellow, width: 2),
+                                    BorderSide(color: colorScheme.primary, width: 2),
                               ),
                               filled: true,
                               fillColor: Colors.grey[900],
@@ -795,30 +952,317 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                       ],
                     ),
                   ] else if (method == 'advanced') ...[
+                    // Advanced method configuration
                     Row(
                       children: [
-                        const SizedBox(
-                            width:
-                                36), // Slightly wider to the left for better alignment
+                        Checkbox(
+                          value: includeSelectedLists,
+                          onChanged: (value) => setState(
+                              () => includeSelectedLists = value ?? false),
+                          activeColor: colorScheme.primary,
+                          checkColor: Colors.black,
+                        ),
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.grey[800],
                               border:
-                                  Border.all(color: Colors.yellow, width: 1.5),
+                                  Border.all(color: colorScheme.primary, width: 1.5),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Advanced list configuration coming soon',
+                                const Text(
+                                  'Multiple Lists Configuration',
                                   style: TextStyle(
-                                      fontSize: 14, color: Colors.white70),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(Icons.access_time, color: Colors.yellow),
+                                const SizedBox(height: 8),
+                                ...selectedMultipleLists
+                                    .asMap()
+                                    .entries
+                                    .map((entry) {
+                                  final listIndex = entry.key;
+                                  final listConfig = entry.value;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'List ${listIndex + 1}',
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white70),
+                                            ),
+                                            if (selectedMultipleLists.length >
+                                                2)
+                                              IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    selectedMultipleLists
+                                                        .removeAt(listIndex);
+                                                  });
+                                                },
+                                                icon: const Icon(
+                                                    Icons.remove_circle,
+                                                    color: Colors.red,
+                                                    size: 16),
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        DropdownButtonFormField<String>(
+                                          decoration: InputDecoration(
+                                            hintText: 'Select list',
+                                            hintStyle: const TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12),
+                                            filled: true,
+                                            fillColor: Colors.grey[900],
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: BorderSide(
+                                                  color: colorScheme.primary,
+                                                  width: 1),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: BorderSide(
+                                                  color: colorScheme.primary,
+                                                  width: 1),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              borderSide: BorderSide(
+                                                  color: colorScheme.primary,
+                                                  width: 1.5),
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 4),
+                                          ),
+                                          value: listConfig['list'] as String?,
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12),
+                                          dropdownColor: Colors.grey[900],
+                                          onChanged: (value) {
+                                            setState(() {
+                                              listConfig['list'] = value;
+                                            });
+                                          },
+                                          items: officialLists.isEmpty
+                                              ? [
+                                                  const DropdownMenuItem<
+                                                      String>(
+                                                    value: null,
+                                                    child: Text(
+                                                        'No lists available',
+                                                        style: TextStyle(
+                                                            color:
+                                                                Colors.grey)),
+                                                  )
+                                                ]
+                                              : officialLists.map((list) {
+                                                  final listName =
+                                                      list['name'] as String;
+                                                  return DropdownMenuItem<
+                                                      String>(
+                                                    value: listName,
+                                                    child: Text(listName,
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.white)),
+                                                  );
+                                                }).toList(),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child:
+                                                  DropdownButtonFormField<int>(
+                                                decoration: InputDecoration(
+                                                  hintText: 'Min officials',
+                                                  hintStyle: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12),
+                                                  filled: true,
+                                                  fillColor: Colors.grey[900],
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1),
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1),
+                                                  ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1.5),
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4),
+                                                ),
+                                                value:
+                                                    listConfig['min'] as int?,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12),
+                                                dropdownColor: Colors.grey[900],
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    listConfig['min'] = value;
+                                                  });
+                                                },
+                                                items:
+                                                    List.generate(10, (i) => i)
+                                                        .map((num) {
+                                                  return DropdownMenuItem(
+                                                    value: num,
+                                                    child: Text(num.toString(),
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.white)),
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child:
+                                                  DropdownButtonFormField<int>(
+                                                decoration: InputDecoration(
+                                                  hintText: 'Max officials',
+                                                  hintStyle: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12),
+                                                  filled: true,
+                                                  fillColor: Colors.grey[900],
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1),
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1),
+                                                  ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                    borderSide:
+                                                        BorderSide(
+                                                            color:
+                                                                colorScheme.primary,
+                                                            width: 1.5),
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4),
+                                                ),
+                                                value:
+                                                    listConfig['max'] as int?,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12),
+                                                dropdownColor: Colors.grey[900],
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    listConfig['max'] = value;
+                                                  });
+                                                },
+                                                items: List.generate(
+                                                        10, (i) => i + 1)
+                                                    .map((num) {
+                                                  return DropdownMenuItem(
+                                                    value: num,
+                                                    child: Text(num.toString(),
+                                                        style: const TextStyle(
+                                                            color:
+                                                                Colors.white)),
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                                if (selectedMultipleLists.length < 3)
+                                  Center(
+                                    child: IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          selectedMultipleLists.add({
+                                            'list': null,
+                                            'min': null,
+                                            'max': null
+                                          });
+                                        });
+                                      },
+                                      icon: Icon(Icons.add_circle,
+                                          color: colorScheme.primary),
+                                      tooltip: 'Add another list',
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -837,10 +1281,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             decoration: BoxDecoration(
                               color: Colors.grey[800],
                               border:
-                                  Border.all(color: Colors.yellow, width: 1.5),
+                                  Border.all(color: colorScheme.primary, width: 1.5),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
@@ -849,7 +1293,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                       fontSize: 14, color: Colors.white70),
                                 ),
                                 SizedBox(width: 8),
-                                Icon(Icons.group, color: Colors.yellow),
+                                Icon(Icons.group, color: colorScheme.primary),
                               ],
                             ),
                           ),
@@ -877,7 +1321,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
               child: ElevatedButton(
                 onPressed: _saveTemplate,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.yellow,
+                  backgroundColor: colorScheme.primary,
                   foregroundColor: Colors.black,
                   padding:
                       const EdgeInsets.symmetric(vertical: 15, horizontal: 32),

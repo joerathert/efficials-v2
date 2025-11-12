@@ -13,6 +13,7 @@ class SelectOfficialsScreen extends StatefulWidget {
 
 class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
   bool _defaultChoice = false;
+  bool _isFromEdit = false;
   GameTemplateModel? template;
   List<Map<String, dynamic>> _selectedOfficials = [];
   final OfficialListService _listService = OfficialListService();
@@ -24,6 +25,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args != null) {
       template = args['template'] as GameTemplateModel?;
+      _isFromEdit = args['isEdit'] == true || args['isFromGameInfo'] == true;
 
       debugPrint('🎯 SELECT_OFFICIALS: Received template: ${template?.name}');
       debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template?.method}');
@@ -39,17 +41,28 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           template!.selectedCrews!.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              '/review_game_info',
-              arguments: <String, dynamic>{
+            if (_isFromEdit) {
+              // Return result to calling screen
+              Navigator.pop(context, <String, dynamic>{
                 ...args,
                 'method': 'hire_crew',
                 'selectedCrews': template!.selectedCrews,
                 'selectedCrew': template!.selectedCrews!.first,
                 'template': template,
-              },
-            );
+              });
+            } else {
+              Navigator.pushReplacementNamed(
+                context,
+                '/review_game_info',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'method': 'hire_crew',
+                  'selectedCrews': template!.selectedCrews,
+                  'selectedCrew': template!.selectedCrews!.first,
+                  'template': template,
+                },
+              );
+            }
           }
         });
       }
@@ -64,44 +77,130 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
 
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              '/review_game_info',
-              arguments: <String, dynamic>{
+            if (_isFromEdit) {
+              // Return result to calling screen
+              Navigator.pop(context, <String, dynamic>{
                 ...args,
                 'method': 'use_list',
                 'selectedOfficials': _selectedOfficials,
                 'template': template,
-              },
-            );
+              });
+            } else {
+              Navigator.pushReplacementNamed(
+                context,
+                '/review_game_info',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'method': 'use_list',
+                  'selectedOfficials': _selectedOfficials,
+                  'template': template,
+                },
+              );
+            }
           }
         });
       }
-      // If the template uses single list method, navigate directly to lists selection
+      // If the template uses single list method, navigate directly to review
       else if (template != null &&
           template!.method == 'use_list' &&
           template!.officialsListName != null &&
           template!.officialsListName!.isNotEmpty) {
-        debugPrint('🎯 SELECT_OFFICIALS: Single list routing triggered!');
+        debugPrint('🎯 SELECT_OFFICIALS: Single list template routing triggered!');
         debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
-        debugPrint(
-            '🎯 SELECT_OFFICIALS: Template includeOfficialsList: ${template!.includeOfficialsList}');
         debugPrint(
             '🎯 SELECT_OFFICIALS: Template officialsListName: ${template!.officialsListName}');
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              '/lists-of-officials',
-              arguments: <String, dynamic>{
+            if (_isFromEdit) {
+              // Return result to calling screen
+              Navigator.pop(context, <String, dynamic>{
                 ...args,
-                'sport': args['sport'] ?? 'Football',
-                'fromGameCreation': true,
-                'template': template,
-                'preSelectedList': template!.officialsListName,
                 'method': 'use_list',
-              },
-            );
+                'selectedListName': template!.officialsListName,
+                'template': template,
+              });
+            } else {
+              Navigator.pushReplacementNamed(
+                context,
+                '/review_game_info',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'method': 'use_list',
+                  'selectedListName': template!.officialsListName,
+                  'template': template,
+                },
+              );
+            }
+          }
+        });
+      }
+      // If the template uses multiple lists method with pre-configured lists, navigate directly to review
+      else if (template != null &&
+          template!.method == 'advanced' &&
+          template!.selectedLists != null &&
+          template!.selectedLists!.isNotEmpty) {
+        debugPrint('🎯 SELECT_OFFICIALS: Multiple lists template with pre-configured lists - routing to review!');
+        debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Template selectedLists: ${template!.selectedLists}');
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            if (_isFromEdit) {
+              // Return result to calling screen
+              Navigator.pop(context, <String, dynamic>{
+                ...args,
+                'method': 'advanced',
+                'selectedLists': template!.selectedLists,
+                'template': template,
+              });
+            } else {
+              Navigator.pushReplacementNamed(
+                context,
+                '/review_game_info',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'method': 'advanced',
+                  'selectedLists': template!.selectedLists,
+                  'template': template,
+                },
+              );
+            }
+          }
+        });
+      }
+      // If the template uses multiple lists method but no pre-configured lists, go to setup
+      else if (template != null && template!.method == 'advanced') {
+        debugPrint('🎯 SELECT_OFFICIALS: Multiple lists template without pre-configured lists - routing to setup!');
+        debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (mounted) {
+            if (_isFromEdit) {
+              // For edit mode, we still need to go through the setup process
+              // The multiple lists setup screen will handle returning the result
+              Navigator.pushReplacementNamed(
+                context,
+                '/multiple-lists-setup',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'sport': args['sport'] ?? 'Football',
+                  'template': template,
+                  'preSelectedLists': template!.selectedLists,
+                  'isEdit': true,
+                  'isFromGameInfo': true,
+                },
+              );
+            } else {
+              Navigator.pushReplacementNamed(
+                context,
+                '/multiple-lists-setup',
+                arguments: <String, dynamic>{
+                  ...args,
+                  'sport': args['sport'] ?? 'Football',
+                  'template': template,
+                  'preSelectedLists': template!.selectedLists,
+                },
+              );
+            }
           }
         });
       }
@@ -200,6 +299,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                   'sport': sport,
                   'fromGameCreation': false,
                   'fromTemplateCreation': false,
+                  'fromInsufficientLists': true,
+                  'gameArgs': args, // Pass the game creation context
                 },
               );
             },
@@ -222,17 +323,27 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
     final sport = args?['sport'] as String? ?? 'Baseball';
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -307,12 +418,17 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                   },
                                 ).then((result) {
                                   if (result != null && mounted) {
-                                    // Navigate to review screen with selected officials
-                                    Navigator.pushNamed(
-                                      context,
-                                      '/review-game-info',
-                                      arguments: result,
-                                    );
+                                    if (_isFromEdit) {
+                                      // Return result to calling screen (game_information_screen)
+                                      Navigator.pop(context, result);
+                                    } else {
+                                      // Navigate to review screen with selected officials
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/review-game-info',
+                                        arguments: result,
+                                      );
+                                    }
                                   }
                                 });
                               },
@@ -355,12 +471,17 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                     },
                                   ).then((result) {
                                     if (result != null && mounted) {
-                                      // Navigate to review screen with multiple lists configuration
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/review-game-info',
-                                        arguments: result,
-                                      );
+                                      if (_isFromEdit) {
+                                        // Return result to calling screen (game_information_screen)
+                                        Navigator.pop(context, result);
+                                      } else {
+                                        // Navigate to review screen with multiple lists configuration
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/review-game-info',
+                                          arguments: result,
+                                        );
+                                      }
                                     }
                                   });
                                 } else {
@@ -403,7 +524,21 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                     'method': 'hire_crew',
                                     'template': template,
                                   },
-                                );
+                                ).then((result) {
+                                  if (result != null && mounted) {
+                                    if (_isFromEdit) {
+                                      // Return result to calling screen (game_information_screen)
+                                      Navigator.pop(context, result);
+                                    } else {
+                                      // Navigate to review screen with crew selection
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/review-game-info',
+                                        arguments: result,
+                                      );
+                                    }
+                                  }
+                                });
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: colorScheme.primary,

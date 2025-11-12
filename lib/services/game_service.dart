@@ -371,6 +371,55 @@ class GameService extends BaseService {
     }
   }
 
+  Future<void> deleteSchedule(String scheduleId) async {
+    try {
+      // Get the current authenticated user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        throw Exception('No authenticated user found. Please sign in first.');
+      }
+
+      // Check if the schedule exists and belongs to the current user
+      final scheduleDoc = await firestore
+          .collection(FirebaseCollections.schedules)
+          .doc(scheduleId)
+          .get();
+
+      if (!scheduleDoc.exists) {
+        throw Exception('Schedule not found.');
+      }
+
+      final scheduleData = scheduleDoc.data();
+      if (scheduleData?[FirebaseFields.createdBy] != currentUserId) {
+        throw Exception('You do not have permission to delete this schedule.');
+      }
+
+      // Delete all games associated with this schedule first
+      final gamesQuery = await firestore
+          .collection(FirebaseCollections.games)
+          .where(FirebaseFields.scheduleId, isEqualTo: scheduleId)
+          .get();
+
+      final batch = firestore.batch();
+      for (var gameDoc in gamesQuery.docs) {
+        batch.delete(gameDoc.reference);
+      }
+
+      // Delete the schedule document
+      batch.delete(scheduleDoc.reference);
+
+      // Commit the batch
+      await batch.commit();
+
+      debugPrint('✅ GAME SERVICE: Schedule $scheduleId and associated games deleted successfully');
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Error deleting schedule: $e');
+      throw Exception('Failed to delete schedule: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getGames() async {
     try {
       debugPrint('🔄 GAME SERVICE: Getting all games from Firestore');
@@ -564,6 +613,48 @@ class GameService extends BaseService {
       return true;
     } catch (e) {
       debugPrint('❌ GAME SERVICE: Error deleting game: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateGame(String gameId, Map<String, dynamic> updatedData) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Updating game $gameId');
+
+      // Get current user for authorization
+      final authService = AuthService();
+      final currentUser = authService.currentUser;
+      if (currentUser == null) {
+        debugPrint('❌ GAME SERVICE: No authenticated user');
+        return false;
+      }
+
+      // Check if user owns this game
+      final gameDoc = await firestore.collection('games').doc(gameId).get();
+      if (!gameDoc.exists) {
+        debugPrint('❌ GAME SERVICE: Game not found');
+        return false;
+      }
+
+      final gameData = gameDoc.data();
+      if (gameData?['schedulerId'] != currentUser.uid && gameData?['userId'] != currentUser.uid) {
+        debugPrint('❌ GAME SERVICE: User not authorized to update this game');
+        return false;
+      }
+
+      // Convert TimeOfDay objects to strings for Firestore storage
+      final dataToUpdate = Map<String, dynamic>.from(updatedData);
+      if (dataToUpdate['time'] is TimeOfDay) {
+        final time = dataToUpdate['time'] as TimeOfDay;
+        dataToUpdate['time'] = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      }
+
+      await firestore.collection('games').doc(gameId).update(dataToUpdate);
+
+      debugPrint('✅ GAME SERVICE: Successfully updated game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error updating game: $e');
       return false;
     }
   }

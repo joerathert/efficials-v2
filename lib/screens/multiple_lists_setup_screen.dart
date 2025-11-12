@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/official_list_service.dart';
 
 class MultipleListsSetupScreen extends StatefulWidget {
   const MultipleListsSetupScreen({super.key});
@@ -11,41 +12,26 @@ class MultipleListsSetupScreen extends StatefulWidget {
 }
 
 class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
-  List<Map<String, dynamic>> availableLists = [
-    {'id': '1', 'name': 'Veteran Officials', 'member_count': 5},
-    {'id': '2', 'name': 'Experienced Officials', 'member_count': 8},
-    {'id': '3', 'name': 'New Officials', 'member_count': 12},
-    {'id': '4', 'name': 'Rookie Officials', 'member_count': 15},
-  ]; // Initialize with mock data
+  List<Map<String, dynamic>> availableLists = [];
   List<Map<String, dynamic>> selectedMultipleLists = [
-    {'list': null, 'min': 0, 'max': 1},
-    {'list': null, 'min': 0, 'max': 1},
+    {'list': null, 'min': null, 'max': null},
+    {'list': null, 'min': null, 'max': null},
   ];
   bool _isLoading = false;
   bool _isSaving = false;
-  bool _hasLoadedData = true; // Mark as loaded since we have mock data
+  bool _hasLoadedData = false;
+  final OfficialListService _listService = OfficialListService();
 
   int? gameId;
   String? sportName;
+  int officialsRequired = 0;
+  Map<String, dynamic>? originalArgs;
 
   @override
   void initState() {
     super.initState();
     debugPrint('🎯 MULTIPLE_LISTS: initState called');
-    // Initialize data here to ensure it persists through hot reload
-    availableLists = [
-      {'id': '1', 'name': 'Veteran Officials', 'member_count': 5},
-      {'id': '2', 'name': 'Experienced Officials', 'member_count': 8},
-      {'id': '3', 'name': 'New Officials', 'member_count': 12},
-      {'id': '4', 'name': 'Rookie Officials', 'member_count': 15},
-    ];
-    selectedMultipleLists = [
-      {'list': null, 'min': 0, 'max': 1},
-      {'list': null, 'min': 0, 'max': 1},
-    ];
-    _hasLoadedData = true;
-    debugPrint(
-        '🎯 MULTIPLE_LISTS: initState completed, availableLists.length: ${availableLists.length}');
+    // Data will be loaded in didChangeDependencies
   }
 
   @override
@@ -56,8 +42,20 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
     if (args != null && !_hasLoadedData) {
       debugPrint(
           '🎯 MULTIPLE_LISTS: didChangeDependencies called, loading data');
-      gameId = args['id'] as int?;
+      originalArgs = Map<String, dynamic>.from(args);
+      // Handle both int and String game IDs (Firestore uses String)
+      final idValue = args['id'];
+      if (idValue is int) {
+        gameId = idValue;
+      } else if (idValue is String) {
+        gameId = int.tryParse(idValue);
+      } else {
+        gameId = null;
+      }
       sportName = args['sport'] as String?;
+      officialsRequired = args['officialsRequired'] as int? ?? 0;
+      debugPrint(
+          '🎯 MULTIPLE_LISTS: officialsRequired set to: $officialsRequired');
       _loadData();
     } else {
       debugPrint(
@@ -66,33 +64,49 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
   }
 
   Future<void> _loadData() async {
-    debugPrint('🎯 MULTIPLE_LISTS: _loadData called, gameId: $gameId');
-    if (gameId == null) {
-      debugPrint('🎯 MULTIPLE_LISTS: _loadData returning early - no gameId');
-      return;
-    }
+    debugPrint(
+        '🎯 MULTIPLE_LISTS: _loadData called, gameId: $gameId, sportName: $sportName');
 
     try {
       debugPrint('🎯 MULTIPLE_LISTS: Setting loading to true');
       setState(() => _isLoading = true);
 
-      // For now, we'll mock the available lists - in a real implementation,
-      // this would query Firestore for official lists for the specific sport
-      // and check existing quotas for this game
+      // Fetch all official lists for the current user
+      final allLists = await _listService.fetchOfficialLists();
 
-      // Mock available lists for the sport
-      availableLists = [
-        {'id': '1', 'name': 'Veteran Officials', 'member_count': 5},
-        {'id': '2', 'name': 'Experienced Officials', 'member_count': 8},
-        {'id': '3', 'name': 'New Officials', 'member_count': 12},
-        {'id': '4', 'name': 'Rookie Officials', 'member_count': 15},
-      ];
+      // Filter lists by sport if sportName is provided
+      if (sportName != null && sportName!.isNotEmpty) {
+        availableLists = allLists.where((list) {
+          final listSport = list['sport'] as String?;
+          return listSport == sportName;
+        }).toList();
+        debugPrint(
+            '🎯 MULTIPLE_LISTS: Filtered ${availableLists.length} lists for sport: $sportName');
+      } else {
+        availableLists = allLists;
+        debugPrint(
+            '🎯 MULTIPLE_LISTS: Using all ${availableLists.length} lists (no sport filter)');
+      }
 
-      // Mock existing quotas - in a real implementation, this would load from Firestore
-      selectedMultipleLists = [
-        {'list': null, 'min': 0, 'max': 1},
-        {'list': null, 'min': 0, 'max': 1},
-      ];
+      // Check for pre-selected lists from template
+      final preSelectedLists = originalArgs?['preSelectedLists'] as List<dynamic>?;
+      if (preSelectedLists != null && preSelectedLists.isNotEmpty) {
+        selectedMultipleLists = preSelectedLists.map((list) {
+          if (list is Map) {
+            return Map<String, dynamic>.from(list);
+          }
+          return {'list': null, 'min': null, 'max': null};
+        }).toList();
+        debugPrint('🎯 MULTIPLE_LISTS: Pre-populated ${selectedMultipleLists.length} lists from template');
+      } else {
+        // Initialize selectedMultipleLists if not already set
+        if (selectedMultipleLists.isEmpty) {
+          selectedMultipleLists = [
+            {'list': null, 'min': null, 'max': null},
+            {'list': null, 'min': null, 'max': null},
+          ];
+        }
+      }
 
       debugPrint(
           '🎯 MULTIPLE_LISTS: Setting loading to false, hasLoadedData to true (success)');
@@ -113,7 +127,10 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
   }
 
   Future<void> _saveQuotas() async {
-    if (gameId == null) return;
+    // Check if we're in edit mode (no gameId means we're in edit mode)
+    final isEditMode = originalArgs?['isEdit'] == true || originalArgs?['isFromGameInfo'] == true;
+
+    if (gameId == null && !isEditMode) return;
 
     // Validate quotas
     final validationError = _validateQuotas();
@@ -127,6 +144,18 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
     try {
       setState(() => _isSaving = true);
 
+      if (isEditMode) {
+        // In edit mode, just return the configuration without saving to database
+        debugPrint('🎯 MULTIPLE_LISTS: Edit mode - returning configuration without saving to DB');
+        final result = Map<String, dynamic>.from(originalArgs ?? {});
+        result.addAll({
+          'method': 'advanced',
+          'selectedLists': selectedMultipleLists,
+        });
+        Navigator.pop(context, result);
+        return;
+      }
+
       // In a real implementation, this would save to Firestore
       // For now, we'll just simulate saving
       await Future.delayed(const Duration(seconds: 1));
@@ -138,11 +167,13 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
         ),
       );
 
-      // Return to the game creation/review screen
-      Navigator.pop(context, {
+      // Return to the game creation/review screen with original args plus multiple lists data
+      final result = Map<String, dynamic>.from(originalArgs ?? {});
+      result.addAll({
         'method': 'multiple_lists',
         'selectedLists': selectedMultipleLists,
       });
+      Navigator.pop(context, result);
     } catch (e) {
       _showErrorDialog('Error saving quotas: $e');
     } finally {
@@ -155,13 +186,14 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
       return 'No official lists available. Please create official lists first.';
     }
 
+    int totalMin = 0;
     int totalMax = 0;
     int configuredListsCount = 0;
 
     for (final listConfig in selectedMultipleLists) {
       final listName = listConfig['list'] as String?;
-      final min = listConfig['min'] as int;
-      final max = listConfig['max'] as int;
+      final min = listConfig['min'] as int? ?? 0;
+      final max = listConfig['max'] as int? ?? 0;
 
       if (listName != null && listName.isNotEmpty) {
         configuredListsCount++;
@@ -176,6 +208,7 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
 
         // Only count if this quota is actually used (max > 0)
         if (max > 0) {
+          totalMin += min;
           totalMax += max;
         }
       }
@@ -187,6 +220,16 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
 
     if (totalMax == 0) {
       return 'At least one list must have a maximum greater than 0';
+    }
+
+    // Ensure the total maximum is at least the required officials
+    if (totalMax < officialsRequired) {
+      return 'Total maximum officials ($totalMax) must be at least equal to required officials ($officialsRequired)';
+    }
+
+    // Ensure the total minimum doesn't exceed the required officials
+    if (totalMin > officialsRequired) {
+      return 'Total minimum officials ($totalMin) cannot exceed required officials ($officialsRequired)';
     }
 
     return null; // No validation errors
@@ -227,22 +270,23 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
     debugPrint(
         '🎯 MULTIPLE_LISTS: Build called - isLoading: $_isLoading, hasLoadedData: $_hasLoadedData');
 
-    // Initialize data if it's empty (handles hot reload)
-    if (availableLists.isEmpty) {
-      debugPrint('🎯 MULTIPLE_LISTS: Initializing data in build method');
-      availableLists = [
-        {'id': '1', 'name': 'Veteran Officials', 'member_count': 5},
-        {'id': '2', 'name': 'Experienced Officials', 'member_count': 8},
-        {'id': '3', 'name': 'New Officials', 'member_count': 12},
-        {'id': '4', 'name': 'Rookie Officials', 'member_count': 15},
-      ];
-      selectedMultipleLists = [
-        {'list': null, 'min': 0, 'max': 1},
-        {'list': null, 'min': 0, 'max': 1},
-      ];
-      _hasLoadedData = true;
+    // Data should be loaded in didChangeDependencies, but handle hot reload case
+    if (availableLists.isEmpty && !_hasLoadedData && !_isLoading) {
       debugPrint(
-          '🎯 MULTIPLE_LISTS: Data initialized, availableLists.length: ${availableLists.length}');
+          '🎯 MULTIPLE_LISTS: Triggering data load in build method (hot reload case)');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final args = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
+          if (args != null) {
+            originalArgs = Map<String, dynamic>.from(args);
+            gameId = args['id'] as int?;
+            sportName = args['sport'] as String?;
+            officialsRequired = args['officialsRequired'] as int? ?? 0;
+            _loadData();
+          }
+        }
+      });
     }
 
     final theme = Theme.of(context);
@@ -254,12 +298,22 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary // Yellow in dark mode
+                    : Colors.black, // Black in light mode
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -461,7 +515,7 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Total Officials Required: ${_calculateTotalOfficials()}',
+                'Total Officials Required: $officialsRequired',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -501,7 +555,7 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
                   onPressed: () {
                     setState(() {
                       selectedMultipleLists
-                          .add({'list': null, 'min': 0, 'max': 1});
+                          .add({'list': null, 'min': null, 'max': null});
                     });
                   },
                   icon: Icon(Icons.add_circle,
@@ -591,10 +645,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<int>(
-                  decoration: _textFieldDecoration('Min'),
-                  value: listConfig['min'] is int
-                      ? listConfig['min']
-                      : int.tryParse(listConfig['min'].toString()),
+                  decoration: _textFieldDecoration('Min Officials'),
+                  value: listConfig['min'] as int?,
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14),
@@ -619,10 +671,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<int>(
-                  decoration: _textFieldDecoration('Max'),
-                  value: listConfig['max'] is int
-                      ? listConfig['max']
-                      : int.tryParse(listConfig['max'].toString()),
+                  decoration: _textFieldDecoration('Max Officials'),
+                  value: listConfig['max'] as int?,
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14),

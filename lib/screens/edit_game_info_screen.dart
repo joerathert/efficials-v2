@@ -29,58 +29,34 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
   }
 
   void _handleEditOfficials(Map<String, dynamic> args) {
-    final method = args['method'] as String? ?? 'standard';
+    debugPrint('🎯 UPDATE LISTS: Opening lists screen for editing');
 
-    debugPrint('🎯 EDIT OFFICIALS: Method detected: $method');
+    // Always route to lists screen for editing lists, regardless of original method
+    final routeArgs = {
+      ...args,
+      'isEdit': true,
+      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+      'fromGameCreation': false, // Not creating a new game
+    };
 
-    switch (method) {
-      case 'use_list':
-        // Single list was used - navigate to lists of officials screen
-        debugPrint(
-            '📋 EDIT OFFICIALS: Single list method - navigating to lists screen');
-        Navigator.pushNamed(context, '/lists-of-officials', arguments: {
-          ...args,
+    debugPrint('🎯 UPDATE LISTS: Routing to lists screen');
+
+    Navigator.pushNamed(context, '/lists-of-officials', arguments: routeArgs).then((result) {
+      if (result != null && mounted) {
+        final updatedArgs = result as Map<String, dynamic>;
+        final finalArgs = {
+          ...updatedArgs,
           'isEdit': true,
           'isFromGameInfo': args['isFromGameInfo'] ?? false,
-          'fromGameCreation': false, // Not creating a new game
-        }).then((result) {
-          if (result != null && mounted) {
-            final updatedArgs = result as Map<String, dynamic>;
-            final finalArgs = {
-              ...updatedArgs,
-              'isEdit': true,
-              'isFromGameInfo': args['isFromGameInfo'] ?? false,
-            };
-            Navigator.pop(context, finalArgs);
-          }
-        });
-        break;
+        };
 
-      case 'advanced':
-        // Multiple lists were used - advanced method setup screen (not implemented yet)
-        debugPrint(
-            '🔧 EDIT OFFICIALS: Advanced method - showing coming soon message');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Advanced method editing coming soon!'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        break;
+        debugPrint('🎯 UPDATE LISTS: Received result, returning to game info screen');
 
-      case 'standard':
-      default:
-        // Standard method was used
-        debugPrint(
-            '👥 EDIT OFFICIALS: Standard method - showing coming soon message');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Standard method editing coming soon!'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        break;
-    }
+        // For edits from Game Information screen, return the updated args
+        // so that the Game Information screen can reload fresh data from database
+        Navigator.pop(context, finalArgs);
+      }
+    });
   }
 
   @override
@@ -89,7 +65,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Icon(
@@ -123,8 +99,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  Expanded(
-                    child: Container(
+                  Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
@@ -167,19 +142,20 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                           args['selectedListName'],
                                       'selectedLists': args['selectedLists'],
                                     }).then((result) {
+                                  debugPrint('🎯 EDIT_GAME_INFO: Received result from choose_location: $result');
                                   if (result != null) {
                                     final updatedArgs =
                                         result as Map<String, dynamic>;
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/review_game_info',
-                                      arguments: {
-                                        ...updatedArgs,
-                                        'isEdit': true,
-                                        'isFromGameInfo':
-                                            args['isFromGameInfo'] ?? false,
-                                      },
-                                    );
+                                    debugPrint('🎯 EDIT_GAME_INFO: Location from choose_location: ${updatedArgs['location']}');
+                                    final finalArgs = {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                    };
+                                    debugPrint('🎯 EDIT_GAME_INFO: Popping with final location: ${finalArgs['location']}');
+                                    Navigator.pop(context, finalArgs);
+                                  } else {
+                                    debugPrint('🎯 EDIT_GAME_INFO: No result from choose_location');
                                   }
                                 });
                               },
@@ -195,19 +171,19 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                       'isFromGameInfo':
                                           args['isFromGameInfo'] ?? false,
                                     }).then((result) {
+                                  debugPrint('🎯 EDIT_GAME_INFO: Received result from date-time: $result');
                                   if (result != null) {
-                                    final updatedArgs =
-                                        result as Map<String, dynamic>;
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/review_game_info',
-                                      arguments: {
-                                        ...updatedArgs,
-                                        'isEdit': true,
-                                        'isFromGameInfo':
-                                            args['isFromGameInfo'] ?? false,
-                                      },
-                                    );
+                                    final updatedArgs = result as Map<String, dynamic>;
+                                    debugPrint('🎯 EDIT_GAME_INFO: Updated date: ${updatedArgs['date']}, time: ${updatedArgs['time']}');
+                                    final finalArgs = {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                    };
+                                    debugPrint('🎯 EDIT_GAME_INFO: Popping with final date/time: ${finalArgs['date']}, ${finalArgs['time']}');
+                                    Navigator.pop(context, finalArgs);
+                                  } else {
+                                    debugPrint('🎯 EDIT_GAME_INFO: No result from date-time');
                                   }
                                 });
                               },
@@ -233,19 +209,19 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                   'isAwayGame': isAway,
                                   'isAway': isAway,
                                 }).then((result) {
+                                  debugPrint('🎯 EDIT_GAME_INFO: Received result from additional-game-info: $result');
                                   if (result != null) {
-                                    final updatedArgs =
-                                        result as Map<String, dynamic>;
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/review_game_info',
-                                      arguments: {
-                                        ...updatedArgs,
-                                        'isEdit': true,
-                                        'isFromGameInfo':
-                                            args['isFromGameInfo'] ?? false,
-                                      },
-                                    );
+                                    final updatedArgs = result as Map<String, dynamic>;
+                                    debugPrint('🎯 EDIT_GAME_INFO: Updated additional game info: ${updatedArgs['gameFee']}, ${updatedArgs['levelOfCompetition']}, etc.');
+                                    final finalArgs = {
+                                      ...updatedArgs,
+                                      'isEdit': true,
+                                      'isFromGameInfo': args['isFromGameInfo'] ?? false,
+                                    };
+                                    debugPrint('🎯 EDIT_GAME_INFO: Popping with final additional game info: ${finalArgs['gameFee']}');
+                                    Navigator.pop(context, finalArgs);
+                                  } else {
+                                    debugPrint('🎯 EDIT_GAME_INFO: No result from additional-game-info');
                                   }
                                 });
                               },
@@ -269,7 +245,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                               result as Map<String, dynamic>;
                                           Navigator.pushReplacementNamed(
                                             context,
-                                            '/review_game_info',
+                                            '/game-information',
                                             arguments: {
                                               ...updatedArgs,
                                               'isEdit': true,
@@ -284,7 +260,7 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                             ),
                             const SizedBox(height: 20),
                             StandardButton(
-                              text: 'Selected Officials',
+                              text: 'Update Lists',
                               onPressed: _isAwayGame
                                   ? null // Disable for away games
                                   : () => _handleEditOfficials(args),
@@ -293,7 +269,6 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                           ],
                         ),
                       ),
-                    ),
                   ),
                 ],
               ),

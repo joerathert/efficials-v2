@@ -20,6 +20,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   String? listName;
   bool isEdit = false;
   int? listId;
+  bool fromInsufficientLists = false;
+  Map<String, dynamic>? gameArgs;
   final OfficialListService _listService = OfficialListService();
 
   @override
@@ -32,6 +34,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    debugPrint('🎯 ReviewListScreen: didChangeDependencies called - CHECKING IF REACHED');
     if (!isInitialized) {
       try {
         final arguments =
@@ -41,6 +44,15 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         listName = arguments['listName'] as String? ?? 'Unnamed List';
         listId = arguments['listId'] as int?;
         isEdit = arguments['isEdit'] as bool? ?? false;
+        fromInsufficientLists = arguments['fromInsufficientLists'] as bool? ?? false;
+        gameArgs = arguments['gameArgs'] as Map<String, dynamic>?;
+
+        debugPrint('🎯 ReviewListScreen: RECEIVED ARGS:');
+        debugPrint('🎯 ReviewListScreen: - fromInsufficientLists: $fromInsufficientLists');
+        debugPrint('🎯 ReviewListScreen: - gameArgs present: ${gameArgs != null}');
+        debugPrint('🎯 ReviewListScreen: - all keys: ${arguments.keys.toList()}');
+        debugPrint('🎯 ReviewListScreen: - fromInsufficientLists raw: ${arguments['fromInsufficientLists']}');
+        debugPrint('🎯 ReviewListScreen: - gameArgs raw: ${arguments['gameArgs']}');
 
         final selectedOfficialsRaw = arguments['selectedOfficials'];
 
@@ -75,6 +87,25 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         debugPrint('Stack trace: $stackTrace');
         rethrow;
       }
+    } else {
+      // Check for updated navigation context even after initialization
+      // This handles the case where we navigate back and forth in the flow
+      try {
+        final arguments =
+            ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+        final newFromInsufficientLists = arguments['fromInsufficientLists'] as bool? ?? false;
+        final newGameArgs = arguments['gameArgs'] as Map<String, dynamic>?;
+
+        // Update context if it changed
+        if (newFromInsufficientLists != fromInsufficientLists || newGameArgs != gameArgs) {
+          fromInsufficientLists = newFromInsufficientLists;
+          gameArgs = newGameArgs;
+          debugPrint('🎯 ReviewListScreen: Updated context - fromInsufficientLists: $fromInsufficientLists, gameArgs: ${gameArgs != null ? 'present' : 'null'}');
+        }
+      } catch (e) {
+        debugPrint('Error updating ReviewListScreen context: $e');
+      }
     }
   }
 
@@ -92,6 +123,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   }
 
   Future<void> _confirmList() async {
+    print('🎯 ReviewListScreen: _confirmList called - CHECKING IF THIS METHOD IS REACHED');
+    print('🎯 ReviewListScreen: _confirmList called - fromInsufficientLists: $fromInsufficientLists');
     final selectedOfficialsData = selectedOfficialsList
         .where(
             (official) => selectedOfficials[official['id'] as String] ?? false)
@@ -105,6 +138,22 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     }
 
     try {
+      // Check if a list with this name already exists
+      final existingLists = await _listService.fetchOfficialLists();
+      final listExists = existingLists.any((list) => list['name'] == listName);
+
+      if (listExists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A list with this name already exists. Please choose a different name.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       // Save the list to Firestore
       final listId = await _listService.saveOfficialList(
         listName: listName!,
@@ -112,24 +161,35 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         officials: selectedOfficialsData,
       );
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('List saved successfully!')),
-      );
+      // Note: Success message shown by lists_of_officials_screen when it receives the result
 
       // Navigate back to Lists of Officials screen
-      Navigator.pushNamedAndRemoveUntil(
+      final Map<String, dynamic> navigationArgs = {
+        'newListCreated': {
+          'listName': listName,
+          'sport': sport,
+          'officials': selectedOfficialsData,
+          'id': listId,
+          // Include Insufficient Lists context in the result
+          'fromInsufficientLists': fromInsufficientLists,
+          'gameArgs': gameArgs,
+        },
+      };
+
+      debugPrint('🎯 ReviewListScreen: CONSTRUCTING NAVIGATION ARGS:');
+      debugPrint('🎯 ReviewListScreen: - fromInsufficientLists: $fromInsufficientLists (type: ${fromInsufficientLists.runtimeType})');
+      debugPrint('🎯 ReviewListScreen: - gameArgs present: ${gameArgs != null}');
+      debugPrint('🎯 ReviewListScreen: - gameArgs: $gameArgs');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][fromInsufficientLists]: ${navigationArgs['newListCreated']?['fromInsufficientLists']}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][gameArgs]: ${navigationArgs['newListCreated']?['gameArgs']}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs keys: ${navigationArgs.keys.toList()}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[fromInsufficientLists]: ${navigationArgs['fromInsufficientLists']}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[gameArgs]: ${navigationArgs['gameArgs']}');
+
+      Navigator.pushReplacementNamed(
         context,
         '/lists-of-officials',
-        (route) => route.settings.name == '/',
-        arguments: {
-          'newListCreated': {
-            'listName': listName,
-            'sport': sport,
-            'officials': selectedOfficialsData,
-            'id': listId,
-          },
-        },
+        arguments: navigationArgs,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -146,16 +206,27 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color:
-                  themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary
+                    : Colors.black,
+                size: 32,
+              ),
+              onPressed: () {
+                // Navigate to Athletic Director home screen
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/ad-home',
+                  (route) => false, // Remove all routes
+                );
+              },
+              tooltip: 'Home',
             );
           },
         ),
@@ -245,19 +316,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
             // Officials list
             Expanded(
-              child: Container(
+              child: Padding(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
                 child: filteredOfficials.isEmpty
                     ? Center(
                         child: Text(
@@ -471,7 +531,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        width: double.infinity,
+                        width: 400,
+                        height: 50,
                         child: ElevatedButton(
                           onPressed: selectedCount > 0 ? _confirmList : null,
                           style: ElevatedButton.styleFrom(

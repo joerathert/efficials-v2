@@ -205,6 +205,9 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
         ],
       ),
       body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Form(
@@ -239,6 +242,7 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                 const SizedBox(height: 40),
 
                 Container(
+                  width: 400,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: theme.brightness == Brightness.dark
@@ -621,11 +625,13 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                           }
                         },
                       ),
+
+                      SizedBox(height: 30),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
 
                 // Continue Button
                 SizedBox(
@@ -651,6 +657,8 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
 
                 const SizedBox(height: 20),
               ],
+            ),
+          ),
             ),
           ),
         ),
