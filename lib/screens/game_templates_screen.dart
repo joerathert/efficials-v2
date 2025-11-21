@@ -62,11 +62,18 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
       debugPrint(
           '📊 TEMPLATES SCREEN: Received ${fetchedTemplates.length} templates from service');
 
+      // Log details about each template
+      for (var template in fetchedTemplates) {
+        debugPrint('📋 TEMPLATE: ID=${template.id}, Name=${template.name}, CreatedBy=${template.createdAt}');
+      }
+
       setState(() {
         templates = fetchedTemplates
             .where((template) =>
                 template.id != '1' && template.id != '2' && template.id != '3')
             .toList(); // Filter out mock templates
+
+        debugPrint('📋 TEMPLATES SCREEN: After mock filter: ${templates.length} templates');
 
         // Apply sport filtering if coming from schedule details
         if (isFromScheduleDetails && sport != null && sport != 'Unknown') {
@@ -81,7 +88,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         }
 
         debugPrint(
-            '📋 TEMPLATES SCREEN: After filtering: ${templates.length} templates');
+            '📋 TEMPLATES SCREEN: After all filtering: ${templates.length} templates');
 
         // Extract unique sports from templates
         Set<String> allSports = templates
@@ -749,14 +756,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                             ),
                                                             IconButton(
                                                               onPressed: () {
-                                                                // TODO: Navigate to edit template screen
-                                                                ScaffoldMessenger.of(
-                                                                        context)
-                                                                    .showSnackBar(
-                                                                  const SnackBar(
-                                                                      content: Text(
-                                                                          'Edit template coming soon!')),
-                                                                );
+                                                                _editTemplate(template);
                                                               },
                                                               icon: Icon(
                                                                 Icons.edit,
@@ -872,6 +872,60 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         ),
       ),
     );
+  }
+
+  void _editTemplate(GameTemplateModel template) {
+    debugPrint('✏️ TEMPLATES SCREEN: Navigating to edit template: ${template.name}');
+    Navigator.pushNamed(
+      context,
+      '/create_game_template',
+      arguments: {
+        'isEdit': true,
+        'template': template,
+      },
+    ).then((result) {
+      if (result != null && result is Map<String, dynamic>) {
+        debugPrint(
+            '✅ TEMPLATES SCREEN: Template updated, received result: ${result['name']}');
+        debugPrint('✅ TEMPLATES SCREEN: Result data: $result');
+
+        // Update the local template in the list immediately
+        setState(() {
+          final updatedTemplate = GameTemplateModel.fromJson(result);
+          debugPrint('✅ TEMPLATES SCREEN: Created updated template: ${updatedTemplate.name}');
+          debugPrint('✅ TEMPLATES SCREEN: Updated template ID: ${updatedTemplate.id}');
+          debugPrint('✅ TEMPLATES SCREEN: Current templates count: ${templates.length}');
+
+          final index = templates.indexWhere((t) => t.id == updatedTemplate.id);
+          debugPrint('✅ TEMPLATES SCREEN: Found template at index: $index');
+
+          if (index != -1) {
+            templates[index] = updatedTemplate;
+            _groupTemplatesBySport(); // Regroup templates
+            debugPrint('✅ TEMPLATES SCREEN: Updated local template successfully');
+          } else {
+            debugPrint('❌ TEMPLATES SCREEN: Could not find template to update locally');
+          }
+        });
+
+        // Also refresh from server to ensure consistency
+        _fetchTemplates();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template updated successfully!')),
+        );
+      } else if (result == true) {
+        // Template was updated but no specific result returned
+        debugPrint('✅ TEMPLATES SCREEN: Template updated (boolean result)');
+        _fetchTemplates();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template updated successfully!')),
+        );
+      } else {
+        debugPrint(
+            '⚠️ TEMPLATES SCREEN: Template edit returned null or invalid result: $result');
+      }
+    });
   }
 
   void _createNewTemplate() {

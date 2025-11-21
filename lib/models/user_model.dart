@@ -313,6 +313,8 @@ class UserModel {
   final SchedulerProfile? schedulerProfile;
   final OfficialProfile? officialProfile;
   final List<String> fcmTokens;
+  final List<String> dismissedGameIds; // Games dismissed by officials
+  final List<String> pendingGameIds; // Games officials have expressed interest in
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -324,6 +326,8 @@ class UserModel {
     this.schedulerProfile,
     this.officialProfile,
     this.fcmTokens = const [],
+    this.dismissedGameIds = const [],
+    this.pendingGameIds = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -335,6 +339,8 @@ class UserModel {
     required ProfileData profile,
     required SchedulerProfile schedulerProfile,
     List<String> fcmTokens = const [],
+    List<String> dismissedGameIds = const [],
+    List<String> pendingGameIds = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -346,6 +352,8 @@ class UserModel {
       profile: profile,
       schedulerProfile: schedulerProfile,
       fcmTokens: fcmTokens,
+      dismissedGameIds: dismissedGameIds,
+      pendingGameIds: pendingGameIds,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,
     );
@@ -358,6 +366,8 @@ class UserModel {
     required ProfileData profile,
     required OfficialProfile officialProfile,
     List<String> fcmTokens = const [],
+    List<String> dismissedGameIds = const [],
+    List<String> pendingGameIds = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -369,6 +379,8 @@ class UserModel {
       profile: profile,
       officialProfile: officialProfile,
       fcmTokens: fcmTokens,
+      dismissedGameIds: dismissedGameIds,
+      pendingGameIds: pendingGameIds,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,
     );
@@ -381,6 +393,8 @@ class UserModel {
       'role': role,
       'profile': profile.toMap(),
       'fcmTokens': fcmTokens,
+      'dismissedGameIds': dismissedGameIds,
+      'pendingGameIds': pendingGameIds,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -409,6 +423,8 @@ class UserModel {
           ? OfficialProfile.fromMap(map['officialProfile'])
           : null,
       fcmTokens: List<String>.from(map['fcmTokens'] ?? []),
+      dismissedGameIds: List<String>.from(map['dismissedGameIds'] ?? []),
+      pendingGameIds: List<String>.from(map['pendingGameIds'] ?? []),
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
     );
@@ -428,6 +444,8 @@ class UserModel {
     SchedulerProfile? schedulerProfile,
     OfficialProfile? officialProfile,
     List<String>? fcmTokens,
+    List<String>? dismissedGameIds,
+    List<String>? pendingGameIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -439,6 +457,8 @@ class UserModel {
       schedulerProfile: schedulerProfile ?? this.schedulerProfile,
       officialProfile: officialProfile ?? this.officialProfile,
       fcmTokens: fcmTokens ?? this.fcmTokens,
+      dismissedGameIds: dismissedGameIds ?? this.dismissedGameIds,
+      pendingGameIds: pendingGameIds ?? this.pendingGameIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );

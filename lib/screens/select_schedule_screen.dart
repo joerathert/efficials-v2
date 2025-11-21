@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
 import '../services/game_service.dart';
+import '../services/user_service.dart';
+import '../models/user_model.dart';
 
 // Use the typedef from GameService
 typedef ScheduleData = Map<String, Object>;
@@ -19,11 +21,22 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   List<ScheduleData> schedules = [];
   bool isLoading = true;
   GameTemplateModel? template;
+  UserModel? _currentUser;
+  final UserService _userService = UserService();
 
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _fetchSchedules();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      _currentUser = await _userService.getCurrentUser();
+    } catch (e) {
+      print('Error loading current user: $e');
+    }
   }
 
   @override
@@ -384,12 +397,22 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                       }
                                       final selected = schedules.firstWhere(
                                           (s) => s['name'] == selectedSchedule);
+                                      // Get home team from scheduler's profile
+                                      String? homeTeam;
+                                      if (_currentUser?.schedulerProfile != null) {
+                                        final profile = _currentUser!.schedulerProfile!;
+                                        if (profile.type == 'Athletic Director') {
+                                          homeTeam = profile.teamName;
+                                        }
+                                      }
+
                                       Navigator.pushNamed(
                                         context,
                                         '/date-time',
                                         arguments: {
                                           'scheduleName': selectedSchedule,
                                           'sport': selected['sport'],
+                                          'homeTeam': homeTeam,
                                           'template': template,
                                           'prepopulateTime': template != null &&
                                               template!.includeTime &&

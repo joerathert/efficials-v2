@@ -4,6 +4,7 @@ import '../services/game_service.dart';
 import '../services/location_service.dart';
 import '../services/official_list_service.dart';
 import '../services/auth_service.dart';
+import '../models/game_template_model.dart';
 
 class CreateGameTemplateScreen extends StatefulWidget {
   const CreateGameTemplateScreen({super.key});
@@ -26,6 +27,10 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   String? method;
   String? selectedOfficialList; // Store the selected officials list name
 
+  // Edit mode variables
+  bool _isEditMode = false;
+  GameTemplateModel? _editingTemplate;
+
   // Include checkboxes for template fields (all start checked)
   bool includeSport = true;
   bool includeTime = true;
@@ -47,19 +52,28 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
   List<Map<String, dynamic>> locations = [];
   List<Map<String, dynamic>> officialLists = [];
   bool isLoadingDropdowns = true;
+  bool _hasLoadedDropdownData = false;
+  bool _isInitialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Initialize from arguments if available
-    final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    if (args != null) {
-      _initializeFromArgs(args);
+    // Initialize from arguments if available (only once)
+    if (!_isInitialized) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        _initializeFromArgs(args);
+      }
+      _isInitialized = true;
     }
 
-    _loadDropdownData();
+    // Only load dropdown data once
+    if (!_hasLoadedDropdownData) {
+      _hasLoadedDropdownData = true;
+      _loadDropdownData();
+    }
   }
 
   void _initializeFromArgs(Map<String, dynamic> args) {
@@ -67,17 +81,34 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     print('🎯 CreateGameTemplate: Args keys: ${args.keys.toList()}');
     print('🎯 CreateGameTemplate: Args types: ${args.map((k, v) => MapEntry(k, v.runtimeType))}');
 
-    // Leave template name blank - user will fill it in
-    // _nameController.text remains empty
+    // Check if we're in edit mode
+    _isEditMode = args['isEdit'] as bool? ?? false;
+    if (_isEditMode) {
+      _editingTemplate = args['template'] as GameTemplateModel?;
+      print('✏️ CreateGameTemplate: Edit mode enabled for template: ${_editingTemplate?.name}');
+    }
+
+    // Pre-populate template name for editing
+    if (_isEditMode && _editingTemplate != null) {
+      _nameController.text = _editingTemplate!.name;
+    }
 
     // Pre-populate sport
-    if (args['sport'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      // Use template data for editing
+      sport = _editingTemplate!.sport;
+      includeSport = _editingTemplate!.includeSport;
+    } else if (args['sport'] != null) {
       sport = args['sport'] as String;
       includeSport = true;
     }
 
     // Pre-populate time (convert from string back to TimeOfDay)
-    if (args['time'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      // Use template data for editing
+      selectedTime = _editingTemplate!.time;
+      includeTime = _editingTemplate!.includeTime;
+    } else if (args['time'] != null) {
       if (args['time'] is String) {
         final timeParts = (args['time'] as String).split(':');
         if (timeParts.length >= 2) {
@@ -94,25 +125,37 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
 
     // Pre-populate location
-    if (args['location'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      selectedLocation = _editingTemplate!.location;
+      includeLocation = _editingTemplate!.includeLocation;
+    } else if (args['location'] != null) {
       selectedLocation = args['location'] as String;
       includeLocation = true;
     }
 
     // Pre-populate level of competition
-    if (args['levelOfCompetition'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      levelOfCompetition = _editingTemplate!.levelOfCompetition;
+      includeLevelOfCompetition = _editingTemplate!.includeLevelOfCompetition;
+    } else if (args['levelOfCompetition'] != null) {
       levelOfCompetition = args['levelOfCompetition'] as String;
       includeLevelOfCompetition = true;
     }
 
     // Pre-populate gender
-    if (args['gender'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      gender = _editingTemplate!.gender;
+      includeGender = _editingTemplate!.includeGender;
+    } else if (args['gender'] != null) {
       gender = args['gender'] as String;
       includeGender = true;
     }
 
     // Pre-populate officials required
-    if (args['officialsRequired'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      officialsRequired = _editingTemplate!.officialsRequired;
+      includeOfficialsRequired = _editingTemplate!.includeOfficialsRequired;
+    } else if (args['officialsRequired'] != null) {
       officialsRequired = args['officialsRequired'] is int
           ? args['officialsRequired'] as int
           : int.tryParse(args['officialsRequired'].toString());
@@ -120,19 +163,58 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
 
     // Pre-populate game fee
-    if (args['gameFee'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      if (_editingTemplate!.gameFee != null) {
+        _gameFeeController.text = _editingTemplate!.gameFee!;
+      }
+      includeGameFee = _editingTemplate!.includeGameFee;
+    } else if (args['gameFee'] != null) {
       _gameFeeController.text = args['gameFee'].toString();
       includeGameFee = true;
     }
 
     // Pre-populate hire automatically
-    if (args['hireAutomatically'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      hireAutomatically = _editingTemplate!.hireAutomatically ?? false;
+      includeHireAutomatically = _editingTemplate!.includeHireAutomatically;
+    } else if (args['hireAutomatically'] != null) {
       hireAutomatically = args['hireAutomatically'] as bool? ?? false;
       includeHireAutomatically = true;
     }
 
     // Pre-populate method and related data
-    if (args['method'] != null) {
+    if (_isEditMode && _editingTemplate != null) {
+      // Use template data for editing
+      method = _editingTemplate!.method;
+
+      // Handle different methods
+      if (method == 'use_list') {
+        selectedOfficialList = _editingTemplate!.officialsListName;
+      } else if (method == 'advanced') {
+        includeSelectedLists = _editingTemplate!.selectedLists != null && _editingTemplate!.selectedLists!.isNotEmpty;
+        debugPrint('🎯 Edit mode: method=advanced, includeSelectedLists=$includeSelectedLists');
+        debugPrint('🎯 Edit mode: selectedLists=${_editingTemplate!.selectedLists}');
+        if (_editingTemplate!.selectedLists != null && _editingTemplate!.selectedLists!.isNotEmpty) {
+          // Pre-populate the multiple lists configuration
+          selectedMultipleLists = _editingTemplate!.selectedLists!.map((list) {
+            final listMap = list as Map<String, dynamic>;
+            debugPrint('🎯 Edit mode: processing list: $listMap');
+            return {
+              'list': listMap['list'] as String?,
+              'min': listMap['min'] as int?,
+              'max': listMap['max'] as int?,
+            };
+          }).toList();
+          debugPrint('🎯 Edit mode: final selectedMultipleLists=$selectedMultipleLists');
+        } else {
+          // Reset to default empty state
+          selectedMultipleLists = [
+            {'list': null, 'min': null, 'max': null},
+            {'list': null, 'min': null, 'max': null},
+          ];
+        }
+      }
+    } else if (args['method'] != null) {
       String gameMethod = args['method'] as String;
 
       // Map game methods to template methods
@@ -161,6 +243,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
 
     print('✅ CreateGameTemplate: Initialized fields from args');
+    print('✅ CreateGameTemplate: Edit mode: $_isEditMode');
+    print('✅ CreateGameTemplate: Method: $method');
+    print('✅ CreateGameTemplate: Selected lists: $selectedMultipleLists');
 
     // Force UI update to reflect pre-populated values
     if (mounted) {
@@ -170,7 +255,21 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
 
   Future<void> _loadDropdownData() async {
     try {
-      setState(() => isLoadingDropdowns = true);
+      // Store current selections to restore after loading
+      final currentLocation = selectedLocation;
+      final currentOfficialList = selectedOfficialList;
+      final currentMultipleLists = List<Map<String, dynamic>>.from(selectedMultipleLists);
+
+      // Clear selections when starting to load to prevent assertion failures
+      setState(() {
+        isLoadingDropdowns = true;
+        selectedLocation = null;
+        selectedOfficialList = null;
+        selectedMultipleLists = [
+          {'list': null, 'min': null, 'max': null},
+          {'list': null, 'min': null, 'max': null},
+        ];
+      });
 
       // Debug: Check authentication
       final authService = AuthService();
@@ -190,10 +289,37 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       // Load official lists
       officialLists = await OfficialListService().fetchOfficialLists();
 
-      setState(() => isLoadingDropdowns = false);
+      // Restore selections after loading
+      setState(() {
+        isLoadingDropdowns = false;
+        // Restore selections if they were set before loading
+        if (currentLocation != null) {
+          // Check if the saved location still exists in the loaded locations
+          final locationExists = locations.any((loc) => loc['name'] == currentLocation);
+          if (locationExists) {
+            selectedLocation = currentLocation;
+          }
+        }
+        if (currentOfficialList != null) {
+          selectedOfficialList = currentOfficialList;
+        }
+        // Restore multiple lists configuration
+        if (currentMultipleLists.isNotEmpty && currentMultipleLists.any((list) => list['list'] != null)) {
+          selectedMultipleLists = List<Map<String, dynamic>>.from(currentMultipleLists);
+        }
+      });
     } catch (e) {
       print('❌ CreateGameTemplate: Error loading dropdown data: $e');
-      setState(() => isLoadingDropdowns = false);
+      // Clear selections on error to prevent assertion failures
+      setState(() {
+        isLoadingDropdowns = false;
+        selectedLocation = null;
+        selectedOfficialList = null;
+        selectedMultipleLists = [
+          {'list': null, 'min': null, 'max': null},
+          {'list': null, 'min': null, 'max': null},
+        ];
+      });
     }
   }
 
@@ -296,76 +422,109 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       return;
     }
 
+    // Debug: Log current state before saving
+    debugPrint('🎯 SAVE TEMPLATE: Method: $method, includeSelectedLists: $includeSelectedLists');
+    debugPrint('🎯 SAVE TEMPLATE: selectedMultipleLists: $selectedMultipleLists');
+    debugPrint('🎯 SAVE TEMPLATE: selectedLocation: $selectedLocation');
+    debugPrint('🎯 SAVE TEMPLATE: includeLocation: $includeLocation');
+
     // Prepare template data
-    final templateData = {
+    final templateData = <String, dynamic>{
       'name': _nameController.text,
       'includeSport': includeSport,
-      if (includeSport) 'sport': sport,
       'includeTime': includeTime,
-      if (includeTime && selectedTime != null)
-        'time': {'hour': selectedTime!.hour, 'minute': selectedTime!.minute},
       'includeLocation': includeLocation,
-      if (includeLocation && selectedLocation != null)
-        'location': selectedLocation,
       'includeLevelOfCompetition': includeLevelOfCompetition,
-      if (includeLevelOfCompetition) 'levelOfCompetition': levelOfCompetition,
       'includeGender': includeGender,
-      if (includeGender) 'gender': gender,
       'includeOfficialsRequired': includeOfficialsRequired,
-      if (includeOfficialsRequired) 'officialsRequired': officialsRequired,
       'includeGameFee': includeGameFee,
-      if (includeGameFee && _gameFeeController.text.isNotEmpty)
-        'gameFee': _gameFeeController.text,
       'includeHireAutomatically': includeHireAutomatically,
-      if (includeHireAutomatically) 'hireAutomatically': hireAutomatically,
       'method': method,
       'includeOfficialsList': method == 'use_list',
       'includeSelectedOfficials': method == 'standard',
       'includeSelectedLists': method == 'advanced',
       'includeSelectedCrews': method == 'hire_crew',
-      if (method == 'use_list') 'officialsListName': selectedOfficialList,
-      if (method == 'advanced' && includeSelectedLists)
-        'selectedLists': selectedMultipleLists
-            .where((list) => list['list'] != null)
-            .map((list) => {
-                  'list': list['list'],
-                  'min': list['min'] ?? 0,
-                  'max': list['max'] ?? 1,
-                })
-            .toList(),
     };
 
-    try {
-      debugPrint(
-          '🎯 CREATE TEMPLATE: About to save template: ${templateData['name']}');
-      debugPrint('🎯 CREATE TEMPLATE: Selected location: $selectedLocation');
-      debugPrint('🎯 CREATE TEMPLATE: Include location: $includeLocation');
-      debugPrint('🎯 CREATE TEMPLATE: Method: $method');
-      debugPrint(
-          '🎯 CREATE TEMPLATE: Selected officials list: $selectedOfficialList');
-      debugPrint('🎯 CREATE TEMPLATE: Template data: $templateData');
+    // In edit mode, preserve the original createdAt timestamp
+    if (_isEditMode && _editingTemplate != null) {
+      templateData['createdAt'] = _editingTemplate!.createdAt.toIso8601String();
+    }
 
-      final result = await GameService().createTemplate(templateData);
+    // Add optional fields
+    if (includeSport && sport != null) templateData['sport'] = sport;
+    if (includeTime && selectedTime != null) {
+      templateData['time'] = {'hour': selectedTime!.hour, 'minute': selectedTime!.minute};
+    }
+    if (includeLocation && selectedLocation != null) templateData['location'] = selectedLocation;
+    if (includeLevelOfCompetition && levelOfCompetition != null) templateData['levelOfCompetition'] = levelOfCompetition;
+    if (includeGender && gender != null) templateData['gender'] = gender;
+    if (includeOfficialsRequired && officialsRequired != null) templateData['officialsRequired'] = officialsRequired;
+    if (includeGameFee && _gameFeeController.text.isNotEmpty) templateData['gameFee'] = _gameFeeController.text;
+    if (includeHireAutomatically && hireAutomatically != null) templateData['hireAutomatically'] = hireAutomatically;
+    if (method == 'use_list' && selectedOfficialList != null) templateData['officialsListName'] = selectedOfficialList;
+
+    // Handle selectedLists with proper error handling
+    if (method == 'advanced' && includeSelectedLists) {
+      try {
+        final filteredLists = selectedMultipleLists
+            .where((list) => list['list'] != null && list['list'] is String && (list['list'] as String).isNotEmpty)
+            .map((list) => {
+                  'list': list['list'] as String,
+                  'min': (list['min'] is int) ? list['min'] as int : 0,
+                  'max': (list['max'] is int) ? list['max'] as int : 1,
+                })
+            .toList();
+        debugPrint('🎯 SAVE TEMPLATE: Processed selectedLists: $filteredLists');
+        templateData['selectedLists'] = filteredLists;
+      } catch (e) {
+        debugPrint('🔴 SAVE TEMPLATE: Error processing selectedLists: $e');
+        // Don't include selectedLists if there's an error
+      }
+    }
+
+    try {
+      final action = _isEditMode ? 'update' : 'create';
+      debugPrint(
+          '🎯 ${action.toUpperCase()} TEMPLATE: About to $action template: ${templateData['name']}');
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: Selected location: $selectedLocation');
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: Include location: $includeLocation');
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: Method: $method');
+      debugPrint(
+          '🎯 ${action.toUpperCase()} TEMPLATE: Selected officials list: $selectedOfficialList');
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: Template data: $templateData');
+
+      // For updates, include the template ID in the data
+      final dataToSave = _isEditMode
+          ? {...templateData, 'id': _editingTemplate!.id}
+          : templateData;
+
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: Data to save: $dataToSave');
+
+      final result = _isEditMode
+          ? await GameService().updateTemplate(dataToSave)
+          : await GameService().createTemplate(dataToSave);
 
       if (result != null) {
+        final resultMap = result as Map<String, dynamic>;
         debugPrint(
-            '✅ CREATE TEMPLATE: Template saved successfully with ID: ${result['id']}');
+            '✅ ${action.toUpperCase()} TEMPLATE: Template ${action}d successfully with ID: ${resultMap['id']}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Template saved successfully!')),
+          SnackBar(content: Text('Template ${_isEditMode ? 'updated' : 'saved'} successfully!')),
         );
         Navigator.pop(context, result); // Return the result
       } else {
         debugPrint(
-            '❌ CREATE TEMPLATE: Failed to save template - result was null');
+            '❌ ${action.toUpperCase()} TEMPLATE: Failed to $action template - result was null');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to save template. Please try again.')),
+          SnackBar(
+              content: Text('Failed to ${_isEditMode ? 'update' : 'save'} template. Please try again.')),
         );
       }
     } catch (e) {
-      debugPrint('🔴 CREATE TEMPLATE: Error saving template: $e');
+      debugPrint('🔴 ${(_isEditMode ? 'UPDATE' : 'CREATE')} TEMPLATE: Error ${_isEditMode ? 'updating' : 'saving'} template: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving template: $e')),
+        SnackBar(content: Text('Error ${_isEditMode ? 'updating' : 'saving'} template: $e')),
       );
     }
   }
@@ -405,16 +564,18 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
-                    child: Text('Template Configuration',
+                    child: Text(_isEditMode ? 'Edit Template' : 'Template Configuration',
                         style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: colorScheme.primary)),
                   ),
                   const SizedBox(height: 8),
-                  const Center(
+                  Center(
                     child: Text(
-                        'Create a game template with your preferred settings',
+                        _isEditMode
+                            ? 'Modify your template settings'
+                            : 'Create a game template with your preferred settings',
                         style: TextStyle(fontSize: 14, color: Colors.grey)),
                   ),
                   const SizedBox(height: 16),
@@ -574,18 +735,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                             fillColor: Colors.grey[900],
                           ),
                           value: selectedLocation,
-                          hint: const Text('Select Location',
-                              style: TextStyle(color: Colors.grey)),
+                          hint: isLoadingDropdowns
+                              ? const Text('Loading...',
+                                  style: TextStyle(color: Colors.grey))
+                              : const Text('Select Location',
+                                  style: TextStyle(color: Colors.grey)),
                           style: const TextStyle(
                               color: Colors.white, fontSize: 16),
                           dropdownColor: Colors.grey[800],
-                          onChanged: (newValue) =>
-                              setState(() => selectedLocation = newValue),
+                          onChanged: isLoadingDropdowns
+                              ? null
+                              : (newValue) =>
+                                  setState(() => selectedLocation = newValue),
                           items: isLoadingDropdowns
                               ? [
                                   const DropdownMenuItem<String>(
                                     value: null,
-                                    child: Text('Loading locations...',
+                                    child: Text('Loading...',
                                         style: TextStyle(color: Colors.grey)),
                                   )
                                 ]
@@ -598,11 +764,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                       )
                                     ]
                                   : locations.map((location) {
+                                      final locationName = location['name'] as String? ?? 'Unnamed Location';
                                       print(
-                                          '🏠 Location dropdown item: ${location['name']}');
+                                          '🏠 Location dropdown item: $locationName');
                                       return DropdownMenuItem<String>(
-                                        value: location['name'] as String,
-                                        child: Text(location['name'] as String,
+                                        value: locationName,
+                                        child: Text(locationName,
                                             style: const TextStyle(color: Colors.white)),
                                       );
                                     }).toList(),
@@ -913,18 +1080,23 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               fillColor: Colors.grey[900],
                             ),
                             value: selectedOfficialList,
-                            hint: const Text('Choose a saved list',
-                                style: TextStyle(color: Colors.grey)),
+                            hint: isLoadingDropdowns
+                                ? const Text('Loading...',
+                                    style: TextStyle(color: Colors.grey))
+                                : const Text('Choose a saved list',
+                                    style: TextStyle(color: Colors.grey)),
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 16),
                             dropdownColor: Colors.grey[900],
-                            onChanged: (newValue) =>
-                                setState(() => selectedOfficialList = newValue),
+                            onChanged: isLoadingDropdowns
+                                ? null
+                                : (newValue) =>
+                                    setState(() => selectedOfficialList = newValue),
                             items: isLoadingDropdowns
                                 ? [
                                     const DropdownMenuItem<String>(
                                       value: null,
-                                      child: Text('Loading lists...',
+                                      child: Text('Loading...',
                                           style: TextStyle(color: Colors.grey)),
                                     )
                                   ]
@@ -934,17 +1106,15 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                           value: null,
                                           child: Text(
                                               'No official lists found - Create one first!',
-                                              style: TextStyle(
-                                                  color: Colors.grey)),
+                                              style: TextStyle(color: Colors.grey)),
                                         )
                                       ]
                                     : officialLists.map((list) {
-                                        final listName = list['name'] as String;
+                                        final listName = list['name'] as String? ?? 'Unnamed List';
                                         return DropdownMenuItem<String>(
                                           value: listName,
                                           child: Text(listName,
-                                              style: const TextStyle(
-                                                  color: Colors.white)),
+                                              style: const TextStyle(color: Colors.white)),
                                         );
                                       }).toList(),
                           ),
@@ -1025,73 +1195,87 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         DropdownButtonFormField<String>(
-                                          decoration: InputDecoration(
-                                            hintText: 'Select list',
-                                            hintStyle: const TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 12),
-                                            filled: true,
-                                            fillColor: Colors.grey[900],
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.primary,
-                                                  width: 1),
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.primary,
-                                                  width: 1),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.primary,
-                                                  width: 1.5),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 8, vertical: 4),
-                                          ),
-                                          value: listConfig['list'] as String?,
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12),
-                                          dropdownColor: Colors.grey[900],
-                                          onChanged: (value) {
-                                            setState(() {
-                                              listConfig['list'] = value;
-                                            });
-                                          },
-                                          items: officialLists.isEmpty
-                                              ? [
-                                                  const DropdownMenuItem<
-                                                      String>(
-                                                    value: null,
-                                                    child: Text(
-                                                        'No lists available',
-                                                        style: TextStyle(
-                                                            color:
-                                                                Colors.grey)),
-                                                  )
-                                                ]
-                                              : officialLists.map((list) {
-                                                  final listName =
-                                                      list['name'] as String;
-                                                  return DropdownMenuItem<
-                                                      String>(
-                                                    value: listName,
-                                                    child: Text(listName,
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.white)),
-                                                  );
-                                                }).toList(),
-                                        ),
+                                                decoration: InputDecoration(
+                                                  hintText: 'Select list',
+                                                  hintStyle: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12),
+                                                  filled: true,
+                                                  fillColor: Colors.grey[900],
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                    borderSide: BorderSide(
+                                                        color: colorScheme.primary,
+                                                        width: 1),
+                                                  ),
+                                                  enabledBorder: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                    borderSide: BorderSide(
+                                                        color: colorScheme.primary,
+                                                        width: 1),
+                                                  ),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                    borderSide: BorderSide(
+                                                        color: colorScheme.primary,
+                                                        width: 1.5),
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 8, vertical: 4),
+                                                ),
+                                                value: listConfig['list'] as String?,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12),
+                                                dropdownColor: Colors.grey[900],
+                                          onChanged: isLoadingDropdowns
+                                              ? null
+                                              : (value) {
+                                                  setState(() {
+                                                    listConfig['list'] = value;
+                                                  });
+                                                },
+                                                items: isLoadingDropdowns
+                                                    ? [
+                                                        const DropdownMenuItem<
+                                                            String>(
+                                                          value: null,
+                                                          child: Text(
+                                                              'Loading...',
+                                                              style: TextStyle(
+                                                                  color:
+                                                                      Colors.grey)),
+                                                        )
+                                                      ]
+                                                    : officialLists.isEmpty
+                                                        ? [
+                                                            const DropdownMenuItem<
+                                                                String>(
+                                                              value: null,
+                                                              child: Text(
+                                                                  'No lists available',
+                                                                  style: TextStyle(
+                                                                      color:
+                                                                          Colors.grey)),
+                                                            )
+                                                          ]
+                                                        : officialLists.map((list) {
+                                                            final listName =
+                                                                list['name'] as String? ?? 'Unnamed List';
+                                                            return DropdownMenuItem<
+                                                                String>(
+                                                              value: listName,
+                                                              child: Text(listName,
+                                                                  style: const TextStyle(
+                                                                      color:
+                                                                          Colors.white)),
+                                                            );
+                                                          }).toList(),
+                                              ),
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
@@ -1328,7 +1512,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Save Template',
+                child: Text(_isEditMode ? 'Update Template' : 'Save Template',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),

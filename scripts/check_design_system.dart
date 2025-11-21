@@ -4,7 +4,7 @@
 /// Run with: dart check_design_system.dart
 
 import 'dart:io';
-import 'lib/utils/design_checker.dart';
+import '../lib/utils/design_checker.dart';
 
 void main() async {
   print('🎨 Checking Efficials Design System Compliance...\n');

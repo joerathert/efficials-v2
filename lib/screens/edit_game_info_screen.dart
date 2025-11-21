@@ -243,24 +243,30 @@ class _EditGameInfoScreenState extends State<EditGameInfoScreen> {
                                         if (result != null) {
                                           final updatedArgs =
                                               result as Map<String, dynamic>;
-                                          Navigator.pushReplacementNamed(
-                                            context,
-                                            '/game-information',
-                                            arguments: {
-                                              ...updatedArgs,
-                                              'isEdit': true,
-                                              'isFromGameInfo':
-                                                  args['isFromGameInfo'] ??
-                                                      false,
-                                            },
-                                          );
+                                          // Check if we came from review screen or game info screen
+                                          final isFromGameInfo = args['isFromGameInfo'] ?? false;
+                                          if (isFromGameInfo) {
+                                            // Return result to review screen
+                                            Navigator.pop(context, updatedArgs);
+                                          } else {
+                                            // Navigate to game information screen
+                                            Navigator.pushReplacementNamed(
+                                              context,
+                                              '/game-information',
+                                              arguments: {
+                                                ...updatedArgs,
+                                                'isEdit': true,
+                                                'isFromGameInfo': false,
+                                              },
+                                            );
+                                          }
                                         }
                                       });
                                     },
                             ),
                             const SizedBox(height: 20),
                             StandardButton(
-                              text: 'Update Lists',
+                              text: 'Update List(s)',
                               onPressed: _isAwayGame
                                   ? null // Disable for away games
                                   : () => _handleEditOfficials(args),

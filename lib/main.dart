@@ -23,6 +23,7 @@ import 'screens/auth/assigner_profile_screen.dart';
 import 'screens/home/athletic_director_home_screen.dart';
 import 'screens/home/coach_home_screen.dart';
 import 'screens/home/assigner_home_screen.dart';
+import 'screens/home/official_home_screen.dart';
 import 'screens/game_templates_screen.dart';
 import 'screens/select_schedule_screen.dart';
 import 'screens/select_sport_screen.dart';
@@ -96,6 +97,7 @@ class MyApp extends StatelessWidget {
           themeMode: themeProvider.themeMode,
           initialRoute: '/auth',
           routes: {
+            '/': (context) => const MyHomePage(),
             '/auth': (context) => const AuthWrapper(),
             '/sign-in': (context) => const SignInScreen(),
             '/role-selection': (context) => const RoleSelectionScreen(),
@@ -112,6 +114,7 @@ class MyApp extends StatelessWidget {
             '/assigner-profile': (context) => const AssignerProfileScreen(),
             '/assigner-home': (context) => const AssignerHomeScreen(),
             '/official-profile': (context) => const OfficialProfileScreen(),
+            '/official-home': (context) => const OfficialHomeScreen(),
             '/official-step2': (context) => const OfficialStep2Screen(),
             '/official-step3': (context) => const OfficialStep3Screen(),
             '/official-step4': (context) => const OfficialStep4Screen(),
@@ -442,10 +445,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     constraints: const BoxConstraints(maxWidth: 400),
                     child: SizedBox(
                       width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/sign-in');
-                          },
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/sign-in');
+                        },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -577,14 +580,14 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-
   @override
   Widget build(BuildContext context) {
     print('🏗️ AUTH WRAPPER: Building AuthWrapper');
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        print('🏗️ AUTH WRAPPER: StreamBuilder snapshot - connectionState: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
+        print(
+            '🏗️ AUTH WRAPPER: StreamBuilder snapshot - connectionState: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
         if (snapshot.connectionState == ConnectionState.waiting) {
           print('🏗️ AUTH WRAPPER: Showing loading spinner');
           return const Scaffold(
@@ -595,15 +598,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
-          print('🏗️ AUTH WRAPPER: User authenticated, userId: ${snapshot.data!.uid}');
+          print(
+              '🏗️ AUTH WRAPPER: User authenticated, userId: ${snapshot.data!.uid}');
           // User is signed in, navigate to appropriate home screen
           print('🏗️ AUTH WRAPPER: Creating FutureBuilder for user profile');
           return FutureBuilder<Map<String, dynamic>?>(
             future: _getUserProfile(snapshot.data!.uid),
             builder: (context, userSnapshot) {
-              print('🏗️ AUTH WRAPPER: FutureBuilder snapshot - connectionState: ${userSnapshot.connectionState}, hasData: ${userSnapshot.hasData}, hasError: ${userSnapshot.hasError}');
+              print(
+                  '🏗️ AUTH WRAPPER: FutureBuilder snapshot - connectionState: ${userSnapshot.connectionState}, hasData: ${userSnapshot.hasData}, hasError: ${userSnapshot.hasError}');
               if (userSnapshot.connectionState == ConnectionState.waiting) {
-                print('🏗️ AUTH WRAPPER: FutureBuilder showing loading spinner');
+                print(
+                    '🏗️ AUTH WRAPPER: FutureBuilder showing loading spinner');
                 return const Scaffold(
                   body: Center(
                     child: CircularProgressIndicator(),
@@ -614,10 +620,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
               if (userSnapshot.hasData && userSnapshot.data != null) {
                 final userData = userSnapshot.data!;
                 final userType = userData['role']; // Field name in Firestore
-                final schedulerProfile = userData['schedulerProfile'] as Map<String, dynamic>?;
-                final schedulerType = schedulerProfile?['type']; // Nested in schedulerProfile
+                final schedulerProfile =
+                    userData['schedulerProfile'] as Map<String, dynamic>?;
+                final schedulerType =
+                    schedulerProfile?['type']; // Nested in schedulerProfile
 
-                print('🔄 AUTH WRAPPER: userType=$userType, schedulerType=$schedulerType');
+                print(
+                    '🔄 AUTH WRAPPER: userType=$userType, schedulerType=$schedulerType');
 
                 // Use post-frame callback to navigate after build is complete
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -641,7 +650,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
                         }
                         break;
                       case 'official':
-                        routeName = '/official-profile';
+                        // Check if official has completed registration
+                        if (userData['officialProfile'] != null) {
+                          routeName = '/official-home';
+                        } else {
+                          routeName = '/official-profile';
+                        }
                         break;
                       default:
                         routeName = '/'; // Fallback to welcome screen
@@ -649,12 +663,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
                     }
 
                     print('🏈 AUTH WRAPPER: Navigating to $routeName');
-                    print('🏈 AUTH WRAPPER: Current navigator context: ${Navigator.of(context).toString()}');
-                    Navigator.of(context).pushNamedAndRemoveUntil(
+                    print(
+                        '🏈 AUTH WRAPPER: Current navigator context: ${Navigator.of(context).toString()}');
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil(
                       routeName,
                       (route) => false,
-                    ).then((_) {
-                      print('🏈 AUTH WRAPPER: Navigation to $routeName completed');
+                    )
+                        .then((_) {
+                      print(
+                          '🏈 AUTH WRAPPER: Navigation to $routeName completed');
                     });
                   }
                 });

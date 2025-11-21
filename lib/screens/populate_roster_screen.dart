@@ -34,7 +34,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-    print('🎯 PopulateRosterScreen: didChangeDependencies called with args: ${args != null ? "present" : "null"}');
+    print(
+        '🎯 PopulateRosterScreen: didChangeDependencies called with args: ${args != null ? "present" : "null"}');
 
     if (args != null) {
       print('🎯 PopulateRosterScreen: Processing arguments...');
@@ -45,8 +46,10 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       gameArgs = args['gameArgs'] as Map<String, dynamic>?;
 
       debugPrint('🎯 PopulateRosterScreen: RECEIVED ARGS:');
-      debugPrint('🎯 PopulateRosterScreen: - fromInsufficientLists: $fromInsufficientLists');
-      debugPrint('🎯 PopulateRosterScreen: - gameArgs present: ${gameArgs != null}');
+      debugPrint(
+          '🎯 PopulateRosterScreen: - fromInsufficientLists: $fromInsufficientLists');
+      debugPrint(
+          '🎯 PopulateRosterScreen: - gameArgs present: ${gameArgs != null}');
       debugPrint('🎯 PopulateRosterScreen: - all keys: ${args.keys.toList()}');
       // Also handle lists screen flow
       final fromListsScreen = args['fromListsScreen'] == true;
@@ -56,7 +59,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       }
 
       // Handle selected officials from arguments (when editing existing list)
-      final selectedOfficialsFromArgs = args['selectedOfficials'] as List<Map<String, dynamic>>?;
+      final selectedOfficialsFromArgs =
+          args['selectedOfficials'] as List<Map<String, dynamic>>?;
       final selectedOfficialIds = args['selectedOfficialIds'] as List<dynamic>?;
 
       if (selectedOfficialsFromArgs != null) {
@@ -67,7 +71,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
             selectedOfficials[officialId] = true;
           }
         }
-        print('🎯 PopulateRosterScreen: Pre-selected ${selectedOfficialsFromArgs.length} officials from full objects');
+        print(
+            '🎯 PopulateRosterScreen: Pre-selected ${selectedOfficialsFromArgs.length} officials from full objects');
       } else if (selectedOfficialIds != null) {
         selectedOfficials.clear();
         for (var id in selectedOfficialIds) {
@@ -76,14 +81,17 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
             selectedOfficials[officialId] = true;
           }
         }
-        print('🎯 PopulateRosterScreen: Pre-selected ${selectedOfficialIds.length} officials from IDs');
+        print(
+            '🎯 PopulateRosterScreen: Pre-selected ${selectedOfficialIds.length} officials from IDs');
       }
 
       // Handle coming from edit list screen - automatically load officials
       final isFromEditList = args['isFromEditList'] == true;
-      print('🎯 PopulateRosterScreen: isFromEditList = $isFromEditList, sport = $sport');
+      print(
+          '🎯 PopulateRosterScreen: isFromEditList = $isFromEditList, sport = $sport');
       if (isFromEditList && sport != null && mounted) {
-        print('🎯 PopulateRosterScreen: Coming from edit list, auto-loading officials for sport: $sport');
+        print(
+            '🎯 PopulateRosterScreen: Coming from edit list, auto-loading officials for sport: $sport');
         // Auto-apply default filters to load officials immediately
         final defaultFilters = {
           'sport': sport,
@@ -100,9 +108,12 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
   void _applyFilters(Map<String, dynamic>? filterSettings) {
     if (filterSettings != null) {
+      print('🎯 PopulateRosterScreen: Applying filters: $filterSettings');
+
       setState(() {
         isLoading = true;
         hasAppliedFilters = true;
+        filters = filterSettings; // Store the filters
       });
 
       // Query the database with filters
@@ -117,12 +128,22 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         locationData: filterSettings['locationData'],
       )
           .then((results) {
+        print(
+            '🎯 PopulateRosterScreen: Filter results received: ${results.length} officials');
+
         if (mounted) {
           setState(() {
             officials = results;
             filteredOfficials = List.from(results);
             isLoading = false;
           });
+
+          // Clear any selections that are no longer in the filtered results
+          final validIds = results.map((o) => o['id'] as String).toSet();
+          selectedOfficials.removeWhere((id, _) => !validIds.contains(id));
+
+          print(
+              '🎯 PopulateRosterScreen: After filtering, ${selectedOfficials.length} officials still selected');
 
           if (results.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -132,9 +153,19 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                 duration: Duration(seconds: 3),
               ),
             );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    'Found ${results.length} officials matching your filters.'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
           }
         }
       }).catchError((error) {
+        print('❌ PopulateRosterScreen: Error applying filters: $error');
+
         if (mounted) {
           setState(() {
             officials = [];
@@ -184,7 +215,8 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
 
     if (isFromEditList) {
       // Coming from edit list screen - return selected officials back
-      print('🎯 PopulateRosterScreen: Returning selected officials to edit list screen');
+      print(
+          '🎯 PopulateRosterScreen: Returning selected officials to edit list screen');
       Navigator.pop(context, selected);
       return;
     }
@@ -200,23 +232,32 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     };
 
     debugPrint('🎯 PopulateRosterScreen: CREATING REVIEW ARGS:');
-    debugPrint('🎯 PopulateRosterScreen: - fromInsufficientLists: $fromInsufficientLists');
-    debugPrint('🎯 PopulateRosterScreen: - gameArgs present: ${gameArgs != null}');
-    debugPrint('🎯 PopulateRosterScreen: - reviewArgs keys: ${reviewArgs.keys.toList()}');
-    debugPrint('🎯 PopulateRosterScreen: - reviewArgs[fromInsufficientLists]: ${reviewArgs['fromInsufficientLists']}');
-    debugPrint('🎯 PopulateRosterScreen: - reviewArgs[gameArgs]: ${reviewArgs['gameArgs']}');
+    debugPrint(
+        '🎯 PopulateRosterScreen: - fromInsufficientLists: $fromInsufficientLists');
+    debugPrint(
+        '🎯 PopulateRosterScreen: - gameArgs present: ${gameArgs != null}');
+    debugPrint(
+        '🎯 PopulateRosterScreen: - reviewArgs keys: ${reviewArgs.keys.toList()}');
+    debugPrint(
+        '🎯 PopulateRosterScreen: - reviewArgs[fromInsufficientLists]: ${reviewArgs['fromInsufficientLists']}');
+    debugPrint(
+        '🎯 PopulateRosterScreen: - reviewArgs[gameArgs]: ${reviewArgs['gameArgs']}');
 
     print('🎯 PopulateRosterScreen: About to navigate to ReviewListScreen');
-    print('🎯 PopulateRosterScreen: reviewArgs keys: ${reviewArgs.keys.toList()}');
-    print('🎯 PopulateRosterScreen: reviewArgs[fromInsufficientLists]: ${reviewArgs['fromInsufficientLists']}');
+    print(
+        '🎯 PopulateRosterScreen: reviewArgs keys: ${reviewArgs.keys.toList()}');
+    print(
+        '🎯 PopulateRosterScreen: reviewArgs[fromInsufficientLists]: ${reviewArgs['fromInsufficientLists']}');
 
     if (fromListsScreen) {
       // Coming from lists screen - navigate to review list screen
-      print('🎯 PopulateRosterScreen: Navigating to ReviewListScreen from lists screen');
+      print(
+          '🎯 PopulateRosterScreen: Navigating to ReviewListScreen from lists screen');
       Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
     } else {
       // Coming from game creation - navigate to review list screen
-      print('🎯 PopulateRosterScreen: Navigating to ReviewListScreen from game creation');
+      print(
+          '🎯 PopulateRosterScreen: Navigating to ReviewListScreen from game creation');
       Navigator.pushNamed(context, '/review-list', arguments: reviewArgs);
     }
   }
@@ -287,201 +328,207 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
     }
 
     // When filters are applied, also show the filter button
-    return Stack(
+    return Column(
       children: [
-        Column(
-          children: [
-            // Select All checkbox
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: filteredOfficials.every((o) {
-                          final officialId = o['id'] as String;
-                          return selectedOfficials[officialId] ?? false;
-                        }),
-                        onChanged: (value) {
-                          if (value == true) {
-                            // Select all
-                            setState(() {
-                              for (final official in filteredOfficials) {
-                                final officialId = official['id'] as String;
-                                selectedOfficials[officialId] = true;
-                              }
-                            });
-                          } else {
-                            // Deselect all
-                            setState(() {
-                              for (final official in filteredOfficials) {
-                                final officialId = official['id'] as String;
-                                selectedOfficials[officialId] = false;
-                              }
-                            });
+        // Select All checkbox
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: filteredOfficials.every((o) {
+                      final officialId = o['id'] as String;
+                      return selectedOfficials[officialId] ?? false;
+                    }),
+                    onChanged: (value) {
+                      if (value == true) {
+                        // Select all
+                        setState(() {
+                          for (final official in filteredOfficials) {
+                            final officialId = official['id'] as String;
+                            selectedOfficials[officialId] = true;
                           }
-                        },
-                        activeColor: colorScheme.primary,
-                        checkColor: colorScheme.onPrimary,
-                      ),
-                      Text(
-                        'Select all',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
+                        });
+                      } else {
+                        // Deselect all
+                        setState(() {
+                          for (final official in filteredOfficials) {
+                            final officialId = official['id'] as String;
+                            selectedOfficials[officialId] = false;
+                          }
+                        });
+                      }
+                    },
+                    activeColor: colorScheme.primary,
+                    checkColor: colorScheme.onPrimary,
                   ),
-                ),
+                  Text(
+                    'Select all',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(20.0),
-                itemCount: filteredOfficials.length,
-                itemBuilder: (context, index) {
-                  final official = filteredOfficials[index];
-                  final officialId = official['id'] as String;
-                  final isSelected = selectedOfficials[officialId] ?? false;
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(20.0),
+            itemCount: filteredOfficials.length,
+            itemBuilder: (context, index) {
+              final official = filteredOfficials[index];
+              final officialId = official['id'] as String;
+              final isSelected = selectedOfficials[officialId] ?? false;
 
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8.0),
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.outline.withOpacity(0.3),
+                        width: isSelected ? 2.0 : 1.0,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
+                      leading: Container(
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12.0),
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8.0),
                           border: Border.all(
                             color: isSelected
                                 ? colorScheme.primary
                                 : colorScheme.outline.withOpacity(0.3),
-                            width: isSelected ? 2.0 : 1.0,
                           ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : colorScheme.surface,
-                              borderRadius: BorderRadius.circular(8.0),
-                              border: Border.all(
-                                color: isSelected
-                                    ? colorScheme.primary
-                                    : colorScheme.outline.withOpacity(0.3),
+                        child: isSelected
+                            ? Icon(
+                                Icons.check,
+                                color: colorScheme.onPrimary,
+                                size: 20,
+                              )
+                            : Icon(
+                                Icons.add,
+                                color: colorScheme.primary,
+                                size: 20,
                               ),
-                            ),
-                            child: isSelected
-                                ? Icon(
-                                    Icons.check,
-                                    color: colorScheme.onPrimary,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.add,
-                                    color: colorScheme.primary,
-                                    size: 20,
-                                  ),
-                          ),
-                          title: Text(
-                            official['name'] ?? '',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Experience: ${official['yearsExperience'] ?? 0} years',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Text(
-                                'IHSA Level: ${official['ihsaLevel'] ?? 'registered'}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Text(
-                                'Distance: ${official['distance']?.toStringAsFixed(1) ?? 'N/A'} miles',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            setState(() {
-                              final currentValue =
-                                  selectedOfficials[officialId] ?? false;
-                              selectedOfficials[officialId] = !currentValue;
-                            });
-                          },
+                      ),
+                      title: Text(
+                        official['name'] ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
                         ),
                       ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Experience: ${official['yearsExperience'] ?? 0} years',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'IHSA Level: ${official['ihsaLevel'] ?? 'registered'}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'Distance: ${official['distance']?.toStringAsFixed(1) ?? 'N/A'} miles',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        setState(() {
+                          final currentValue =
+                              selectedOfficials[officialId] ?? false;
+                          selectedOfficials[officialId] = !currentValue;
+                        });
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        // Floating filter button - always visible when officials are loaded
-        Positioned(
-          bottom: 100, // Above the continue button
-          right: 20,
-          child: FloatingActionButton(
-            onPressed: () {
-              Navigator.pushNamed(
-                context,
-                '/filter-settings',
-                arguments: {
-                  'sport': sport,
-                  'previousFilters': filters,
-                },
-              ).then((filterResult) {
-                if (filterResult != null &&
-                    filterResult is Map<String, dynamic>) {
-                  _applyFilters(filterResult);
-                }
-              });
+                  ),
+                ),
+              );
             },
-            backgroundColor: colorScheme.primary,
-            foregroundColor: colorScheme.onPrimary,
-            child: Icon(
-              Icons.filter_list,
-              color: colorScheme.onPrimary,
+          ),
+        ),
+
+        // Continue button
+        Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed:
+                      selectedOfficials.values.any((selected) => selected)
+                          ? _handleContinue
+                          : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        selectedOfficials.values.any((selected) => selected)
+                            ? colorScheme.primary
+                            : colorScheme.surfaceVariant,
+                    foregroundColor:
+                        selectedOfficials.values.any((selected) => selected)
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Continue (${selectedOfficials.values.where((selected) => selected).length})',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ],
     );
-
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final int selectedCount =
-        selectedOfficials.values.where((selected) => selected).length;
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -510,156 +557,47 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header with list name
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: Column(
-                    children: [
-                      Text(
-                        listName ?? 'Populate Roster',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: theme.brightness == Brightness.dark
-                              ? colorScheme.primary
-                              : colorScheme.onSurface,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Select officials for your $sport list',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Search field (only show after filters are applied)
-            if (hasAppliedFilters) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search officials...',
-                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                      prefixIcon: Icon(Icons.search,
-                          color: colorScheme.onSurfaceVariant),
-                      filled: true,
-                      fillColor: colorScheme.surfaceVariant,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.outline),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: colorScheme.outline),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: colorScheme.primary,
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    style: TextStyle(color: colorScheme.onSurface),
-                    onChanged: filterOfficials,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Officials list
-            Expanded(
-              child: _buildOfficialsList(),
-            ),
-            // Bottom section with selected count and continue button
-            (hasAppliedFilters && filteredOfficials.isNotEmpty)
-                ? Container(
-                    padding: const EdgeInsets.all(20.0),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      border: Border(
-                        top: BorderSide(
-                          color: colorScheme.outline.withOpacity(0.2),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$selectedCount selected',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: 400,
-                              height: 50,
-                              child: ElevatedButton(
-                                onPressed:
-                                    selectedCount > 0 ? _handleContinue : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colorScheme.primary,
-                                  foregroundColor: colorScheme.onPrimary,
-                                  disabledBackgroundColor:
-                                      colorScheme.surfaceVariant,
-                                  disabledForegroundColor:
-                                      colorScheme.onSurfaceVariant,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: selectedCount > 0
-                                        ? colorScheme.onPrimary
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ],
-        ),
+        child: _buildOfficialsList(),
       ),
+      floatingActionButton: hasAppliedFilters
+          ? Stack(
+              children: [
+                Positioned(
+                  bottom: 40,
+                  right: (MediaQuery.of(context).size.width -
+                              (MediaQuery.of(context).size.width > 550
+                                  ? 550
+                                  : MediaQuery.of(context).size.width)) /
+                          2 +
+                      20, // Position FAB 20px from the right edge of the constrained content area
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/filter-settings',
+                        arguments: {
+                          'sport': sport,
+                          'previousFilters': filters,
+                        },
+                      ).then((filterResult) {
+                        if (filterResult != null &&
+                            filterResult is Map<String, dynamic>) {
+                          _applyFilters(filterResult);
+                        }
+                      });
+                    },
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    child: const Icon(
+                      Icons.filter_list,
+                      size: 28,
+                    ),
+                    tooltip: 'Filter Officials',
+                  ),
+                ),
+              ],
+            )
+          : null,
     );
   }
 }

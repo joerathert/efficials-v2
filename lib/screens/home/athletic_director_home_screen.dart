@@ -23,6 +23,7 @@ class _AthleticDirectorHomeScreenState
     print('🏟️ AD HOME SCREEN: initState called');
     _initializeData();
   }
+
   int _alertDays = 7;
   String _alertUnit = 'days';
   bool isFabExpanded = false;
@@ -226,9 +227,11 @@ class _AthleticDirectorHomeScreenState
     final today = DateTime(now.year, now.month, now.day);
 
     return games.where((game) {
-      // Only show published games in the upcoming/past games lists
+      // Show both published and unpublished (draft) games
       final status = game['status'] as String?;
-      if (status != 'Published') return false;
+      // Include games that are published OR don't have a status (treat as draft)
+      if (status != 'Published' && status != null && status != 'Draft')
+        return false;
 
       final gameDate = game['date'] as DateTime?;
       if (gameDate != null) {
@@ -553,13 +556,49 @@ class _AthleticDirectorHomeScreenState
                       ),
                       const SizedBox(height: 4),
                       // Sport and level line
-                      Text(
-                        '$levelOfCompetition $sport',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            '$levelOfCompetition $sport',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (game['status'] == 'Published')
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: (game['status'] == 'Published')
+                                    ? Colors.green.withOpacity(0.3)
+                                    : Colors.orange.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              game['status'] == 'Published'
+                                  ? 'Published'
+                                  : 'Draft',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: (game['status'] == 'Published')
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       // Officials count
@@ -624,7 +663,7 @@ class _AthleticDirectorHomeScreenState
 
                 Navigator.pushNamedAndRemoveUntil(
                   context,
-                  '/welcome',
+                  '/',
                   (route) => false,
                 ); // Go to welcome screen and clear navigation stack
               },

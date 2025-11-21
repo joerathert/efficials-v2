@@ -60,8 +60,9 @@ class _SignInScreenState extends State<SignInScreen> {
 
       if (mounted) {
         if (result.success && result.user != null) {
-          // Pop the sign-in screen - AuthWrapper will handle showing the correct home screen
-          Navigator.of(context).pop();
+          // Navigate to auth wrapper - it will handle showing the correct home screen
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/auth', (route) => false);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -332,4 +333,3 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 }
-

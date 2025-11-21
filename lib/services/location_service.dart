@@ -66,11 +66,11 @@ class LocationService extends BaseService {
         final data = doc.data();
         return {
           'id': doc.id,
-          'name': data['name'] as String,
-          'address': data['address'] as String,
-          'city': data['city'] as String,
-          'state': data['state'] as String,
-          'zip': data['zip'] as String,
+          'name': data['name'] as String? ?? 'Unnamed Location',
+          'address': data['address'] as String? ?? '',
+          'city': data['city'] as String? ?? '',
+          'state': data['state'] as String? ?? '',
+          'zip': data['zip'] as String? ?? '',
         };
       }).toList();
 

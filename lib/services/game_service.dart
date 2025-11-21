@@ -31,6 +31,9 @@ class GameService extends BaseService {
       final authService = AuthService();
       final currentUserId = authService.currentUser?.uid;
 
+      debugPrint('🔍 GAME SERVICE: Current user: ${authService.currentUser}');
+      debugPrint('🔍 GAME SERVICE: Current user ID: $currentUserId');
+
       if (currentUserId == null) {
         debugPrint('⚠️ GAME SERVICE: No authenticated user found');
         return [];
@@ -41,25 +44,86 @@ class GameService extends BaseService {
 
       // Query Firebase for templates created by the current user
       // Note: This query requires a composite index on (createdBy, createdAt)
-      final querySnapshot = await firestore
-          .collection(FirebaseCollections.gameTemplates)
-          .where(FirebaseFields.createdBy, isEqualTo: currentUserId)
-          .orderBy(FirebaseFields.createdAt, descending: true)
-          .get();
+      // For now, let's try fetching all templates and filtering in memory to debug
+      debugPrint('🔍 GAME SERVICE: Trying composite index query first...');
+      QuerySnapshot querySnapshot;
+      try {
+        querySnapshot = await firestore
+            .collection(FirebaseCollections.gameTemplates)
+            .where(FirebaseFields.createdBy, isEqualTo: currentUserId)
+            .orderBy(FirebaseFields.createdAt, descending: true)
+            .get();
+        debugPrint('✅ GAME SERVICE: Composite index query succeeded');
+      } catch (e) {
+        debugPrint('⚠️ GAME SERVICE: Composite index query failed: $e');
+        debugPrint('🔄 GAME SERVICE: Falling back to in-memory filtering...');
+
+        // Fallback: fetch all templates and filter in memory
+        querySnapshot = await firestore
+            .collection(FirebaseCollections.gameTemplates)
+            .get();
+
+        debugPrint('📊 GAME SERVICE: Fetched ${querySnapshot.docs.length} total templates for filtering');
+      }
 
       debugPrint(
-          '✅ GAME SERVICE: Found ${querySnapshot.docs.length} templates');
+          '✅ GAME SERVICE: Found ${querySnapshot.docs.length} raw documents');
+
+      // Filter documents by createdBy if we did the fallback query
+      List<QueryDocumentSnapshot> filteredDocs = querySnapshot.docs;
+
+      // Check if we got results from the composite index query
+      bool usedCompositeIndex = querySnapshot.docs.isNotEmpty &&
+          (querySnapshot.docs.first.data() as Map<String, dynamic>).containsKey(FirebaseFields.createdBy);
+
+      if (!usedCompositeIndex) {
+        // This means we did the fallback query, so filter in memory
+        filteredDocs = querySnapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final docCreatedBy = data[FirebaseFields.createdBy];
+          return docCreatedBy == currentUserId;
+        }).toList();
+        debugPrint('🎯 GAME SERVICE: After in-memory filtering: ${filteredDocs.length} documents');
+      }
+
+      // Log each document for debugging
+      for (var doc in filteredDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        debugPrint('📄 DOC: ID=${doc.id}, createdBy=${data[FirebaseFields.createdBy]}');
+      }
 
       // Convert to GameTemplateModel objects
-      final templates = querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        return GameTemplateModel.fromJson({
-          'id': doc.id,
-          ...data,
-          'createdAt': (data[FirebaseFields.createdAt] as Timestamp)
-              .toDate()
-              .toIso8601String(),
-        });
+      final templates = filteredDocs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        debugPrint('🔄 Converting doc ${doc.id} to GameTemplateModel');
+        try {
+          // Handle createdAt field - could be Timestamp or already a string
+          final rawCreatedAt = data[FirebaseFields.createdAt];
+          String createdAtString;
+
+          if (rawCreatedAt is Timestamp) {
+            createdAtString = rawCreatedAt.toDate().toIso8601String();
+          } else if (rawCreatedAt is String) {
+            createdAtString = rawCreatedAt;
+          } else {
+            throw Exception('Invalid createdAt format for template ${doc.id}: ${rawCreatedAt.runtimeType}');
+          }
+
+          final templateData = <String, dynamic>{
+            'id': doc.id,
+            ...data,
+            'createdAt': createdAtString,
+          };
+
+          final template = GameTemplateModel.fromJson(templateData);
+          debugPrint('✅ Successfully converted template: ${template.name}');
+          debugPrint('✅ Template location: ${template.location}');
+          return template;
+        } catch (e) {
+          debugPrint('❌ Failed to convert template ${doc.id}: $e');
+          rethrow;
+        }
       }).toList();
 
       debugPrint(
@@ -244,15 +308,21 @@ class GameService extends BaseService {
     }
   }
 
-  Future<bool> updateTemplate(Map<String, dynamic> templateData) async {
+  Future<Map<String, dynamic>?> updateTemplate(Map<String, dynamic> templateData) async {
     try {
       final templateId = templateData['id'] as String;
       debugPrint('🔄 GAME SERVICE: Updating template: $templateId');
+      debugPrint('🔄 GAME SERVICE: Update data keys: ${templateData.keys.toList()}');
+      debugPrint('🔄 GAME SERVICE: Location value: ${templateData['location']}');
+      debugPrint('🔄 GAME SERVICE: includeLocation: ${templateData['includeLocation']}');
 
-      // Prepare the update data (remove id from the data to update)
+      // Prepare the update data (remove id and createdAt from the data to update)
       final updateData = Map<String, dynamic>.from(templateData);
       updateData.remove('id');
+      updateData.remove('createdAt'); // Don't update createdAt timestamp
       updateData[FirebaseFields.updatedAt] = FieldValue.serverTimestamp();
+
+      debugPrint('🔄 GAME SERVICE: Final update data: $updateData');
 
       // Update in Firestore
       await firestore
@@ -260,11 +330,34 @@ class GameService extends BaseService {
           .doc(templateId)
           .update(updateData);
 
-      debugPrint('✅ GAME SERVICE: Template updated successfully');
-      return true;
+      debugPrint('✅ GAME SERVICE: Template updated successfully in Firestore');
+
+      // Verify the update by fetching the document
+      final updatedDoc = await firestore
+          .collection(FirebaseCollections.gameTemplates)
+          .doc(templateId)
+          .get();
+
+      if (updatedDoc.exists) {
+        final updatedData = updatedDoc.data();
+        debugPrint('✅ GAME SERVICE: Verified updated document: ${updatedData?['location']}');
+        debugPrint('✅ GAME SERVICE: Document has location: ${updatedData?.containsKey('location')}');
+      } else {
+        debugPrint('❌ GAME SERVICE: Document not found after update');
+      }
+
+      // Return the updated template data (preserve createdAt, add/update updatedAt)
+      final result = Map<String, dynamic>.from(templateData);
+      result['id'] = templateId; // Ensure ID is set
+      result['updatedAt'] = DateTime.now().toIso8601String();
+      // createdAt should already be in templateData
+
+      debugPrint('✅ GAME SERVICE: Returning updated template data: ${result['name']}');
+      debugPrint('✅ GAME SERVICE: Result location: ${result['location']}');
+      return result;
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to update template: $e');
-      return false;
+      return null;
     }
   }
 
@@ -749,13 +842,14 @@ class GameService extends BaseService {
     return [];
   }
 
-  Future<bool> updateOfficialsHired(int gameId, int officialsHired) async {
+  Future<bool> updateOfficialsHired(String gameId, int officialsHired) async {
     try {
       debugPrint(
           '🔄 GAME SERVICE: Updating officials hired for game $gameId to $officialsHired');
-      // Mock implementation - in real app, this would update Firestore
-      await Future.delayed(
-          const Duration(milliseconds: 200)); // Simulate network delay
+
+      final docRef = firestore.collection('games').doc(gameId);
+      await docRef.update({'officialsHired': officialsHired});
+
       debugPrint('✅ GAME SERVICE: Successfully updated officials hired');
       return true;
     } catch (e) {
@@ -780,29 +874,97 @@ class GameService extends BaseService {
   }
 
   Future<List<Map<String, dynamic>>> getInterestedOfficialsForGame(
-      int gameId) async {
+      String gameId) async {
     try {
       debugPrint(
           '🔍 GAME SERVICE: Getting interested officials for game $gameId');
-      // Mock implementation - in real app, this would query Firestore
-      await Future.delayed(const Duration(milliseconds: 100));
-      return [
-        {
-          'id': 3,
-          'name': 'Bob Johnson',
-          'distance': 5.2,
-          'email': 'bob@example.com'
-        },
-        {
-          'id': 4,
-          'name': 'Alice Wilson',
-          'distance': 8.1,
-          'email': 'alice@example.com'
-        },
-      ];
+
+      final doc = await firestore.collection('games').doc(gameId).get();
+      if (!doc.exists) return [];
+
+      final data = doc.data() as Map<String, dynamic>;
+      final interestedOfficials = data['interestedOfficials'] as List<dynamic>? ?? [];
+
+      return interestedOfficials.map((official) {
+        if (official is Map) {
+          return Map<String, dynamic>.from(official);
+        }
+        return <String, dynamic>{};
+      }).toList();
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to get interested officials: $e');
       return [];
+    }
+  }
+
+  Future<bool> addInterestedOfficial(String gameId, Map<String, dynamic> officialData) async {
+    try {
+      debugPrint('➕ GAME SERVICE: Adding interested official to game $gameId');
+
+      final docRef = firestore.collection('games').doc(gameId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        debugPrint('🔴 GAME SERVICE: Game $gameId does not exist');
+        return false;
+      }
+
+      // Get current interested officials
+      final data = doc.data() as Map<String, dynamic>;
+      final interestedOfficials = List<Map<String, dynamic>>.from(
+          data['interestedOfficials'] ?? []);
+
+      // Check if official is already interested
+      final existingIndex = interestedOfficials.indexWhere(
+          (official) => official['id'] == officialData['id']);
+
+      if (existingIndex >= 0) {
+        debugPrint('🔴 GAME SERVICE: Official already interested in game $gameId');
+        return true; // Already interested, consider this success
+      }
+
+      // Add the official
+      interestedOfficials.add(officialData);
+
+      // Update the document
+      await docRef.update({'interestedOfficials': interestedOfficials});
+
+      debugPrint('✅ GAME SERVICE: Successfully added interested official to game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to add interested official: $e');
+      return false;
+    }
+  }
+
+  Future<bool> removeInterestedOfficial(String gameId, String officialId) async {
+    try {
+      debugPrint('➖ GAME SERVICE: Removing interested official from game $gameId');
+
+      final docRef = firestore.collection('games').doc(gameId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        debugPrint('🔴 GAME SERVICE: Game $gameId does not exist');
+        return false;
+      }
+
+      // Get current interested officials
+      final data = doc.data() as Map<String, dynamic>;
+      final interestedOfficials = List<Map<String, dynamic>>.from(
+          data['interestedOfficials'] ?? []);
+
+      // Remove the official
+      interestedOfficials.removeWhere((official) => official['id'] == officialId);
+
+      // Update the document
+      await docRef.update({'interestedOfficials': interestedOfficials});
+
+      debugPrint('✅ GAME SERVICE: Successfully removed interested official from game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to remove interested official: $e');
+      return false;
     }
   }
 
@@ -819,29 +981,105 @@ class GameService extends BaseService {
   }
 
   Future<List<Map<String, dynamic>>> getConfirmedOfficialsForGame(
-      int gameId) async {
+      String gameId) async {
     try {
       debugPrint(
           '🔍 GAME SERVICE: Getting confirmed officials for game $gameId');
-      // Mock implementation - in real app, this would query Firestore
-      await Future.delayed(const Duration(milliseconds: 100));
-      return [
-        {
-          'id': 1,
-          'name': 'John Smith',
-          'email': 'john@example.com',
-          'phone': '555-123-4567'
-        },
-        {
-          'id': 2,
-          'name': 'Jane Doe',
-          'email': 'jane@example.com',
-          'phone': '555-987-6543'
-        },
-      ];
+
+      final doc = await firestore.collection('games').doc(gameId).get();
+      if (!doc.exists) return [];
+
+      final data = doc.data() as Map<String, dynamic>;
+      final confirmedOfficials = data['confirmedOfficials'] as List<dynamic>? ?? [];
+
+      return confirmedOfficials.map((official) {
+        if (official is Map) {
+          return Map<String, dynamic>.from(official);
+        }
+        return <String, dynamic>{};
+      }).toList();
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to get confirmed officials: $e');
       return [];
+    }
+  }
+
+  Future<bool> addConfirmedOfficial(String gameId, Map<String, dynamic> officialData) async {
+    try {
+      debugPrint('✅ GAME SERVICE: Adding confirmed official to game $gameId');
+
+      final docRef = firestore.collection('games').doc(gameId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        debugPrint('🔴 GAME SERVICE: Game $gameId does not exist');
+        return false;
+      }
+
+      // Get current confirmed officials
+      final data = doc.data() as Map<String, dynamic>;
+      final confirmedOfficials = List<Map<String, dynamic>>.from(
+          data['confirmedOfficials'] ?? []);
+
+      // Check if official is already confirmed
+      final existingIndex = confirmedOfficials.indexWhere(
+          (official) => official['id'] == officialData['id']);
+
+      if (existingIndex >= 0) {
+        debugPrint('🔴 GAME SERVICE: Official already confirmed for game $gameId');
+        return true; // Already confirmed, consider this success
+      }
+
+      // Add the official
+      confirmedOfficials.add(officialData);
+
+      // Update the document with both confirmed officials and updated count
+      final newOfficialsHired = confirmedOfficials.length;
+      await docRef.update({
+        'confirmedOfficials': confirmedOfficials,
+        'officialsHired': newOfficialsHired
+      });
+
+      debugPrint('✅ GAME SERVICE: Successfully added confirmed official to game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to add confirmed official: $e');
+      return false;
+    }
+  }
+
+  Future<bool> removeConfirmedOfficial(String gameId, String officialId) async {
+    try {
+      debugPrint('🗑️ GAME SERVICE: Removing confirmed official from game $gameId');
+
+      final docRef = firestore.collection('games').doc(gameId);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        debugPrint('🔴 GAME SERVICE: Game $gameId does not exist');
+        return false;
+      }
+
+      // Get current confirmed officials
+      final data = doc.data() as Map<String, dynamic>;
+      final confirmedOfficials = List<Map<String, dynamic>>.from(
+          data['confirmedOfficials'] ?? []);
+
+      // Remove the official
+      confirmedOfficials.removeWhere((official) => official['id'] == officialId);
+
+      // Update the document with updated confirmed officials and count
+      final newOfficialsHired = confirmedOfficials.length;
+      await docRef.update({
+        'confirmedOfficials': confirmedOfficials,
+        'officialsHired': newOfficialsHired
+      });
+
+      debugPrint('✅ GAME SERVICE: Successfully removed confirmed official from game $gameId');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to remove confirmed official: $e');
+      return false;
     }
   }
 

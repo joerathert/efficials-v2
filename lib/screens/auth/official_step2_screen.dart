@@ -309,6 +309,14 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                     controller: _cityController,
                                     decoration: InputDecoration(
                                       labelText: 'City',
+                                      hintText: 'City',
+                                      hintStyle: TextStyle(
+                                        color:
+                                            theme.brightness == Brightness.dark
+                                                ? Colors.grey.shade400
+                                                : colorScheme.onSurfaceVariant
+                                                    .withOpacity(0.6),
+                                      ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -364,7 +372,7 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                       controller: _stateController,
                                       decoration: InputDecoration(
                                         labelText: 'ST',
-                                        hintText: 'State',
+                                        hintText: 'ST',
                                         hintStyle: TextStyle(
                                           color: theme.brightness ==
                                                   Brightness.dark
@@ -437,6 +445,14 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                     controller: _zipController,
                                     decoration: InputDecoration(
                                       labelText: 'ZIP',
+                                      hintText: 'ZIP',
+                                      hintStyle: TextStyle(
+                                        color:
+                                            theme.brightness == Brightness.dark
+                                                ? Colors.grey.shade400
+                                                : colorScheme.onSurfaceVariant
+                                                    .withOpacity(0.6),
+                                      ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),

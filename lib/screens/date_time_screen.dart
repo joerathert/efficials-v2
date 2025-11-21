@@ -318,6 +318,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                           arguments: {
                                             'scheduleName': scheduleName,
                                             'sport': sport,
+                                            'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': finalTime,
@@ -336,6 +337,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                           arguments: {
                                             'scheduleName': scheduleName,
                                             'sport': sport,
+                                            'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': finalTime,

@@ -332,30 +332,16 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   }
 
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
-    debugPrint(
-        '🔍 _getGamesForDay: Looking for games on ${day.month}/${day.day}/${day.year}');
-    debugPrint('🔍 _getGamesForDay: Total games in memory: ${games.length}');
-
     final matchingGames = games.where((game) {
       final gameDate = game['date'] as DateTime?;
       if (gameDate == null) {
-        debugPrint('⚠️ _getGamesForDay: Game has null date: $game');
         return false;
       }
-      final matchesDay = gameDate.year == day.year &&
+      return gameDate.year == day.year &&
           gameDate.month == day.month &&
           gameDate.day == day.day;
-
-      if (matchesDay) {
-        debugPrint(
-            '✅ _getGamesForDay: Found matching game on ${gameDate.month}/${gameDate.day}/${gameDate.year}');
-      }
-
-      return matchesDay;
     }).toList();
 
-    debugPrint(
-        '🎯 _getGamesForDay: Found ${matchingGames.length} games for ${day.month}/${day.day}/${day.year}');
     return matchingGames;
   }
 
@@ -813,8 +799,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 selectedBuilder: (context, day, focusedDay) {
                                   final events = _getGamesForDay(day);
                                   final hasEvents = events.isNotEmpty;
-                                  debugPrint(
-                                      '🎯 CALENDAR: selectedBuilder for ${day.month}/${day.day}/${day.year} - events: ${events.length}');
 
                                   Color backgroundColor = colorScheme.primary;
                                   Color textColor = colorScheme.onPrimary;
@@ -916,11 +900,6 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                       day.month == _selectedDay!.month &&
                                       day.day == _selectedDay!.day;
 
-                                  if (hasEvents) {
-                                    debugPrint(
-                                        '🎯 CALENDAR: defaultBuilder for ${day.month}/${day.day}/${day.year} - HAS EVENTS: ${events.length}');
-                                  }
-
                                   // If the day is selected, return null to let the built-in selectedDecoration handle it
                                   if (isSelected) {
                                     return null;
@@ -1018,10 +997,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16.0, vertical: 8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing:
+                                    12.0, // Horizontal spacing between items
+                                runSpacing:
+                                    4.0, // Vertical spacing between lines
                                 children: [
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
                                         width: 16,
@@ -1038,25 +1022,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                               color: colorScheme.onSurface)),
                                     ],
                                   ),
-                                  const SizedBox(width: 16),
                                   Row(
-                                    children: [
-                                      Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text('Needs Officials',
-                                          style: TextStyle(
-                                              color: colorScheme.onSurface)),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
                                         width: 10,
@@ -1072,8 +1039,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                               color: colorScheme.onSurface)),
                                     ],
                                   ),
-                                  const SizedBox(width: 16),
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Container(
                                         width: 10,

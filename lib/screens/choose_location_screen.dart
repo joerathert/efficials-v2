@@ -279,6 +279,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                             arguments: {
                                               'scheduleName': scheduleName,
                                               'sport': sport,
+                                              'homeTeam': originalArgs?['homeTeam'],
                                               'template': template,
                                               'date': selectedDate,
                                               'time': selectedTime,
@@ -358,6 +359,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                           arguments: {
                                             'scheduleName': scheduleName,
                                             'sport': sport,
+                                            'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': selectedTime,

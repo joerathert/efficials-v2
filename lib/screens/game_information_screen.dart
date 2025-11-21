@@ -247,10 +247,15 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         final confirmed =
             await _gameService.getConfirmedOfficialsForGame(gameId);
 
+        // Update officialsHired from confirmed count
+        final confirmedCount = confirmed.length;
+
         if (mounted) {
           setState(() {
             interestedOfficials = officials;
             confirmedOfficials = confirmed;
+            officialsHired = confirmedCount;
+            args['officialsHired'] = officialsHired;
           });
         }
       }
@@ -823,14 +828,37 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     final gameId = args['id'];
     if (gameId != null && _isDatabaseGame(gameId)) {
       try {
-        final newOfficialsHired = officialsHired + selectedCount;
-        final result =
-            await _gameService.updateOfficialsHired(gameId, newOfficialsHired);
+        // Add each selected official to confirmed list and remove from interested
+        bool allSuccessful = true;
+        for (final entry in selectedForHire.entries) {
+          if (entry.value) { // if selected for hire
+            final official = interestedOfficials.firstWhere(
+              (o) => o['id'] == entry.key,
+              orElse: () => <String, dynamic>{},
+            );
 
-        if (result && mounted) {
+            if (official.isNotEmpty) {
+              final officialId = official['id'] as String;
+              final officialData = {
+                'id': officialId,
+                'name': official['name'],
+                'distance': official['distance'] ?? 0.0,
+              };
+
+              // Add to confirmed officials
+              final addSuccess = await _gameService.addConfirmedOfficial(gameId, officialData);
+              // Remove from interested officials
+              final removeSuccess = await _gameService.removeInterestedOfficial(gameId, officialId);
+
+              if (!addSuccess || !removeSuccess) {
+                allSuccessful = false;
+              }
+            }
+          }
+        }
+
+        if (allSuccessful && mounted) {
           setState(() {
-            officialsHired = newOfficialsHired;
-            args['officialsHired'] = officialsHired;
             selectedForHire.clear();
           });
 
@@ -845,7 +873,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           }
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to update officials')),
+            const SnackBar(content: Text('Failed to update some officials')),
           );
         }
       } catch (e) {
@@ -934,9 +962,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       final gameId = args['id'];
       if (gameId != null && _isDatabaseGame(gameId)) {
         try {
-          // For now, just simulate the removal since we need the official ID, not name
-          final success =
-              true; // await _gameService.removeOfficialFromGame(gameId, officialId);
+          // Find the official ID from the confirmed officials list
+          final official = confirmedOfficials.firstWhere(
+            (o) => o['name'] == officialName,
+            orElse: () => <String, dynamic>{},
+          );
+
+          if (official.isEmpty) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Official not found')),
+              );
+            }
+            return;
+          }
+
+          final officialId = official['id'] as String;
+          final success = await _gameService.removeConfirmedOfficial(gameId, officialId);
           if (success && mounted) {
             await _loadInterestedOfficials();
             if (mounted) {
