@@ -53,6 +53,7 @@ class AppColors {
   static const Color efficialsYellow = Color(0xFFFFD700); // Yellow/Gold
   static const Color efficialsBlack = Color(0xFF000000); // Pure black
   static const Color efficialsWhite = Color(0xFFFFFFFF); // Pure white
+  static const Color efficialsBlue = Color(0xFF2196F3); // Blue for status indicators
   static const Color darkBackground = Color(0xFF121212); // Dark background
   static const Color darkSurface = Color(0xFF1E1E1E); // Dark surface
   static const Color darkSurfaceVariant = Color(0xFF2D2D2D); // Dark surface variant

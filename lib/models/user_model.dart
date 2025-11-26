@@ -246,6 +246,7 @@ class SchedulerProfile {
 
 /// Official-specific profile information
 class OfficialProfile {
+  final String? address;
   final String city;
   final String state;
   final int? experienceYears;
@@ -259,6 +260,7 @@ class OfficialProfile {
       sportsData; // Detailed sports data with experience, certification, competition levels
 
   const OfficialProfile({
+    this.address,
     required this.city,
     required this.state,
     this.experienceYears,
@@ -273,6 +275,7 @@ class OfficialProfile {
 
   Map<String, dynamic> toMap() {
     return {
+      'address': address,
       'city': city,
       'state': state,
       'experienceYears': experienceYears,
@@ -288,6 +291,7 @@ class OfficialProfile {
 
   factory OfficialProfile.fromMap(Map<String, dynamic> map) {
     return OfficialProfile(
+      address: map['address'],
       city: map['city'] ?? '',
       state: map['state'] ?? '',
       experienceYears: map['experienceYears']?.toInt(),

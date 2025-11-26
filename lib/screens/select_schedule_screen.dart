@@ -314,32 +314,23 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                               },
                                             ).then((result) async {
                                               if (result != null) {
+                                                // Refresh schedules from Firebase to ensure the newly created schedule is included
+                                                await _fetchSchedules();
+
                                                 // Handle the new schedule object
                                                 if (result
                                                     is Map<String, dynamic>) {
-                                                  // Add the new schedule to the local list
-                                                  final ScheduleData
-                                                      newSchedule = {
-                                                    'id': result['id']
-                                                            ?.toString() ??
-                                                        DateTime.now()
-                                                            .millisecondsSinceEpoch
-                                                            .toString(),
-                                                    'name': result['name']
-                                                        as String,
-                                                    'sport': result['sport']
-                                                        as String,
-                                                  };
-                                                  setState(() {
-                                                    schedules.insert(
-                                                        0, newSchedule);
-                                                    selectedSchedule =
-                                                        newSchedule['name']
-                                                            as String;
-                                                  });
-                                                } else {
-                                                  // Fallback for other result types
-                                                  await _fetchSchedules();
+                                                  // Find and select the newly created schedule
+                                                  final newScheduleName =
+                                                      result['name'] as String;
+                                                  if (schedules.any((s) =>
+                                                      s['name'] ==
+                                                      newScheduleName)) {
+                                                    setState(() {
+                                                      selectedSchedule =
+                                                          newScheduleName;
+                                                    });
+                                                  }
                                                 }
                                               }
                                             });
@@ -390,7 +381,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                       selectedSchedule ==
                                           '+ Create new schedule')
                                   ? null
-                                  : () {
+                                  : () async {
                                       // Validate sport match if a template is used
                                       if (!_validateSportMatch()) {
                                         return;
@@ -399,10 +390,53 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                           (s) => s['name'] == selectedSchedule);
                                       // Get home team from scheduler's profile
                                       String? homeTeam;
-                                      if (_currentUser?.schedulerProfile != null) {
-                                        final profile = _currentUser!.schedulerProfile!;
-                                        if (profile.type == 'Athletic Director') {
+
+                                      // Ensure we have the current user loaded
+                                      UserModel? currentUser = _currentUser;
+                                      if (currentUser == null) {
+                                        // Try to load current user synchronously if not already loaded
+                                        try {
+                                          currentUser = await _userService
+                                              .getCurrentUser();
+                                          _currentUser = currentUser;
+                                        } catch (e) {
+                                          debugPrint(
+                                              '🏈 SELECT_SCHEDULE: Error loading current user: $e');
+                                        }
+                                      }
+
+                                      if (currentUser?.schedulerProfile !=
+                                          null) {
+                                        final profile =
+                                            currentUser!.schedulerProfile!;
+                                        if (profile.type ==
+                                            'Athletic Director') {
                                           homeTeam = profile.teamName;
+                                          debugPrint(
+                                              '🏈 SELECT_SCHEDULE: Setting homeTeam to AD profile team: $homeTeam');
+                                        } else {
+                                          debugPrint(
+                                              '🏈 SELECT_SCHEDULE: User is ${profile.type}, not setting homeTeam');
+                                        }
+                                      } else {
+                                        // Fallback: try to get team name from regular profile if it's an AD
+                                        if (currentUser?.role ==
+                                                'athletic_director' ||
+                                            currentUser?.role == 'scheduler') {
+                                          if (currentUser?.schedulerProfile !=
+                                              null) {
+                                            homeTeam = currentUser!
+                                                .schedulerProfile!.teamName;
+                                            debugPrint(
+                                                '🏈 SELECT_SCHEDULE: Found schedulerProfile for ${currentUser.role}, homeTeam: $homeTeam');
+                                          } else {
+                                            debugPrint(
+                                                '🏈 SELECT_SCHEDULE: User role is ${currentUser?.role} but no schedulerProfile found');
+                                          }
+                                        }
+                                        if (homeTeam == null) {
+                                          debugPrint(
+                                              '🏈 SELECT_SCHEDULE: No scheduler profile found and no fallback available');
                                         }
                                       }
 
@@ -411,6 +445,8 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                         '/date-time',
                                         arguments: {
                                           'scheduleName': selectedSchedule,
+                                          'scheduleId': selected[
+                                              'id'], // Add the schedule ID
                                           'sport': selected['sport'],
                                           'homeTeam': homeTeam,
                                           'template': template,

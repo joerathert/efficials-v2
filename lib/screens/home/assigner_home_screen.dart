@@ -1,143 +1,873 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../app_colors.dart';
+import '../../app_theme.dart';
+import '../../services/user_repository.dart';
+import '../../services/game_service.dart';
+import '../../widgets/linked_games_list.dart';
+import '../../widgets/scheduler_bottom_navigation.dart';
 
-class AssignerHomeScreen extends StatelessWidget {
+class AssignerHomeScreen extends StatefulWidget {
   const AssignerHomeScreen({super.key});
 
   @override
+  State<AssignerHomeScreen> createState() => _AssignerHomeScreenState();
+}
+
+class _AssignerHomeScreenState extends State<AssignerHomeScreen>
+    with TickerProviderStateMixin {
+  String? sport;
+  String? leagueName;
+  bool isLoading = true;
+  int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
+  int _unpublishedGamesCount = 0;
+  List<Map<String, dynamic>> _gamesNeedingOfficials = [];
+
+  // Animation controllers
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+  bool _isExpanded = false;
+  bool _showQuickActions = true;
+
+  final UserRepository _userRepository = UserRepository();
+  final GameService _gameService = GameService();
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _slideAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    _initializeAssignerHome();
+  }
+
+  Future<void> _initializeAssignerHome() async {
+    await Future.wait([
+      _checkAssignerSetup(),
+      _loadQuickActionsPreference(),
+      _loadUnreadNotificationCount(),
+      _loadUnpublishedGamesCount(),
+      _loadGamesNeedingOfficials(),
+    ]);
+  }
+
+  Future<void> _checkAssignerSetup() async {
+    debugPrint('Checking assigner setup from database');
+    try {
+      // Get current user directly from UserRepository
+      final currentUser = await _userRepository.getCurrentUser();
+
+      if (currentUser == null) {
+        debugPrint('No current user found, redirecting to welcome');
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.pushReplacementNamed(context, '/welcome');
+          });
+        }
+        return;
+      }
+
+      debugPrint(
+          'Current user: ${currentUser.email}, role: ${currentUser.role}');
+
+      // Extract sport and league name from scheduler profile
+      if (currentUser.schedulerProfile != null) {
+        sport = currentUser.schedulerProfile!.sport;
+        leagueName = currentUser.schedulerProfile!.organizationName ?? 'Organization';
+      }
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking assigner setup: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacementNamed(context, '/welcome');
+        });
+      }
+    }
+  }
+
+  Future<void> _loadQuickActionsPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) {
+        setState(() {
+          _showQuickActions = prefs.getBool('showQuickActions') ?? true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading Quick Actions preference: $e');
+      // Default to showing Quick Actions if there's an error
+      if (mounted) {
+        setState(() {
+          _showQuickActions = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      // For now, set to 0 as we don't have notification service implemented yet
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading unread notification count: $e');
+    }
+  }
+
+  Future<void> _loadUnpublishedGamesCount() async {
+    try {
+      final unpublishedGames = await _gameService.getUnpublishedGames();
+      if (mounted) {
+        setState(() {
+          _unpublishedGamesCount = unpublishedGames.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading unpublished games count: $e');
+    }
+  }
+
+  Future<void> _loadGamesNeedingOfficials() async {
+    debugPrint('🏠 _loadGamesNeedingOfficials() STARTING');
+    try {
+      debugPrint('🏠 About to call _gameService.getGames()');
+      final games = await _gameService.getGames();
+      debugPrint('🏠 Got ${games.length} games from getGames()');
+
+      final gamesNeedingOfficials = games.where((game) {
+        final needsOfficials = (game['officialsHired'] as int? ?? 0) < (game['officialsRequired'] as int? ?? 0);
+        final hasDate = game['date'] != null;
+        final isFuture = hasDate && (game['date'] as DateTime).isAfter(DateTime.now());
+
+        return needsOfficials && hasDate && isFuture;
+      }).toList();
+
+      gamesNeedingOfficials.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
+      if (mounted) {
+        setState(() {
+          _gamesNeedingOfficials = gamesNeedingOfficials;
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('🏠 ERROR in _loadGamesNeedingOfficials: $e');
+      debugPrint('🏠 Stack trace: $stackTrace');
+    }
+    debugPrint('🏠 _loadGamesNeedingOfficials() FINISHED');
+  }
+
+  void _toggleExpandedView() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+    if (_isExpanded) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+  }
+
+  void _navigateToFullScheduleView() {
+    Navigator.pushNamed(context, '/assigner_manage_schedules');
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onBottomNavTap(int index) {
+    switch (index) {
+      case 0: // Home - already on home screen, do nothing
+        break;
+      case 1: // Schedules
+        Navigator.pushNamed(context, '/assigner_manage_schedules').then((_) {
+          // Refresh games needing officials when returning from schedules
+          _loadUnpublishedGamesCount();
+          _loadGamesNeedingOfficials();
+        });
+        break;
+      case 2: // Officials/Crews Choice
+        Navigator.pushNamed(context, '/select_officials').then((_) {
+          // Refresh games needing officials when returning from choice screen
+          _loadUnpublishedGamesCount();
+          _loadGamesNeedingOfficials();
+        });
+        break;
+      case 3: // Templates (Game Templates)
+        Navigator.pushNamed(context, '/game_templates').then((_) {
+          // Refresh games needing officials when returning from templates screen
+          _loadUnpublishedGamesCount();
+          _loadGamesNeedingOfficials();
+        });
+        break;
+      case 4: // Notifications
+        Navigator.pushNamed(context, '/notifications').then((_) {
+          // Refresh notification count and games when returning from notifications screen
+          _loadUnreadNotificationCount();
+          _loadUnpublishedGamesCount();
+          _loadGamesNeedingOfficials();
+        });
+        break;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.darkBackground,
+        body: Center(child: CircularProgressIndicator(color: AppColors.efficialsYellow)),
+      );
+    }
+
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    const double appBarHeight = kToolbarHeight;
+    final double totalBannerHeight = statusBarHeight + appBarHeight;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
-        backgroundColor: colorScheme.surface,
-        title: Consumer<ThemeProvider>(
-          builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color: themeProvider.isDarkMode
-                  ? Theme.of(context).colorScheme.primary // Yellow in dark mode
-                  : Colors.black, // Black in light mode
-              size: 32,
-            );
-          },
+        backgroundColor: AppColors.efficialsBlack,
+        title: const Text('', style: appBarTextStyle),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: AppColors.efficialsYellow),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
-        centerTitle: true,
-        actions: [
-          Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return IconButton(
-                icon: Icon(
-                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: colorScheme.onSurface,
+      ),
+      drawer: Drawer(
+        backgroundColor: Colors.grey[800],
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              height: totalBannerHeight,
+              decoration: const BoxDecoration(color: AppColors.efficialsBlack),
+              child: Padding(
+                padding: EdgeInsets.only(
+                    top: statusBarHeight + 8.0,
+                    bottom: 8.0,
+                    left: 16.0,
+                    right: 16.0),
+                child: const Text(
+                  'Menu',
+                  style: TextStyle(
+                      color: AppColors.efficialsWhite,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold),
                 ),
-                onPressed: () {
-                  themeProvider.toggleTheme();
-                },
-                tooltip: 'Toggle theme',
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: colorScheme.onSurface),
-            onPressed: () {
-              // TODO: Implement logout
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/',
-                (route) => false,
-              );
-            },
-          ),
-        ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.sports, color: AppColors.efficialsYellow),
+              title: const Text('Officials Assignment',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text('Officials Assignment not implemented yet')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.schedule, color: AppColors.efficialsYellow),
+              title: const Text('Manage Schedules',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/assigner_manage_schedules')
+                    .then((_) {
+                  _loadUnpublishedGamesCount();
+                  _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.unpublished, color: AppColors.efficialsYellow),
+              title: Row(
+                children: [
+                  const Text('Unpublished Games',
+                      style: TextStyle(color: Colors.white)),
+                  if (_unpublishedGamesCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$_unpublishedGamesCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/unpublished_games').then((_) {
+                  _loadUnpublishedGamesCount(); // Refresh count after returning
+                  _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people, color: AppColors.efficialsYellow),
+              title: const Text('Manage Officials',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/select_officials').then((_) {
+                  _loadUnpublishedGamesCount();
+                  _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy, color: AppColors.efficialsYellow),
+              title: const Text('Game Templates',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/game_templates').then((_) {
+                  _loadUnpublishedGamesCount();
+                  _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: AppColors.efficialsYellow),
+              title: const Text('Manage Locations',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/choose_location');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings, color: AppColors.efficialsYellow),
+              title: const Text('Settings',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/settings').then((_) {
+                  // Refresh Quick Actions preference when returning from settings
+                  _loadQuickActionsPreference();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune, color: AppColors.efficialsYellow),
+              title: const Text('Game Defaults',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/game_defaults');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload_file, color: AppColors.efficialsYellow),
+              title: const Text('Bulk Import Games',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/bulk_import');
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _handleLogout();
+              },
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              Text(
-                'Welcome Assigner!',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary // Yellow in dark mode
-                      : colorScheme.onBackground, // Dark in light mode
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Assigner dashboard - Coming Soon',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            // Detect upward swipe
+            if (details.delta.dy < -2 && !_isExpanded) {
+              _toggleExpandedView();
+            }
+            // Detect downward swipe when expanded
+            else if (details.delta.dy > 2 && _isExpanded) {
+              _toggleExpandedView();
+            }
+          },
+          onTap: () {
+            if (_isExpanded) {
+              _navigateToFullScheduleView();
+            }
+          },
+          child: AnimatedBuilder(
+            animation: _slideAnimation,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  // Main home content
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Transform.translate(
+                      offset: Offset(
+                          0,
+                          -MediaQuery.of(context).size.height *
+                              0.4 *
+                              _slideAnimation.value),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // League Info Card
+                              FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.efficialsYellow,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        spreadRadius: 1,
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            getSportIcon(sport ?? ''),
+                                            color: AppColors.efficialsBlack,
+                                            size: 32,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  leagueName ?? 'Organization',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.efficialsBlack,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${sport ?? 'Unknown'} Assigner',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    color: AppColors.efficialsBlack,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
 
-              // Placeholder content
-              Expanded(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.shadow.withOpacity(0.2),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.assignment_ind,
-                          size: 64,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Assigner Features',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
+                              // Spacing after Assigner tile
+                              const SizedBox(height: 20),
+
+                              if (_showQuickActions) ...[
+                                const SizedBox(height: 10),
+
+                                // Quick Actions Section
+                                FadeTransition(
+                                  opacity: _fadeAnimation,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Quick Actions',
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.calendar_today,
+                                              title: 'Manage Schedules',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/assigner_manage_schedules')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.people,
+                                              title: 'Manage Officials',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/select_officials')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.copy,
+                                              title: 'Game Templates',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/game_templates')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: _buildActionCard(
+                                              icon: Icons.notifications,
+                                              title: 'Notifications',
+                                              onTap: () {
+                                                Navigator.pushNamed(context,
+                                                        '/notifications')
+                                                    .then((_) {
+                                                  _loadGamesNeedingOfficials();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 30),
+                              ],
+
+                              // Games Needing Officials Section
+                              FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: _buildGamesNeedingOfficialsSection(),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '• Create games across multiple schools\n'
-                          '• Assign officials to games\n'
-                          '• Manage league schedules\n'
-                          '• Track official assignments',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
+
+                  // Overlay hint for expanded state
+                  if (_isExpanded)
+                    Positioned(
+                      bottom: 50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.efficialsYellow.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Tap to open full schedule view',
+                            style: TextStyle(
+                              color: AppColors.efficialsBlack,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      bottomNavigationBar: SchedulerBottomNavigation(
+        currentIndex: _currentIndex,
+        onTap: _onBottomNavTap,
+        schedulerType: SchedulerType.assigner,
+        unreadNotificationCount: _unreadNotificationCount,
+      ),
+    );
+  }
+
+  Widget _buildGamesNeedingOfficialsSection() {
+    debugPrint('🏠 _buildGamesNeedingOfficialsSection called with ${_gamesNeedingOfficials.length} games');
+    if (_gamesNeedingOfficials.isEmpty) {
+      debugPrint('🏠 Games list is empty, showing empty state');
+      // Check if there are any upcoming games at all
+      final now = DateTime.now();
+      final hasUpcomingGames = _gameService.getGames().then((games) {
+        return games
+            .any((game) => game['date'] != null && (game['date'] as DateTime).isAfter(now));
+      }).catchError((_) => false);
+
+      return FutureBuilder<bool>(
+        future: hasUpcomingGames,
+        builder: (context, snapshot) {
+          final hasGames = snapshot.data ?? false;
+
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: hasGames
+                  ? Colors.green.withOpacity(0.1)
+                  : AppColors.efficialsYellow.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: hasGames
+                      ? Colors.green.withOpacity(0.3)
+                      : AppColors.efficialsYellow.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  hasGames ? Icons.check_circle : Icons.calendar_today,
+                  color: hasGames ? Colors.green : AppColors.efficialsYellow,
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  hasGames ? 'All Games Covered!' : 'No Upcoming Games',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: hasGames ? Colors.green : AppColors.efficialsYellow,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  hasGames
+                      ? 'All upcoming games have the necessary number of officials confirmed.'
+                      : 'You have no games scheduled for future dates.',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: secondaryTextColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    debugPrint('🏠 Games list is NOT empty, showing ${_gamesNeedingOfficials.length} games');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Games Needing Officials',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: primaryTextColor,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 600, // Set a fixed height for the LinkedGamesList
+          child: LinkedGamesList(
+            games: _gamesNeedingOfficials,
+            onGameTap: _navigateToGame,
+            emptyMessage: 'No games needing officials',
+            emptyIcon: Icons.check_circle,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _navigateToGame(Map<String, dynamic> game) {
+    Navigator.pushNamed(
+      context,
+      '/game_information',
+      arguments: {
+        'id': game['id'],
+        'sport': game['sport'],
+        'sportName': game['sport'],
+        'opponent': game['opponent'],
+        'date': game['date'],
+        'time': game['time'],
+        'location': game['location'],
+        'locationName': game['location'],
+        'officialsRequired': game['officialsRequired'],
+        'officialsHired': game['officialsHired'],
+        'isAway': game['isAway'],
+        'sourceScreen': 'assigner_home',
+      },
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.darkSurface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: AppColors.efficialsYellow,
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: primaryTextColor,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: secondaryTextColor,
                 ),
               ),
             ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: AppColors.darkSurface,
+          title: const Text(
+            'Logout',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          content: const Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: primaryTextColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel',
+                  style: TextStyle(color: secondaryTextColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+
+                // Clear user session (simplified for now)
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (route) => false,
+                  ); // Go to welcome screen and clear navigation stack
+                }
+              },
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

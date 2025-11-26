@@ -45,7 +45,12 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
           context,
           '/name-schedule',
           arguments: {'sport': selectedSport},
-        );
+        ).then((result) {
+          // Pass the result back to the calling screen (select_schedule_screen)
+          if (result != null) {
+            Navigator.pop(context, result);
+          }
+        });
       }
     }
   }

@@ -16,6 +16,7 @@ class _AthleticDirectorHomeScreenState
     extends State<AthleticDirectorHomeScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> publishedGames = [];
+  bool _hasShownPublishSuccess = false; // Prevent duplicate success messages
 
   @override
   void initState() {
@@ -46,13 +47,22 @@ class _AthleticDirectorHomeScreenState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    print('🏟️ AD HOME SCREEN: didChangeDependencies called');
+
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    print(
+        '🏟️ AD HOME SCREEN: args = $args, _hasShownPublishSuccess = $_hasShownPublishSuccess');
+
     if (args != null) {
       if (args['refresh'] == true) {
         _fetchGames();
-        // Show success message if a game was just published
-        if (args['gamePublished'] == true && mounted) {
+        // Show success message if a game was just published (only once)
+        if (args['gamePublished'] == true &&
+            mounted &&
+            !_hasShownPublishSuccess) {
+          _hasShownPublishSuccess = true;
+          print('🏟️ AD HOME SCREEN: Showing success message');
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -61,8 +71,17 @@ class _AthleticDirectorHomeScreenState
               ),
             );
           });
+        } else {
+          print(
+              '🏟️ AD HOME SCREEN: NOT showing success message - gamePublished: ${args['gamePublished']}, mounted: $mounted, _hasShownPublishSuccess: $_hasShownPublishSuccess');
         }
+      } else {
+        // Reset the flag if not coming from a game publish
+        _hasShownPublishSuccess = false;
       }
+    } else {
+      // Reset the flag if no args
+      _hasShownPublishSuccess = false;
     }
   }
 
@@ -493,12 +512,29 @@ class _AthleticDirectorHomeScreenState
               context,
               '/game-information',
               arguments: game,
-            ).then((result) {
+            ).then((result) async {
               // Refresh the games list when returning from game information screen
               // result == true means game was deleted, result == null means normal return,
               // result is a Map means game was updated
               if (result == true || result == null || result is Map) {
-                _fetchGames();
+                // Clear any existing SnackBars to prevent confusion
+                ScaffoldMessenger.of(context).clearSnackBars();
+
+                // Show appropriate message based on result
+                if (result == true && mounted) {
+                  // Game was deleted
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Game deleted successfully')),
+                  );
+                }
+
+                // Refresh games list
+                await _fetchGames();
+
+                // Force a rebuild to ensure welcome message shows if no games remain
+                if (mounted) {
+                  setState(() {});
+                }
               }
             });
           },

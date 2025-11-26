@@ -322,7 +322,7 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'This helps us find officials in your area. Use your league office, school, or primary location where games are typically held.',
+                        'Use your league office, school, home address, or primary location where games are typically held.',
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,

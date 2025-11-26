@@ -27,7 +27,7 @@ import 'screens/home/official_home_screen.dart';
 import 'screens/game_templates_screen.dart';
 import 'screens/select_schedule_screen.dart';
 import 'screens/select_sport_screen.dart';
-import 'screens/name_schedule_screen.dart';
+import 'screens/dynamic_name_schedule_screen.dart';
 import 'screens/date_time_screen.dart';
 import 'screens/choose_location_screen.dart';
 import 'screens/add_new_location_screen.dart';
@@ -49,6 +49,7 @@ import 'screens/schedule_details_screen.dart';
 import 'screens/create_game_template_screen.dart';
 import 'screens/locations_screen.dart';
 import 'screens/unpublished_games_screen.dart';
+import 'screens/schedules/assigner_manage_schedules_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +114,7 @@ class MyApp extends StatelessWidget {
             '/coach-profile': (context) => const CoachProfileScreen(),
             '/assigner-profile': (context) => const AssignerProfileScreen(),
             '/assigner-home': (context) => const AssignerHomeScreen(),
+            '/assigner_manage_schedules': (context) => const AssignerManageSchedulesScreen(),
             '/official-profile': (context) => const OfficialProfileScreen(),
             '/official-home': (context) => const OfficialHomeScreen(),
             '/official-step2': (context) => const OfficialStep2Screen(),
@@ -121,7 +123,7 @@ class MyApp extends StatelessWidget {
             '/game-templates': (context) => const GameTemplatesScreen(),
             '/select-schedule': (context) => const SelectScheduleScreen(),
             '/select-sport': (context) => const SelectSportScreen(),
-            '/name-schedule': (context) => const NameScheduleScreen(),
+            '/name-schedule': (context) => const DynamicNameScheduleScreen(),
             '/date-time': (context) => const DateTimeScreen(),
             '/choose-location': (context) => const ChooseLocationScreen(),
             '/add-new-location': (context) => const AddNewLocationScreen(),
@@ -384,12 +386,12 @@ class _MyHomePageState extends State<MyHomePage> {
                             _QuickAccessButton(
                               title: 'Athletic Director',
                               subtitle: 'Manage games & schedules',
-                              email: 'ad.test@efficials.com',
+                              email: 'joerathert@efficials.com',
                               password: 'test123',
                               color: Colors.blue,
                               onTap: () => _quickSignIn(
                                   context,
-                                  'ad.test@efficials.com',
+                                  'joerathert@efficials.com',
                                   'test123',
                                   '/athletic-director-home'),
                             ),
@@ -582,14 +584,10 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
-    print('🏗️ AUTH WRAPPER: Building AuthWrapper');
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        print(
-            '🏗️ AUTH WRAPPER: StreamBuilder snapshot - connectionState: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
         if (snapshot.connectionState == ConnectionState.waiting) {
-          print('🏗️ AUTH WRAPPER: Showing loading spinner');
           return const Scaffold(
             body: Center(
               child: CircularProgressIndicator(),
@@ -598,18 +596,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
-          print(
-              '🏗️ AUTH WRAPPER: User authenticated, userId: ${snapshot.data!.uid}');
           // User is signed in, navigate to appropriate home screen
-          print('🏗️ AUTH WRAPPER: Creating FutureBuilder for user profile');
           return FutureBuilder<Map<String, dynamic>?>(
             future: _getUserProfile(snapshot.data!.uid),
             builder: (context, userSnapshot) {
-              print(
-                  '🏗️ AUTH WRAPPER: FutureBuilder snapshot - connectionState: ${userSnapshot.connectionState}, hasData: ${userSnapshot.hasData}, hasError: ${userSnapshot.hasError}');
               if (userSnapshot.connectionState == ConnectionState.waiting) {
-                print(
-                    '🏗️ AUTH WRAPPER: FutureBuilder showing loading spinner');
                 return const Scaffold(
                   body: Center(
                     child: CircularProgressIndicator(),
@@ -625,9 +616,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 final schedulerType =
                     schedulerProfile?['type']; // Nested in schedulerProfile
 
-                print(
-                    '🔄 AUTH WRAPPER: userType=$userType, schedulerType=$schedulerType');
-
                 // Use post-frame callback to navigate after build is complete
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted && context.mounted) {
@@ -638,10 +626,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
                           case 'Athletic Director': // Exact string from Firestore
                             routeName = '/athletic-director-home';
                             break;
-                          case 'coach':
+                          case 'Coach':
                             routeName = '/coach-home';
                             break;
-                          case 'assigner':
+                          case 'Assigner':
                             routeName = '/assigner-home';
                             break;
                           default:
@@ -662,18 +650,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
                         break;
                     }
 
-                    print('🏈 AUTH WRAPPER: Navigating to $routeName');
-                    print(
-                        '🏈 AUTH WRAPPER: Current navigator context: ${Navigator.of(context).toString()}');
-                    Navigator.of(context)
-                        .pushNamedAndRemoveUntil(
+                    Navigator.of(context).pushNamedAndRemoveUntil(
                       routeName,
                       (route) => false,
-                    )
-                        .then((_) {
-                      print(
-                          '🏈 AUTH WRAPPER: Navigation to $routeName completed');
-                    });
+                    );
                   }
                 });
 
@@ -698,24 +678,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<Map<String, dynamic>?> _getUserProfile(String userId) async {
-    print('🏗️ AUTH WRAPPER: _getUserProfile called for userId: $userId');
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .get();
 
-      print('🏗️ AUTH WRAPPER: Firestore doc exists: ${doc.exists}');
       if (doc.exists && doc.data() != null) {
-        print('🏗️ AUTH WRAPPER: Returning user profile data');
         return doc.data();
-      } else {
-        print('🏗️ AUTH WRAPPER: Doc exists but no data, returning null');
       }
     } catch (e) {
-      print('🏗️ AUTH WRAPPER: Error getting user profile: $e');
+      // Log error in development/debug mode only
+      if (kDebugMode) {
+        print('AuthWrapper: Error getting user profile: $e');
+      }
     }
-    print('🏗️ AUTH WRAPPER: Returning null from _getUserProfile');
     return null;
   }
 }

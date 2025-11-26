@@ -207,6 +207,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
+    debugPrint('🎯 ADDITIONAL_GAME_INFO: Original homeTeam: ${args['homeTeam']}');
+
     final updatedArgs = {
       ...args,
       'id': args['id'] ?? DateTime.now().millisecondsSinceEpoch,
@@ -222,6 +224,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           args['selectedOfficials'] ?? <Map<String, dynamic>>[],
       'template': template,
     };
+
+    debugPrint('🎯 ADDITIONAL_GAME_INFO: Updated homeTeam: ${updatedArgs['homeTeam']}');
 
     if (_isFromEdit) {
       // Check if officialsRequired has changed - if so, we need to reset selection method

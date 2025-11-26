@@ -89,7 +89,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
       }
 
       // Check for pre-selected lists from template
-      final preSelectedLists = originalArgs?['preSelectedLists'] as List<dynamic>?;
+      final preSelectedLists =
+          originalArgs?['preSelectedLists'] as List<dynamic>?;
       if (preSelectedLists != null && preSelectedLists.isNotEmpty) {
         selectedMultipleLists = preSelectedLists.map((list) {
           if (list is Map) {
@@ -97,7 +98,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
           }
           return {'list': null, 'min': null, 'max': null};
         }).toList();
-        debugPrint('🎯 MULTIPLE_LISTS: Pre-populated ${selectedMultipleLists.length} lists from template');
+        debugPrint(
+            '🎯 MULTIPLE_LISTS: Pre-populated ${selectedMultipleLists.length} lists from template');
       } else {
         // Initialize selectedMultipleLists if not already set
         if (selectedMultipleLists.isEmpty) {
@@ -128,7 +130,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
 
   Future<void> _saveQuotas() async {
     // Check if we're in edit mode (no gameId means we're in edit mode)
-    final isEditMode = originalArgs?['isEdit'] == true || originalArgs?['isFromGameInfo'] == true;
+    final isEditMode = originalArgs?['isEdit'] == true ||
+        originalArgs?['isFromGameInfo'] == true;
 
     if (gameId == null && !isEditMode) return;
 
@@ -146,7 +149,8 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
 
       if (isEditMode) {
         // In edit mode, just return the configuration without saving to database
-        debugPrint('🎯 MULTIPLE_LISTS: Edit mode - returning configuration without saving to DB');
+        debugPrint(
+            '🎯 MULTIPLE_LISTS: Edit mode - returning configuration without saving to DB');
         final result = Map<String, dynamic>.from(originalArgs ?? {});
         result.addAll({
           'method': 'advanced',
@@ -167,11 +171,44 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
         ),
       );
 
+      // Fetch officials from all selected lists
+      List<Map<String, dynamic>> allSelectedOfficials = [];
+      try {
+        for (final listConfig in selectedMultipleLists) {
+          final listName = listConfig['list'] as String?;
+          if (listName != null) {
+            // Find the list data
+            final listData = availableLists.firstWhere(
+              (list) => list['name'] == listName,
+              orElse: () => <String, dynamic>{},
+            );
+
+            if (listData.isNotEmpty) {
+              final officials = listData['officials'] as List<dynamic>? ?? [];
+              // Add list information to each official
+              for (final official in officials) {
+                if (official is Map) {
+                  final officialWithList = Map<String, dynamic>.from(official);
+                  officialWithList['listName'] = listName;
+                  officialWithList['listMin'] = listConfig['min'];
+                  officialWithList['listMax'] = listConfig['max'];
+                  allSelectedOfficials.add(officialWithList);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching officials from lists: $e');
+        // Continue without officials if there's an error
+      }
+
       // Return to the game creation/review screen with original args plus multiple lists data
       final result = Map<String, dynamic>.from(originalArgs ?? {});
       result.addAll({
         'method': 'multiple_lists',
         'selectedLists': selectedMultipleLists,
+        'selectedOfficials': allSelectedOfficials,
       });
       Navigator.pop(context, result);
     } catch (e) {
@@ -233,20 +270,6 @@ class _MultipleListsSetupScreenState extends State<MultipleListsSetupScreen> {
     }
 
     return null; // No validation errors
-  }
-
-  int _calculateTotalOfficials() {
-    int total = 0;
-    for (final listConfig in selectedMultipleLists) {
-      final listName = listConfig['list'] as String?;
-      final max = listConfig['max'] as int;
-
-      // Only count if this list is selected and configured
-      if (listName != null && listName.isNotEmpty && max > 0) {
-        total += max;
-      }
-    }
-    return total;
   }
 
   void _showErrorDialog(String message) {

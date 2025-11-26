@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../services/game_service.dart';
+import '../services/user_service.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -20,7 +21,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   bool isFromGameInfo = false;
   bool isAwayGame = false;
   bool fromScheduleDetails = false;
-  int? scheduleId;
+  String? scheduleId;
   bool? isCoachScheduler;
   String? teamName;
   bool isUsingTemplate = false;
@@ -44,7 +45,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         isFromGameInfo = newArgs['isFromGameInfo'] == true;
         isAwayGame = newArgs['isAway'] == true;
         fromScheduleDetails = newArgs['fromScheduleDetails'] == true;
-        scheduleId = newArgs['scheduleId'] as int?;
+        scheduleId = newArgs['scheduleId'] as String?;
         isUsingTemplate = newArgs['template'] != null;
         if (args['officialsRequired'] != null) {
           args['officialsRequired'] =
@@ -200,11 +201,42 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
       gameData['status'] = 'Published';
 
-      // Get current user ID
+      // Get current user ID and profile
       final authService = AuthService();
       final currentUser = authService.currentUser;
       if (currentUser == null) {
         throw Exception('User not authenticated');
+      }
+
+      debugPrint(
+          '🎯 REVIEW_GAME_INFO: Saving game with homeTeam: ${gameData['homeTeam']}');
+
+      // Get user profile to determine scheduler type and derive awayTeam
+      final userService = UserService();
+      final userProfile = await userService.getCurrentUser();
+      if (userProfile?.schedulerProfile != null) {
+        final schedulerProfile = userProfile!.schedulerProfile!;
+        final isAway = gameData['isAway'] ?? false;
+        final opponent = gameData['opponent'];
+        final homeTeam = gameData['homeTeam'];
+
+        debugPrint(
+            '🎯 REVIEW_GAME_INFO: User type: ${schedulerProfile.type}, isAway: $isAway, homeTeam: $homeTeam, opponent: $opponent');
+
+        if (schedulerProfile.type == 'Athletic Director') {
+          // For Athletic Directors, derive awayTeam based on isAway flag
+          if (isAway) {
+            // Away game: AD's team is the away team
+            gameData['awayTeam'] = homeTeam;
+          } else {
+            // Home game: opponent is the away team
+            gameData['awayTeam'] = opponent;
+          }
+          debugPrint(
+              '🎯 REVIEW_GAME_INFO: Set awayTeam to: ${gameData['awayTeam']}');
+        }
+        // For Assigners, awayTeam should be set manually in the UI
+        // (this logic assumes it's already in gameData)
       }
 
       if (gameData['scheduleName'] == null) {
@@ -351,6 +383,34 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       gameData['createdAt'] = DateTime.now().toIso8601String();
       gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
       gameData['status'] = 'Unpublished';
+
+      // Get user profile to determine scheduler type and derive awayTeam
+      final userService = UserService();
+      final userProfile = await userService.getCurrentUser();
+      if (userProfile?.schedulerProfile != null) {
+        final schedulerProfile = userProfile!.schedulerProfile!;
+        final isAway = gameData['isAway'] ?? false;
+        final opponent = gameData['opponent'];
+        final homeTeam = gameData['homeTeam'];
+
+        debugPrint(
+            '🎯 REVIEW_GAME_INFO: Saving unpublished game with homeTeam: ${gameData['homeTeam']}');
+
+        if (schedulerProfile.type == 'Athletic Director') {
+          // For Athletic Directors, derive awayTeam based on isAway flag
+          if (isAway) {
+            // Away game: AD's team is the away team
+            gameData['awayTeam'] = homeTeam;
+          } else {
+            // Home game: opponent is the away team
+            gameData['awayTeam'] = opponent;
+          }
+          debugPrint(
+              '🎯 REVIEW_GAME_INFO: Set awayTeam to: ${gameData['awayTeam']}');
+        }
+        // For Assigners, awayTeam should be set manually in the UI
+        // (this logic assumes it's already in gameData)
+      }
 
       if (gameData['scheduleName'] == null) {
         gameData['scheduleName'] = 'Team Schedule';
@@ -573,7 +633,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                       args = result;
                                       fromScheduleDetails =
                                           result['fromScheduleDetails'] == true;
-                                      scheduleId = result['scheduleId'] as int?;
+                                      scheduleId =
+                                          result['scheduleId'] as String?;
+                                      isAwayGame = result['isAway'] == true;
                                     });
                                   }
                                 }),

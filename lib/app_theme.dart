@@ -1,6 +1,36 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
+// Text style constants used throughout the app
+const TextStyle appBarTextStyle = TextStyle(
+  color: AppColors.efficialsWhite,
+  fontSize: 20,
+  fontWeight: FontWeight.bold,
+);
+
+const Color primaryTextColor = AppColors.efficialsWhite;
+const Color secondaryTextColor = Color(0xFFCAC4D0); // Light grey for secondary text
+
+// Helper function to get sport icon
+IconData getSportIcon(String sport) {
+  switch (sport.toLowerCase()) {
+    case 'basketball':
+      return Icons.sports_basketball;
+    case 'football':
+      return Icons.sports_football;
+    case 'baseball':
+      return Icons.sports_baseball;
+    case 'soccer':
+      return Icons.sports_soccer;
+    case 'volleyball':
+      return Icons.sports_volleyball;
+    case 'softball':
+      return Icons.sports_baseball; // Using baseball icon for softball
+    default:
+      return Icons.sports;
+  }
+}
+
 /// App theme configurations for light and dark modes
 class AppTheme {
   // Light Theme Configuration

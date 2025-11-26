@@ -64,7 +64,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
 
       // Log details about each template
       for (var template in fetchedTemplates) {
-        debugPrint('📋 TEMPLATE: ID=${template.id}, Name=${template.name}, CreatedBy=${template.createdAt}');
+        debugPrint(
+            '📋 TEMPLATE: ID=${template.id}, Name=${template.name}, CreatedBy=${template.createdAt}');
       }
 
       setState(() {
@@ -73,7 +74,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                 template.id != '1' && template.id != '2' && template.id != '3')
             .toList(); // Filter out mock templates
 
-        debugPrint('📋 TEMPLATES SCREEN: After mock filter: ${templates.length} templates');
+        debugPrint(
+            '📋 TEMPLATES SCREEN: After mock filter: ${templates.length} templates');
 
         // Apply sport filtering if coming from schedule details
         if (isFromScheduleDetails && sport != null && sport != 'Unknown') {
@@ -735,58 +737,81 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                           ),
                                                         ),
                                                         const SizedBox(
-                                                            width: 12),
-                                                        // Action buttons column
-                                                        Column(
-                                                          children: [
-                                                            IconButton(
-                                                              onPressed: () {
-                                                                _useTemplate(
-                                                                    template);
-                                                              },
-                                                              icon: Icon(
-                                                                Icons
-                                                                    .arrow_forward,
-                                                                color: Colors
-                                                                    .green,
-                                                                size: 20,
+                                                            width: 8),
+                                                        SizedBox(
+                                                          width: 120,
+                                                          child: Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .end,
+                                                            children: [
+                                                              IconButton(
+                                                                onPressed: () {
+                                                                  _editTemplate(
+                                                                      template);
+                                                                },
+                                                                icon: Icon(
+                                                                  Icons.edit,
+                                                                  color: colorScheme
+                                                                      .primary,
+                                                                  size: 20,
+                                                                ),
+                                                                tooltip:
+                                                                    'Edit Template',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                visualDensity:
+                                                                    VisualDensity
+                                                                        .compact,
                                                               ),
-                                                              tooltip:
-                                                                  'Use Template',
-                                                            ),
-                                                            IconButton(
-                                                              onPressed: () {
-                                                                _editTemplate(template);
-                                                              },
-                                                              icon: Icon(
-                                                                Icons.edit,
-                                                                color:
-                                                                    colorScheme
-                                                                        .primary,
-                                                                size: 20,
+                                                              IconButton(
+                                                                onPressed: () {
+                                                                  _showDeleteConfirmationDialog(
+                                                                      template
+                                                                          .name,
+                                                                      template);
+                                                                },
+                                                                icon: Icon(
+                                                                  Icons
+                                                                      .delete_outline,
+                                                                  color: Colors
+                                                                      .red
+                                                                      .shade600,
+                                                                  size: 20,
+                                                                ),
+                                                                tooltip:
+                                                                    'Delete Template',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                visualDensity:
+                                                                    VisualDensity
+                                                                        .compact,
                                                               ),
-                                                              tooltip:
-                                                                  'Edit Template',
-                                                            ),
-                                                            IconButton(
-                                                              onPressed: () {
-                                                                _showDeleteConfirmationDialog(
-                                                                    template
-                                                                        .name,
-                                                                    template);
-                                                              },
-                                                              icon: Icon(
-                                                                Icons
-                                                                    .delete_outline,
-                                                                color: Colors
-                                                                    .red
-                                                                    .shade600,
-                                                                size: 20,
+                                                              IconButton(
+                                                                onPressed: () {
+                                                                  _useTemplate(
+                                                                      template);
+                                                                },
+                                                                icon: Icon(
+                                                                  Icons
+                                                                      .arrow_forward,
+                                                                  color: Colors
+                                                                      .green,
+                                                                  size: 20,
+                                                                ),
+                                                                tooltip:
+                                                                    'Use Template',
+                                                                padding:
+                                                                    EdgeInsets
+                                                                        .zero,
+                                                                visualDensity:
+                                                                    VisualDensity
+                                                                        .compact,
                                                               ),
-                                                              tooltip:
-                                                                  'Delete Template',
-                                                            ),
-                                                          ],
+                                                            ],
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
@@ -875,7 +900,8 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   }
 
   void _editTemplate(GameTemplateModel template) {
-    debugPrint('✏️ TEMPLATES SCREEN: Navigating to edit template: ${template.name}');
+    debugPrint(
+        '✏️ TEMPLATES SCREEN: Navigating to edit template: ${template.name}');
     Navigator.pushNamed(
       context,
       '/create_game_template',
@@ -892,9 +918,12 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
         // Update the local template in the list immediately
         setState(() {
           final updatedTemplate = GameTemplateModel.fromJson(result);
-          debugPrint('✅ TEMPLATES SCREEN: Created updated template: ${updatedTemplate.name}');
-          debugPrint('✅ TEMPLATES SCREEN: Updated template ID: ${updatedTemplate.id}');
-          debugPrint('✅ TEMPLATES SCREEN: Current templates count: ${templates.length}');
+          debugPrint(
+              '✅ TEMPLATES SCREEN: Created updated template: ${updatedTemplate.name}');
+          debugPrint(
+              '✅ TEMPLATES SCREEN: Updated template ID: ${updatedTemplate.id}');
+          debugPrint(
+              '✅ TEMPLATES SCREEN: Current templates count: ${templates.length}');
 
           final index = templates.indexWhere((t) => t.id == updatedTemplate.id);
           debugPrint('✅ TEMPLATES SCREEN: Found template at index: $index');
@@ -902,9 +931,11 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
           if (index != -1) {
             templates[index] = updatedTemplate;
             _groupTemplatesBySport(); // Regroup templates
-            debugPrint('✅ TEMPLATES SCREEN: Updated local template successfully');
+            debugPrint(
+                '✅ TEMPLATES SCREEN: Updated local template successfully');
           } else {
-            debugPrint('❌ TEMPLATES SCREEN: Could not find template to update locally');
+            debugPrint(
+                '❌ TEMPLATES SCREEN: Could not find template to update locally');
           }
         });
 
@@ -930,9 +961,18 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
 
   void _createNewTemplate() {
     debugPrint('🚀 TEMPLATES SCREEN: Navigating to create template screen');
+    debugPrint('🚀 TEMPLATES SCREEN: Passing sport: $sport');
+
+    // Pass the sport from the schedule if available
+    final Map<String, dynamic> args = {};
+    if (sport != null) {
+      args['sport'] = sport;
+    }
+
     Navigator.pushNamed(
       context,
       '/create_game_template',
+      arguments: args.isNotEmpty ? args : null,
     ).then((result) {
       if (result != null && result is Map<String, dynamic>) {
         debugPrint(

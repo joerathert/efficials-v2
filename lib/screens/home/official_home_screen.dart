@@ -24,6 +24,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   UserModel? _currentUser;
   List<Map<String, dynamic>> _availableGames = [];
   List<Map<String, dynamic>> _pendingGames = [];
+  List<Map<String, dynamic>> _confirmedGames = []; // Track confirmed games
   List<String> _dismissedGameIds = []; // Track dismissed game IDs
   bool _isLoading = true;
 
@@ -132,6 +133,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       // Load real available games data
       await _loadAvailableGames();
+
+      // Check for confirmed games and update pending/confirmed lists
+      await _updateGameStatuses();
     } catch (e) {
       print('Error loading data: $e');
     } finally {
@@ -140,6 +144,43 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _updateGameStatuses() async {
+    if (_currentUser?.id == null) return;
+
+    final currentOfficialId = _currentUser!.id;
+    final gamesToMove = <Map<String, dynamic>>[];
+
+    // Check each pending game to see if this official has been confirmed
+    for (final game in _pendingGames) {
+      final gameId = game['id'] as String?;
+      if (gameId != null) {
+        try {
+          final confirmedOfficials =
+              await _gameService.getConfirmedOfficialsForGame(gameId);
+          final isConfirmed = confirmedOfficials
+              .any((official) => official['id'] == currentOfficialId);
+
+          if (isConfirmed) {
+            gamesToMove.add(game);
+          }
+        } catch (e) {
+          print('Error checking confirmation status for game $gameId: $e');
+        }
+      }
+    }
+
+    // Move confirmed games from pending to confirmed
+    if (gamesToMove.isNotEmpty) {
+      setState(() {
+        _pendingGames.removeWhere((game) => gamesToMove.contains(game));
+        _confirmedGames.addAll(gamesToMove);
+      });
+
+      // Update persistent storage
+      await _savePersistentData();
     }
   }
 
@@ -185,6 +226,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             } else {
               filteredGames.add(game);
             }
+
+            final loadedGame = game['homeTeam'] == null
+                ? await _addHomeTeamToGame(game)
+                : game;
           }
         }
       }
@@ -192,6 +237,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       _availableGames = filteredGames;
       print(
           'Loaded ${_availableGames.length} available games for official $currentOfficialId');
+      setState(() {});
     } catch (e) {
       print('Error loading available games: $e');
       _availableGames = [];
@@ -249,9 +295,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       final selectedLists = game['selectedLists'] as List<dynamic>?;
       if (selectedLists != null && selectedLists.isNotEmpty) {
         // Check if official is in any of the selected lists
-        for (final listId in selectedLists) {
-          if (await _isOfficialInListAsync(officialId, listId.toString())) {
-            return true;
+        for (final listConfig in selectedLists) {
+          if (listConfig is Map && listConfig['list'] != null) {
+            final listName = listConfig['list'] as String;
+            if (await _isOfficialInListByNameAsync(officialId, listName)) {
+              return true;
+            }
           }
         }
       }
@@ -277,19 +326,22 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  Future<bool> _isOfficialInListAsync(String officialId, String listId) async {
+  Future<bool> _isOfficialInListByNameAsync(
+      String officialId, String listName) async {
     try {
-      // Fetch the list document from Firestore
-      final listDoc = await _listService.firestore
+      // First, find the list document by name
+      final listsQuery = await _listService.firestore
           .collection('official_lists')
-          .doc(listId)
+          .where('name', isEqualTo: listName)
           .get();
 
-      if (!listDoc.exists) {
+      if (listsQuery.docs.isEmpty) {
         return false;
       }
 
-      final listData = listDoc.data() as Map<String, dynamic>;
+      // Get the first matching list (should only be one with unique names)
+      final listDoc = listsQuery.docs.first;
+      final listData = listDoc.data();
       final officials = listData['officials'] as List<dynamic>?;
 
       if (officials == null) {
@@ -309,7 +361,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       return false;
     } catch (e) {
-      print('Error checking list membership for list $listId: $e');
+      print('Error checking list membership for list "$listName": $e');
       return false;
     }
   }
@@ -495,7 +547,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     Expanded(
                       child: _buildStatCard(
                         title: 'Confirmed',
-                        value: '0',
+                        value: '${_confirmedGames.length}',
                         icon: Icons.check_circle,
                         color: Colors.green,
                         onTap: () => setState(() => _currentIndex = 0),
@@ -549,7 +601,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '0',
+                        '${_confirmedGames.length}',
                         style: TextStyle(
                           color: colorScheme.primary,
                           fontWeight: FontWeight.bold,
@@ -561,12 +613,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ),
 
-            // Games List - Show empty state for now
+            // Confirmed Games List
             SliverFillRemaining(
-              child: _buildEmptyState(
-                'No confirmed games yet',
-                Icons.assignment_turned_in,
-              ),
+              child: _confirmedGames.isEmpty
+                  ? _buildEmptyState(
+                      'No confirmed games yet',
+                      Icons.assignment_turned_in,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _confirmedGames.length,
+                      itemBuilder: (context, index) {
+                        final game = _confirmedGames[index];
+                        return _buildConfirmedGameCard(game);
+                      },
+                    ),
             ),
 
             const SliverToBoxAdapter(
@@ -918,6 +979,126 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
+  Widget _buildConfirmedGameCard(Map<String, dynamic> game) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                game['sport'] ?? 'Sport',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'CONFIRMED',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[300],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _formatGameTitle(game),
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text(
+                '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 4),
+              Text(
+                game['location'] ?? 'TBD',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fee: \$${game['gameFee'] ?? '0'}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  Text(
+                    'Confirmed: Ready to officiate',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: () => _viewGameDetails(game),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.withOpacity(0.2),
+                  foregroundColor: Colors.green,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                ),
+                child:
+                    const Text('View Details', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPendingGameCard(Map<String, dynamic> game) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1135,9 +1316,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   String _formatGameTime(Map<String, dynamic> game) {
     if (game['time'] == null) return 'TBD';
     try {
-      final time = DateTime.parse('1970-01-01 ${game['time']}');
-      final hour = time.hour;
-      final minute = time.minute;
+      final timeString = game['time'] as String;
+      // Handle "H:MM" or "HH:MM" format (e.g., "9:00", "14:30")
+      final parts = timeString.split(':');
+      if (parts.length != 2) {
+        throw FormatException('Invalid time format: $timeString');
+      }
+
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+
       final period = hour >= 12 ? 'PM' : 'AM';
       final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
 
@@ -1189,6 +1377,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  void _viewGameDetails(Map<String, dynamic> game) {
+    Navigator.pushNamed(
+      context,
+      '/game_information',
+      arguments: game,
     );
   }
 

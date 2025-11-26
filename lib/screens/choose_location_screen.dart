@@ -278,6 +278,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                             '/add-new-location',
                                             arguments: {
                                               'scheduleName': scheduleName,
+                                              'scheduleId': originalArgs?['scheduleId'],
                                               'sport': sport,
                                               'homeTeam': originalArgs?['homeTeam'],
                                               'template': template,
@@ -358,6 +359,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                               : '/additional-game-info',
                                           arguments: {
                                             'scheduleName': scheduleName,
+                                            'scheduleId': originalArgs?['scheduleId'],
                                             'sport': sport,
                                             'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,

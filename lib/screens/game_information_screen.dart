@@ -64,9 +64,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
-  Future<void> _saveUpdatedOfficialsData(String gameId, Map<String, dynamic> updatedData) async {
+  Future<void> _saveUpdatedOfficialsData(
+      String gameId, Map<String, dynamic> updatedData) async {
     try {
-      debugPrint('🎯 GAME_INFO: Saving updated officials data for game $gameId');
+      debugPrint(
+          '🎯 GAME_INFO: Saving updated officials data for game $gameId');
 
       // Only save the officials-related fields that can be changed
       final dataToSave = {
@@ -83,7 +85,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
       if (success && mounted) {
         debugPrint('🎯 GAME_INFO: Successfully saved updated officials data');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Officials selection updated successfully')),
+          const SnackBar(
+              content: Text('Officials selection updated successfully')),
         );
       } else if (mounted) {
         debugPrint('🎯 GAME_INFO: Failed to save updated officials data');
@@ -101,14 +104,17 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
-  Future<void> _saveUpdatedGameData(String gameId, Map<String, dynamic> updatedData) async {
+  Future<void> _saveUpdatedGameData(
+      String gameId, Map<String, dynamic> updatedData) async {
     try {
       debugPrint('🎯 GAME_INFO: Saving updated game data for game $gameId');
 
       // Only save the fields that can be edited
       final dataToSave = {
         'location': updatedData['location'],
-        'date': updatedData['date'] != null ? (updatedData['date'] as DateTime).toIso8601String() : null,
+        'date': updatedData['date'] != null
+            ? (updatedData['date'] as DateTime).toIso8601String()
+            : null,
         'time': updatedData['time'] != null
             ? '${(updatedData['time'] as TimeOfDay).hour.toString().padLeft(2, '0')}:${(updatedData['time'] as TimeOfDay).minute.toString().padLeft(2, '0')}'
             : null,
@@ -127,10 +133,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
         // Check if officialsRequired changed and selection method was reset
         if (updatedData['method'] == null && args['method'] != null) {
-          debugPrint('🎯 GAME_INFO: Selection method was reset due to officialsRequired change');
+          debugPrint(
+              '🎯 GAME_INFO: Selection method was reset due to officialsRequired change');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Officials selection reset due to required officials change. Please re-select officials.'),
+              content: Text(
+                  'Officials selection reset due to required officials change. Please re-select officials.'),
               duration: Duration(seconds: 4),
             ),
           );
@@ -156,7 +164,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   }
 
   void _initializeData() {
-    debugPrint('🎯 GAME_INFO: _initializeData called with location: ${args['location']}');
+    debugPrint(
+        '🎯 GAME_INFO: _initializeData called with location: ${args['location']}');
     scheduleName = args['scheduleName'] as String? ?? '';
     sport = args['sport'] as String? ?? '';
     selectedDate = args['date'] != null
@@ -333,10 +342,13 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                     'scheduleId': args['scheduleId'],
                                   },
                                 ).then((result) {
-                                  debugPrint('🎯 GAME_INFO: Received result from edit: $result');
+                                  debugPrint(
+                                      '🎯 GAME_INFO: Received result from edit: $result');
                                   if (result != null && mounted) {
-                                    final updatedArgs = result as Map<String, dynamic>;
-                                    debugPrint('🎯 GAME_INFO: Updated location: ${updatedArgs['location']}');
+                                    final updatedArgs =
+                                        result as Map<String, dynamic>;
+                                    debugPrint(
+                                        '🎯 GAME_INFO: Updated location: ${updatedArgs['location']}');
                                     // Update the screen with the edited data
                                     setState(() {
                                       args = updatedArgs;
@@ -350,12 +362,14 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                       _saveUpdatedGameData(gameId, updatedArgs);
                                     }
                                   } else {
-                                    debugPrint('🎯 GAME_INFO: No result received or not mounted');
+                                    debugPrint(
+                                        '🎯 GAME_INFO: No result received or not mounted');
                                   }
                                 }),
                                 child: Text('Edit',
                                     style: TextStyle(
-                                        color: colorScheme.primary, fontSize: 14)),
+                                        color: colorScheme.primary,
+                                        fontSize: 14)),
                               ),
                             ],
                           ),
@@ -408,7 +422,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                                             color: colorScheme.primary,
                                             decoration:
                                                 TextDecoration.underline,
-                                            decorationColor: colorScheme.primary,
+                                            decorationColor:
+                                                colorScheme.primary,
                                           ),
                                         ),
                                       )
@@ -831,7 +846,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         // Add each selected official to confirmed list and remove from interested
         bool allSuccessful = true;
         for (final entry in selectedForHire.entries) {
-          if (entry.value) { // if selected for hire
+          if (entry.value) {
+            // if selected for hire
             final official = interestedOfficials.firstWhere(
               (o) => o['id'] == entry.key,
               orElse: () => <String, dynamic>{},
@@ -846,9 +862,11 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               };
 
               // Add to confirmed officials
-              final addSuccess = await _gameService.addConfirmedOfficial(gameId, officialData);
+              final addSuccess =
+                  await _gameService.addConfirmedOfficial(gameId, officialData);
               // Remove from interested officials
-              final removeSuccess = await _gameService.removeInterestedOfficial(gameId, officialId);
+              final removeSuccess = await _gameService.removeInterestedOfficial(
+                  gameId, officialId);
 
               if (!addSuccess || !removeSuccess) {
                 allSuccessful = false;
@@ -915,9 +933,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
         try {
           final success = await _gameService.deleteGame(gameId);
           if (success && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Game deleted successfully')),
-            );
+            // Don't show SnackBar here - let the home screen handle it to avoid duplicates
             Navigator.pop(context, true);
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -978,7 +994,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           }
 
           final officialId = official['id'] as String;
-          final success = await _gameService.removeConfirmedOfficial(gameId, officialId);
+          final success =
+              await _gameService.removeConfirmedOfficial(gameId, officialId);
           if (success && mounted) {
             await _loadInterestedOfficials();
             if (mounted) {

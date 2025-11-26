@@ -7,14 +7,14 @@ import '../services/user_repository.dart';
 import '../services/game_service.dart';
 import '../models/user_model.dart';
 
-class NameScheduleScreen extends StatefulWidget {
-  const NameScheduleScreen({super.key});
+class AssignerNameScheduleScreen extends StatefulWidget {
+  const AssignerNameScheduleScreen({super.key});
 
   @override
-  State<NameScheduleScreen> createState() => _NameScheduleScreenState();
+  State<AssignerNameScheduleScreen> createState() => _AssignerNameScheduleScreenState();
 }
 
-class _NameScheduleScreenState extends State<NameScheduleScreen> {
+class _AssignerNameScheduleScreenState extends State<AssignerNameScheduleScreen> {
   final _nameController = TextEditingController();
   final _homeTeamController = TextEditingController();
   final UserRepository _userRepository = UserRepository();

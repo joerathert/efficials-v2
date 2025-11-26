@@ -21,6 +21,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
   bool isEdit = false;
   int? listId;
   bool fromInsufficientLists = false;
+  bool fromGameCreation = false;
   Map<String, dynamic>? gameArgs;
   final OfficialListService _listService = OfficialListService();
 
@@ -45,10 +46,12 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         listId = arguments['listId'] as int?;
         isEdit = arguments['isEdit'] as bool? ?? false;
         fromInsufficientLists = arguments['fromInsufficientLists'] as bool? ?? false;
+        fromGameCreation = arguments['fromGameCreation'] as bool? ?? false;
         gameArgs = arguments['gameArgs'] as Map<String, dynamic>?;
 
         debugPrint('🎯 ReviewListScreen: RECEIVED ARGS:');
         debugPrint('🎯 ReviewListScreen: - fromInsufficientLists: $fromInsufficientLists');
+        debugPrint('🎯 ReviewListScreen: - fromGameCreation: $fromGameCreation');
         debugPrint('🎯 ReviewListScreen: - gameArgs present: ${gameArgs != null}');
         debugPrint('🎯 ReviewListScreen: - all keys: ${arguments.keys.toList()}');
         debugPrint('🎯 ReviewListScreen: - fromInsufficientLists raw: ${arguments['fromInsufficientLists']}');
@@ -163,6 +166,9 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
       // Note: Success message shown by lists_of_officials_screen when it receives the result
 
+      // Get the original arguments passed to this screen (contains all game creation data)
+      final originalArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
       // Navigate back to Lists of Officials screen
       final Map<String, dynamic> navigationArgs = {
         'newListCreated': {
@@ -170,20 +176,32 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           'sport': sport,
           'officials': selectedOfficialsData,
           'id': listId,
-          // Include Insufficient Lists context in the result
+          // Include context in the result
           'fromInsufficientLists': fromInsufficientLists,
+          'fromGameCreation': fromGameCreation,
           'gameArgs': gameArgs,
+    // Include ALL original game creation arguments (scheduleName, homeTeam, date, etc.)
+    // Filter out list-specific arguments that shouldn't be included
+    // Note: 'sport' here refers to the GAME sport, not the list sport
+    ...Map.fromEntries(
+      originalArgs.entries.where((entry) =>
+        !['listName', 'listId', 'isEdit', 'selectedOfficials', 'existingLists'].contains(entry.key)
+      )
+    ),
         },
       };
 
       debugPrint('🎯 ReviewListScreen: CONSTRUCTING NAVIGATION ARGS:');
       debugPrint('🎯 ReviewListScreen: - fromInsufficientLists: $fromInsufficientLists (type: ${fromInsufficientLists.runtimeType})');
+      debugPrint('🎯 ReviewListScreen: - fromGameCreation: $fromGameCreation (type: ${fromGameCreation.runtimeType})');
       debugPrint('🎯 ReviewListScreen: - gameArgs present: ${gameArgs != null}');
       debugPrint('🎯 ReviewListScreen: - gameArgs: $gameArgs');
       debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][fromInsufficientLists]: ${navigationArgs['newListCreated']?['fromInsufficientLists']}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][fromGameCreation]: ${navigationArgs['newListCreated']?['fromGameCreation']}');
       debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][gameArgs]: ${navigationArgs['newListCreated']?['gameArgs']}');
       debugPrint('🎯 ReviewListScreen: - navigationArgs keys: ${navigationArgs.keys.toList()}');
       debugPrint('🎯 ReviewListScreen: - navigationArgs[fromInsufficientLists]: ${navigationArgs['fromInsufficientLists']}');
+      debugPrint('🎯 ReviewListScreen: - navigationArgs[fromGameCreation]: ${navigationArgs['fromGameCreation']}');
       debugPrint('🎯 ReviewListScreen: - navigationArgs[gameArgs]: ${navigationArgs['gameArgs']}');
 
       Navigator.pushReplacementNamed(

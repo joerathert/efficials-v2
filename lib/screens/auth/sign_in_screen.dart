@@ -137,7 +137,7 @@ class _SignInScreenState extends State<SignInScreen> {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 600),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 48.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -294,7 +294,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     // Sign In Button
                     SizedBox(
                       width: 400,
-                      height: 50,
+                      height: 60,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(

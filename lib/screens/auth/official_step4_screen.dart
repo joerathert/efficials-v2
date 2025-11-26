@@ -516,6 +516,7 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
 
       // Create official profile
       final officialProfile = OfficialProfile(
+        address: previousData['address'],
         city: previousData['city'],
         state: previousData['state'],
         experienceYears: maxExperience > 0 ? maxExperience : null,

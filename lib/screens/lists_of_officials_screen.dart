@@ -62,10 +62,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
         template = args['template'] as GameTemplateModel?;
 
-        print('🎯 ListsOfOfficialsScreen: Initial context - fromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: ${gameArgs != null ? 'present' : 'null'}');
+        print(
+            '🎯 ListsOfOfficialsScreen: Initial context - fromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: ${gameArgs != null ? 'present' : 'null'}');
       });
 
-      print('📱 ListsOfOfficialsScreen: Navigation context - fromInsufficientLists: $isFromInsufficientLists, sport: $insufficientListsSport');
+      print(
+          '📱 ListsOfOfficialsScreen: Navigation context - fromInsufficientLists: $isFromInsufficientLists, sport: $insufficientListsSport');
 
       // Handle pre-selected list from template
       if (args['preSelectedList'] != null && args['method'] == 'use_list') {
@@ -82,23 +84,38 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       // Handle new list creation from review_list_screen
       if (args['newListCreated'] != null) {
         final newListData = args['newListCreated'] as Map<String, dynamic>;
-        print('🎯 ListsOfOfficialsScreen: Handling newListCreated: ${newListData['listName']}');
+        print(
+            '🎯 ListsOfOfficialsScreen: Handling newListCreated: ${newListData['listName']}');
 
         // Check if Insufficient Lists context is embedded in the result OR at top level
-        final embeddedFromInsufficientLists = newListData['fromInsufficientLists'] as bool?;
-        final embeddedGameArgs = newListData['gameArgs'] as Map<String, dynamic>?;
+        final embeddedFromInsufficientLists =
+            newListData['fromInsufficientLists'] as bool?;
+        final embeddedGameArgs =
+            newListData['gameArgs'] as Map<String, dynamic>?;
 
-        final topLevelFromInsufficientLists = args['fromInsufficientLists'] as bool?;
+        final topLevelFromInsufficientLists =
+            args['fromInsufficientLists'] as bool?;
         final topLevelGameArgs = args['gameArgs'] as Map<String, dynamic>?;
 
-        if ((embeddedFromInsufficientLists == true && embeddedGameArgs != null) ||
-            (topLevelFromInsufficientLists == true && topLevelGameArgs != null)) {
-          print('🎯 ListsOfOfficialsScreen: Found Insufficient Lists context (embedded or top-level)');
+        if ((embeddedFromInsufficientLists == true &&
+                embeddedGameArgs != null) ||
+            (topLevelFromInsufficientLists == true &&
+                topLevelGameArgs != null)) {
+          print(
+              '🎯 ListsOfOfficialsScreen: Found Insufficient Lists context (embedded or top-level)');
           isFromInsufficientLists = true;
-          insufficientListsSport = (embeddedGameArgs ?? topLevelGameArgs)?['sport'] as String?;
+          insufficientListsSport =
+              (embeddedGameArgs ?? topLevelGameArgs)?['sport'] as String?;
           gameArgs = embeddedGameArgs ?? topLevelGameArgs;
-          print('🎯 ListsOfOfficialsScreen: Set isFromInsufficientLists=$isFromInsufficientLists, sport=$insufficientListsSport');
+          print(
+              '🎯 ListsOfOfficialsScreen: Set isFromInsufficientLists=$isFromInsufficientLists, sport=$insufficientListsSport');
         }
+
+        // Handle game creation context when newListCreated is present
+        final isEdit = args['isEdit'] == true;
+        isFromGameCreation = args['fromGameCreation'] == true &&
+            args['fromHamburgerMenu'] != true &&
+            !isEdit;
 
         _handleNewListFromReview(newListData);
       } else {
@@ -297,7 +314,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         ),
         centerTitle: true,
         elevation: 0,
-        automaticallyImplyLeading: false, // Completely disable automatic back arrow
+        automaticallyImplyLeading:
+            false, // Completely disable automatic back arrow
       ),
       body: SafeArea(
         child: Center(
@@ -451,13 +469,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                       '🔄 ListsOfOfficials: Going directly to name list with sport="$currentSport"');
                                                   final topNameListArgs = {
                                                     'sport': currentSport,
-                                                    'existingLists':
-                                                        <String>[],
+                                                    'existingLists': <String>[],
                                                     ...?args,
                                                   };
 
-                                                  debugPrint('🎯 ListsOfOfficialsScreen: Top button passing to name_list_screen - fromInsufficientLists: ${args?['fromInsufficientLists']}, gameArgs: ${args?['gameArgs'] != null ? 'present' : 'null'}');
-                                                  debugPrint('🎯 ListsOfOfficialsScreen: TopNameListArgs keys: ${topNameListArgs.keys.toList()}');
+                                                  debugPrint(
+                                                      '🎯 ListsOfOfficialsScreen: Top button passing to name_list_screen - fromInsufficientLists: ${args?['fromInsufficientLists']}, gameArgs: ${args?['gameArgs'] != null ? 'present' : 'null'}');
+                                                  debugPrint(
+                                                      '🎯 ListsOfOfficialsScreen: TopNameListArgs keys: ${topNameListArgs.keys.toList()}');
 
                                                   Navigator.pushNamed(
                                                     context,
@@ -467,10 +486,15 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                     if (result != null &&
                                                         mounted) {
                                                       // Restore Insufficient Lists context if it was lost
-                                                      if (isFromInsufficientLists && result is Map<String, dynamic>) {
-                                                        result['fromInsufficientLists'] = true;
-                                                        result['gameArgs'] = gameArgs;
-                                                        print('🎯 Restored Insufficient Lists context to result');
+                                                      if (isFromInsufficientLists &&
+                                                          result is Map<String,
+                                                              dynamic>) {
+                                                        result['fromInsufficientLists'] =
+                                                            true;
+                                                        result['gameArgs'] =
+                                                            gameArgs;
+                                                        print(
+                                                            '🎯 Restored Insufficient Lists context to result');
                                                       }
                                                       _handleNewListFromReview(
                                                           result as Map<String,
@@ -571,19 +595,25 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
-                                                        Text(
-                                                          listName,
-                                                          style: TextStyle(
-                                                            fontSize: 18,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: colorScheme
-                                                                .onSurface,
+                                                        Flexible(
+                                                          child: Text(
+                                                            listName,
+                                                            style: TextStyle(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color: colorScheme
+                                                                  .onSurface,
+                                                            ),
+                                                            softWrap: true,
                                                           ),
                                                         ),
                                                         const SizedBox(
-                                                            height: 4),
+                                                            height: 2),
                                                         Text(
                                                           '$officialCount official${officialCount == 1 ? '' : 's'}',
                                                           style: TextStyle(
@@ -605,13 +635,19 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                             context,
                                                             '/edit-list',
                                                             arguments: {
-                                                              'listName': listName,
-                                                              'listId': list['id'],
-                                                              'officials': list['officials'] ?? [],
+                                                              'listName':
+                                                                  listName,
+                                                              'listId':
+                                                                  list['id'],
+                                                              'officials': list[
+                                                                      'officials'] ??
+                                                                  [],
                                                               'isEdit': true,
                                                             },
                                                           ).then((result) {
-                                                            if (result != null && mounted) {
+                                                            if (result !=
+                                                                    null &&
+                                                                mounted) {
                                                               // Refresh the lists to show any updates
                                                               _fetchLists();
                                                             }
@@ -749,8 +785,10 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         ...?currentArgs,
                                       };
 
-                                      debugPrint('🎯 ListsOfOfficialsScreen: Passing to name_list_screen - fromInsufficientLists: ${currentArgs?['fromInsufficientLists']}, gameArgs: ${currentArgs?['gameArgs'] != null ? 'present' : 'null'}');
-                                      debugPrint('🎯 ListsOfOfficialsScreen: NameListArgs keys: ${nameListArgs.keys.toList()}');
+                                      debugPrint(
+                                          '🎯 ListsOfOfficialsScreen: Passing to name_list_screen - fromInsufficientLists: ${currentArgs?['fromInsufficientLists']}, gameArgs: ${currentArgs?['gameArgs'] != null ? 'present' : 'null'}');
+                                      debugPrint(
+                                          '🎯 ListsOfOfficialsScreen: NameListArgs keys: ${nameListArgs.keys.toList()}');
 
                                       Navigator.pushNamed(
                                         context,
@@ -827,10 +865,13 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
     // Special handling for Insufficient Lists flow
     print('🎯 _handleNewListFromReview: Checking Insufficient Lists');
-    print('🎯 _handleNewListFromReview: - isFromInsufficientLists: $isFromInsufficientLists');
-    print('🎯 _handleNewListFromReview: - insufficientListsSport: $insufficientListsSport');
+    print(
+        '🎯 _handleNewListFromReview: - isFromInsufficientLists: $isFromInsufficientLists');
+    print(
+        '🎯 _handleNewListFromReview: - insufficientListsSport: $insufficientListsSport');
     print('🎯 _handleNewListFromReview: - gameArgs: $gameArgs');
-    print('🎯 _handleNewListFromReview: - current route args: ${ModalRoute.of(context)?.settings.arguments}');
+    print(
+        '🎯 _handleNewListFromReview: - current route args: ${ModalRoute.of(context)?.settings.arguments}');
 
     if (isFromInsufficientLists && insufficientListsSport != null) {
       print('🎯 _handleNewListFromReview: Triggering Insufficient Lists flow');
@@ -841,44 +882,56 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         }
       });
     } else {
-      print('🎯 _handleNewListFromReview: NOT triggering Insufficient Lists flow');
+      print(
+          '🎯 _handleNewListFromReview: NOT triggering Insufficient Lists flow');
     }
   }
 
-  Future<void> _handleInsufficientListsFlow(Map<String, dynamic> newListData) async {
+  Future<void> _handleInsufficientListsFlow(
+      Map<String, dynamic> newListData) async {
     print('🎯 Insufficient Lists Flow: Starting flow check');
-    print('🎯 Insufficient Lists Flow: isFromInsufficientLists = $isFromInsufficientLists');
-    print('🎯 Insufficient Lists Flow: insufficientListsSport = $insufficientListsSport');
+    print(
+        '🎯 Insufficient Lists Flow: isFromInsufficientLists = $isFromInsufficientLists');
+    print(
+        '🎯 Insufficient Lists Flow: insufficientListsSport = $insufficientListsSport');
     print('🎯 Insufficient Lists Flow: gameArgs = $gameArgs');
-    print('🎯 Insufficient Lists Flow: Total lists in memory = ${lists.length}');
+    print(
+        '🎯 Insufficient Lists Flow: Total lists in memory = ${lists.length}');
 
     // Count lists for the specific sport
     final sportLists = lists.where((list) {
       final listSport = list['sport'] as String?;
       final listName = list['name'] as String?;
-      final isValidList = listName != 'No saved lists' && listName != '+ Create new list';
+      final isValidList =
+          listName != 'No saved lists' && listName != '+ Create new list';
       final matchesSport = listSport == insufficientListsSport;
 
-      print('🎯 Checking list: "$listName", sport: "$listSport", valid: $isValidList, matches sport: $matchesSport');
+      print(
+          '🎯 Checking list: "$listName", sport: "$listSport", valid: $isValidList, matches sport: $matchesSport');
 
       return matchesSport && isValidList;
     }).toList();
 
     final listCount = sportLists.length;
 
-    print('🎯 Insufficient Lists Flow: Created ${newListData['listName']} for $insufficientListsSport, now have $listCount valid lists for this sport');
-    print('🎯 Insufficient Lists Flow: Sport lists: ${sportLists.map((l) => l['name']).toList()}');
+    print(
+        '🎯 Insufficient Lists Flow: Created ${newListData['listName']} for $insufficientListsSport, now have $listCount valid lists for this sport');
+    print(
+        '🎯 Insufficient Lists Flow: Sport lists: ${sportLists.map((l) => l['name']).toList()}');
 
     if (listCount >= 2) {
       // We now have 2+ lists, navigate to Multiple Lists Setup
-      print('🎯 Insufficient Lists Flow: Have $listCount lists, navigating to Multiple Lists Setup');
+      print(
+          '🎯 Insufficient Lists Flow: Have $listCount lists, navigating to Multiple Lists Setup');
       await _navigateToMultipleListsSetup();
     } else if (listCount == 1) {
       // We have exactly 1 list, show prompt to create second list
-      print('🎯 Insufficient Lists Flow: Have exactly 1 list, showing prompt to create second');
+      print(
+          '🎯 Insufficient Lists Flow: Have exactly 1 list, showing prompt to create second');
       await _showCreateSecondListPrompt();
     } else {
-      print('🎯 Insufficient Lists Flow: Have $listCount lists (should be 1 or 2+) - unexpected state');
+      print(
+          '🎯 Insufficient Lists Flow: Have $listCount lists (should be 1 or 2+) - unexpected state');
     }
   }
 
@@ -888,7 +941,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     print('🎯 insufficientListsSport: $insufficientListsSport');
 
     if (gameArgs == null) {
-      print('🎯 ERROR: gameArgs is null, cannot navigate to Multiple Lists Setup');
+      print(
+          '🎯 ERROR: gameArgs is null, cannot navigate to Multiple Lists Setup');
       return;
     }
 
@@ -907,7 +961,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
       arguments: setupArgs,
     ).then((result) {
       if (result != null && mounted) {
-        print('🎯 Multiple Lists Setup returned result, navigating to review screen');
+        print(
+            '🎯 Multiple Lists Setup returned result, navigating to review screen');
         // Navigate to review screen with multiple lists configuration
         Navigator.pushNamed(
           context,
@@ -943,7 +998,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
           TextButton(
             onPressed: () {
               print('🎯 User chose "Maybe Later" - dismissing dialog');
-              Navigator.pop(context, false); // Return false to indicate no action
+              Navigator.pop(
+                  context, false); // Return false to indicate no action
             },
             child: Text(
               'Maybe Later',
@@ -952,8 +1008,10 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
           ),
           TextButton(
             onPressed: () {
-              print('🎯 User chose to create second list - closing dialog and starting creation flow');
-              Navigator.pop(context, true); // Return true to indicate create second list
+              print(
+                  '🎯 User chose to create second list - closing dialog and starting creation flow');
+              Navigator.pop(
+                  context, true); // Return true to indicate create second list
             },
             child: Text(
               'Create Second List',
@@ -976,18 +1034,21 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
 
   void _navigateToCreateSecondList() {
     print('🎯 Navigating to create second list');
-    print('🎯 Create Second List: instance vars - isFromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: $gameArgs');
+    print(
+        '🎯 Create Second List: instance vars - isFromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: $gameArgs');
 
     final nameListArgs = {
       'sport': insufficientListsSport ?? 'Unknown Sport',
-      'existingLists': <String>[], // Start with empty since we're creating second list
+      'existingLists':
+          <String>[], // Start with empty since we're creating second list
       // Explicitly pass Insufficient Lists context from instance variables
       'fromInsufficientLists': isFromInsufficientLists,
       'gameArgs': gameArgs,
     };
 
     print('🎯 Create Second List: final args for navigation: $nameListArgs');
-    print('🎯 Create Second List: sport = ${insufficientListsSport ?? 'Unknown Sport'}');
+    print(
+        '🎯 Create Second List: sport = ${insufficientListsSport ?? 'Unknown Sport'}');
     print('🎯 Create Second List: context mounted = $mounted');
 
     if (mounted) {

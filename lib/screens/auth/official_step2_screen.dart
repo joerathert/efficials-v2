@@ -168,7 +168,7 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 600),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 48.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -304,7 +304,7 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                             Row(
                               children: [
                                 Expanded(
-                                  flex: 3,
+                                  flex: 5,
                                   child: TextFormField(
                                     controller: _cityController,
                                     decoration: InputDecoration(
@@ -364,10 +364,10 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  flex: 1,
-                                  child: Container(
+                                  flex: 2,
+                                  child: ConstrainedBox(
                                     constraints:
-                                        const BoxConstraints(minWidth: 80),
+                                        const BoxConstraints(minWidth: 105),
                                     child: TextFormField(
                                       controller: _stateController,
                                       decoration: InputDecoration(
@@ -439,13 +439,15 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
+                                SizedBox(
+                                  width: 85,
                                   child: TextFormField(
                                     controller: _zipController,
                                     decoration: InputDecoration(
                                       labelText: 'ZIP',
                                       hintText: 'ZIP',
+                                      floatingLabelBehavior:
+                                          FloatingLabelBehavior.never,
                                       hintStyle: TextStyle(
                                         color:
                                             theme.brightness == Brightness.dark
@@ -496,6 +498,15 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                     ),
                                     keyboardType: TextInputType.number,
                                     textInputAction: TextInputAction.next,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    maxLength: 5,
+                                    buildCounter: (_,
+                                            {required currentLength,
+                                            required isFocused,
+                                            maxLength}) =>
+                                        const SizedBox.shrink(),
                                     validator: _validateZip,
                                   ),
                                 ),
@@ -763,7 +774,7 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                     Center(
                       child: SizedBox(
                         width: 400,
-                        height: 50,
+                        height: 60,
                         child: ElevatedButton(
                           onPressed: _handleContinue,
                           style: ElevatedButton.styleFrom(

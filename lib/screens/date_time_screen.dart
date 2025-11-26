@@ -317,6 +317,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                               : '/additional-game-info',
                                           arguments: {
                                             'scheduleName': scheduleName,
+                                            'scheduleId': originalArgs?['scheduleId'],
                                             'sport': sport,
                                             'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,
@@ -336,6 +337,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                           '/choose-location',
                                           arguments: {
                                             'scheduleName': scheduleName,
+                                            'scheduleId': originalArgs?['scheduleId'],
                                             'sport': sport,
                                             'homeTeam': originalArgs?['homeTeam'],
                                             'template': template,

@@ -12,7 +12,7 @@ class ScheduleDetailsScreen extends StatefulWidget {
 
 class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   String? scheduleName;
-  int? scheduleId;
+  String? scheduleId;
   String? sport; // Store the schedule's sport
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
@@ -39,7 +39,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       final args =
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       scheduleName = args['scheduleName'] as String?;
-      scheduleId = args['scheduleId'] as int?;
+      scheduleId = args['scheduleId'] as String?;
 
       // If scheduleId is null but we have a scheduleName, try to look it up
       if (scheduleId == null && scheduleName != null) {
@@ -72,7 +72,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     try {
       // Mock implementation - in a real app, this would query a schedule service
       // For now, we'll just set a default schedule ID
-      scheduleId = 1; // Mock ID
+      scheduleId = "1"; // Mock ID
       debugPrint('SCHEDULE SCREEN: Using mock scheduleId: $scheduleId');
     } catch (e) {
       debugPrint('SCHEDULE SCREEN: Error looking up scheduleId: $e');
@@ -82,26 +82,31 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   Future<void> _loadScheduleDetails() async {
     if (scheduleId != null) {
       try {
-        // Mock implementation - in a real app, this would query the database
-        final scheduleDetails = {
-          'sport': sport ?? 'Unknown',
-        };
+        // Load schedule details from database
+        final gameService = GameService();
+        final scheduleData = await gameService.getSchedule(scheduleId!);
 
-        final scheduleSport = scheduleDetails['sport'] as String;
+        if (scheduleData != null) {
+          final scheduleSport = scheduleData['sport'] as String;
 
-        // If schedule sport is empty or 'null', try to infer it from games
-        if (scheduleSport.isEmpty || scheduleSport == 'null') {
-          await _inferAndUpdateScheduleSport();
-        } else {
-          if (mounted) {
-            setState(() {
-              sport = scheduleSport;
-            });
+          // If schedule sport is empty or 'null', try to infer it from games
+          if (scheduleSport.isEmpty || scheduleSport == 'null') {
+            await _inferAndUpdateScheduleSport();
+          } else {
+            if (mounted) {
+              setState(() {
+                sport = scheduleSport;
+              });
+            }
           }
+        } else {
+          // Schedule not found, try to infer from games
+          await _inferAndUpdateScheduleSport();
         }
       } catch (e) {
         // If database fails, sport will remain null and fall back to old method
         debugPrint('Failed to load schedule details: $e');
+        await _inferAndUpdateScheduleSport();
       }
     }
   }
