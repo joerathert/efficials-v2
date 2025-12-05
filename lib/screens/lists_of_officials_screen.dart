@@ -19,6 +19,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   Map<String, dynamic>? gameArgs;
   GameTemplateModel? template;
   final OfficialListService _listService = OfficialListService();
+  Map<String, dynamic>? _savedGameCreationArgs; // Store original game creation args
 
   @override
   void initState() {
@@ -61,6 +62,20 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         }
 
         template = args['template'] as GameTemplateModel?;
+        
+        // IMPORTANT: Store the original game creation args when first arriving
+        // This ensures we have all the game data (date, time, location, etc.) available
+        // even after going through the list creation flow
+        if (_savedGameCreationArgs == null && isFromGameCreation) {
+          _savedGameCreationArgs = Map<String, dynamic>.from(args);
+          print('🎯 ListsOfOfficialsScreen: Saved game creation args: $_savedGameCreationArgs');
+          print('🎯 ListsOfOfficialsScreen: Saved args keys: ${_savedGameCreationArgs?.keys.toList()}');
+          print('🎯 ListsOfOfficialsScreen: sport = ${_savedGameCreationArgs?['sport']}');
+          print('🎯 ListsOfOfficialsScreen: date = ${_savedGameCreationArgs?['date']}');
+          print('🎯 ListsOfOfficialsScreen: time = ${_savedGameCreationArgs?['time']}');
+          print('🎯 ListsOfOfficialsScreen: location = ${_savedGameCreationArgs?['location']}');
+          print('🎯 ListsOfOfficialsScreen: opponent = ${_savedGameCreationArgs?['opponent']}');
+        }
 
         print(
             '🎯 ListsOfOfficialsScreen: Initial context - fromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: ${gameArgs != null ? 'present' : 'null'}');
@@ -285,8 +300,8 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
     List<Map<String, dynamic>> actualLists =
         lists.where((list) => list['id'] != '0' && list['id'] != '-1').toList();
 
-    // If coming from template creation, filter by sport
-    if (fromTemplateCreation && sport != 'Unknown Sport') {
+    // If coming from template creation or game creation, filter by sport
+    if ((fromTemplateCreation || isFromGameCreation) && sport != 'Unknown Sport') {
       actualLists = actualLists.where((list) {
         final listSport = list['sport'] as String?;
         return listSport == null || listSport.isEmpty || listSport == sport;
@@ -471,10 +486,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                     'sport': currentSport,
                                                     'existingLists': <String>[],
                                                     ...?args,
+                                                    // Explicitly ensure fromGameCreation is passed
+                                                    'fromGameCreation': isFromGameCreation || args?['fromGameCreation'] == true,
                                                   };
 
                                                   debugPrint(
-                                                      '🎯 ListsOfOfficialsScreen: Top button passing to name_list_screen - fromInsufficientLists: ${args?['fromInsufficientLists']}, gameArgs: ${args?['gameArgs'] != null ? 'present' : 'null'}');
+                                                      '🎯 ListsOfOfficialsScreen: Top button passing to name_list_screen - fromGameCreation: ${topNameListArgs['fromGameCreation']}, fromInsufficientLists: ${args?['fromInsufficientLists']}, gameArgs: ${args?['gameArgs'] != null ? 'present' : 'null'}');
                                                   debugPrint(
                                                       '🎯 ListsOfOfficialsScreen: TopNameListArgs keys: ${topNameListArgs.keys.toList()}');
 
@@ -485,16 +502,19 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                   ).then((result) {
                                                     if (result != null &&
                                                         mounted) {
-                                                      // Restore Insufficient Lists context if it was lost
-                                                      if (isFromInsufficientLists &&
-                                                          result is Map<String,
-                                                              dynamic>) {
-                                                        result['fromInsufficientLists'] =
-                                                            true;
-                                                        result['gameArgs'] =
-                                                            gameArgs;
-                                                        print(
-                                                            '🎯 Restored Insufficient Lists context to result');
+                                                      // Restore contexts if they were lost
+                                                      if (result is Map<String, dynamic>) {
+                                                        // Restore game creation context
+                                                        if (isFromGameCreation) {
+                                                          result['fromGameCreation'] = true;
+                                                          print('🎯 Restored game creation context to result');
+                                                        }
+                                                        // Restore Insufficient Lists context if it was lost
+                                                        if (isFromInsufficientLists) {
+                                                          result['fromInsufficientLists'] = true;
+                                                          result['gameArgs'] = gameArgs;
+                                                          print('🎯 Restored Insufficient Lists context to result');
+                                                        }
                                                       }
                                                       _handleNewListFromReview(
                                                           result as Map<String,
@@ -783,10 +803,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                                 list['name'] as String)
                                             .toList(),
                                         ...?currentArgs,
+                                        // Explicitly ensure fromGameCreation is passed
+                                        'fromGameCreation': isFromGameCreation || currentArgs?['fromGameCreation'] == true,
                                       };
 
                                       debugPrint(
-                                          '🎯 ListsOfOfficialsScreen: Passing to name_list_screen - fromInsufficientLists: ${currentArgs?['fromInsufficientLists']}, gameArgs: ${currentArgs?['gameArgs'] != null ? 'present' : 'null'}');
+                                          '🎯 ListsOfOfficialsScreen: Bottom button passing to name_list_screen - fromGameCreation: ${nameListArgs['fromGameCreation']}, fromInsufficientLists: ${currentArgs?['fromInsufficientLists']}, gameArgs: ${currentArgs?['gameArgs'] != null ? 'present' : 'null'}');
                                       debugPrint(
                                           '🎯 ListsOfOfficialsScreen: NameListArgs keys: ${nameListArgs.keys.toList()}');
 
@@ -796,6 +818,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
                                         arguments: nameListArgs,
                                       ).then((result) {
                                         if (result != null && mounted) {
+                                          // Restore contexts if they were lost
+                                          if (result is Map<String, dynamic>) {
+                                            // Restore game creation context
+                                            if (isFromGameCreation) {
+                                              result['fromGameCreation'] = true;
+                                              print('🎯 Bottom button: Restored game creation context to result');
+                                            }
+                                          }
                                           _handleNewListFromReview(
                                               result as Map<String, dynamic>);
                                         }
@@ -843,12 +873,50 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   void _handleNewListFromReview(Map<String, dynamic> newListData) async {
     print('🎯 _handleNewListFromReview: Called with newListData: $newListData');
 
+    // Check if we should maintain game creation context from multiple sources
+    final currentArgs = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    
+    // Check all possible sources for game creation context
+    final fromCurrentArgs = currentArgs?['fromGameCreation'] == true;
+    final fromNewListData = newListData['fromGameCreation'] == true;
+    final fromInstanceVariable = isFromGameCreation; // Check our instance variable
+    
+    final notFromHamburgerMenu = currentArgs?['fromHamburgerMenu'] != true && 
+                                   newListData['fromHamburgerMenu'] != true;
+    final isNotEdit = currentArgs?['isEdit'] != true && 
+                      newListData['isEdit'] != true;
+    
+    // Determine if we're in game creation context from ANY source
+    final shouldMaintainGameCreationContext = (fromCurrentArgs || fromNewListData || fromInstanceVariable) && 
+                                               notFromHamburgerMenu && 
+                                               isNotEdit;
+    
+    print('🎯 _handleNewListFromReview: Game creation context check:');
+    print('   - fromCurrentArgs: $fromCurrentArgs');
+    print('   - fromNewListData: $fromNewListData');
+    print('   - fromInstanceVariable: $fromInstanceVariable');
+    print('   - notFromHamburgerMenu: $notFromHamburgerMenu');
+    print('   - isNotEdit: $isNotEdit');
+    print('   - shouldMaintainGameCreationContext: $shouldMaintainGameCreationContext');
+
     // Refresh the lists to show the newly created list
     await _fetchLists();
 
     if (mounted) {
       setState(() {
         selectedList = newListData['listName'] as String;
+        
+        // IMPORTANT: Maintain the game creation context after creating a new list
+        if (shouldMaintainGameCreationContext) {
+          isFromGameCreation = true;
+          print('🎯 _handleNewListFromReview: Setting isFromGameCreation = true');
+          
+          // DON'T overwrite saved game creation args with newListData
+          // newListData only contains the list information, not the full game data
+          // We want to KEEP the saved game args as they are
+          print('🎯 _handleNewListFromReview: Keeping original saved game creation args intact');
+          print('🎯 _handleNewListFromReview: _savedGameCreationArgs keys: ${_savedGameCreationArgs?.keys.toList()}');
+        }
       });
     }
 
@@ -1035,13 +1103,14 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   void _navigateToCreateSecondList() {
     print('🎯 Navigating to create second list');
     print(
-        '🎯 Create Second List: instance vars - isFromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: $gameArgs');
+        '🎯 Create Second List: instance vars - isFromGameCreation: $isFromGameCreation, isFromInsufficientLists: $isFromInsufficientLists, insufficientListsSport: $insufficientListsSport, gameArgs: $gameArgs');
 
     final nameListArgs = {
       'sport': insufficientListsSport ?? 'Unknown Sport',
       'existingLists':
           <String>[], // Start with empty since we're creating second list
-      // Explicitly pass Insufficient Lists context from instance variables
+      // Explicitly pass game creation and Insufficient Lists context from instance variables
+      'fromGameCreation': isFromGameCreation,
       'fromInsufficientLists': isFromInsufficientLists,
       'gameArgs': gameArgs,
     };
@@ -1060,6 +1129,11 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         print('🎯 Create Second List: navigation completed, result = $result');
         if (result != null && mounted) {
           print('🎯 Create Second List: returned from name-list with result');
+          // Restore game creation context if needed
+          if (result is Map<String, dynamic> && isFromGameCreation) {
+            result['fromGameCreation'] = true;
+            print('🎯 Create Second List: Restored game creation context to result');
+          }
           _handleNewListFromReview(result as Map<String, dynamic>);
         } else {
           print('🎯 Create Second List: no result or not mounted');
@@ -1071,9 +1145,21 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
   }
 
   void _navigateToReviewGameInfo(Map<String, dynamic> list) {
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ??
-            {};
+    // Use saved game creation args if available, otherwise fall back to current route args
+    final args = _savedGameCreationArgs ?? 
+        (ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>? ?? {});
+
+    print('🎯 _navigateToReviewGameInfo: ========== START ==========');
+    print('🎯 _navigateToReviewGameInfo: _savedGameCreationArgs = $_savedGameCreationArgs');
+    print('🎯 _navigateToReviewGameInfo: Current route args = ${ModalRoute.of(context)!.settings.arguments}');
+    print('🎯 _navigateToReviewGameInfo: Using args keys: ${args.keys.toList()}');
+    print('🎯 _navigateToReviewGameInfo: List: ${list['name']}');
+    print('🎯 _navigateToReviewGameInfo: sport = ${args['sport']}');
+    print('🎯 _navigateToReviewGameInfo: date = ${args['date']}');
+    print('🎯 _navigateToReviewGameInfo: time = ${args['time']}');
+    print('🎯 _navigateToReviewGameInfo: location = ${args['location']}');
+    print('🎯 _navigateToReviewGameInfo: opponent = ${args['opponent']}');
+    print('🎯 _navigateToReviewGameInfo: scheduleName = ${args['scheduleName']}');
 
     // Check if this is edit mode
     final isEdit = args['isEdit'] == true;
@@ -1087,6 +1173,7 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         'selectedOfficials': list['officials'] ?? [],
       };
 
+      print('🎯 _navigateToReviewGameInfo: Returning result for edit mode');
       Navigator.pop(context, result);
     } else {
       // Normal game creation flow
@@ -1097,6 +1184,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
         'selectedOfficials': list['officials'] ?? [],
       };
 
+      print('🎯 _navigateToReviewGameInfo: Navigating to review with gameData keys: ${gameData.keys.toList()}');
+      print('🎯 _navigateToReviewGameInfo: gameData sport = ${gameData['sport']}');
+      print('🎯 _navigateToReviewGameInfo: gameData date = ${gameData['date']}');
+      print('🎯 _navigateToReviewGameInfo: gameData time = ${gameData['time']}');
+      print('🎯 _navigateToReviewGameInfo: ========== END ==========');
+      
       Navigator.pushNamed(
         context,
         '/review-game-info',

@@ -290,20 +290,25 @@ class GameService extends BaseService {
       debugPrint(
           '🔄 GAME SERVICE: Removing template association for schedule: $scheduleName');
 
-      // Query for the association to delete
+      // Query by userId only (single field query) to avoid composite index requirement
       final querySnapshot = await firestore
           .collection('template_associations')
           .where('userId', isEqualTo: currentUserId)
-          .where('scheduleName', isEqualTo: scheduleName)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
+      // Find the association that matches the scheduleName
+      final associations = querySnapshot.docs
+          .where((doc) => doc.data()['scheduleName'] == scheduleName)
+          .toList();
+
+      if (associations.isNotEmpty) {
+        final associationToDelete = associations.first;
         // Delete the association
-        await querySnapshot.docs.first.reference.delete();
+        await associationToDelete.reference.delete();
         debugPrint('✅ GAME SERVICE: Template association removed successfully');
         return true;
       } else {
-        debugPrint('⚠️ GAME SERVICE: No template association found to remove');
+        debugPrint('⚠️ GAME SERVICE: No template association found to remove for schedule: $scheduleName');
         return false;
       }
     } catch (e) {
@@ -515,6 +520,31 @@ class GameService extends BaseService {
     }
   }
 
+  /// Get games by schedule ID
+  Future<List<Map<String, dynamic>>> getGamesByScheduleId(
+      String scheduleId) async {
+    try {
+      final gamesQuery = await firestore
+          .collection(FirebaseCollections.games)
+          .where(FirebaseFields.scheduleId, isEqualTo: scheduleId)
+          .get();
+
+      final games = <Map<String, dynamic>>[];
+      for (var doc in gamesQuery.docs) {
+        final data = doc.data();
+        games.add({
+          'id': doc.id,
+          ...data,
+        });
+      }
+
+      return games;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Error getting games by schedule ID: $e');
+      return [];
+    }
+  }
+
   Future<void> deleteSchedule(String scheduleId) async {
     try {
       // Get the current authenticated user
@@ -540,13 +570,171 @@ class GameService extends BaseService {
         throw Exception('You do not have permission to delete this schedule.');
       }
 
-      // Delete all games associated with this schedule first
+      // Get scheduler information for notifications
+      String schedulerName = 'The Scheduler';
+      String schedulerEmail = '';
+      String schedulerPhone = '';
+      String schedulerType = 'Scheduler';
+      String schedulerOrganization = '';
+      
+      try {
+        final schedulerDoc =
+            await firestore.collection('users').doc(currentUserId).get();
+        final schedulerData = schedulerDoc.data();
+        
+        if (schedulerData != null) {
+          final profile = schedulerData['profile'] as Map<String, dynamic>?;
+          if (profile != null) {
+            final firstName = profile['firstName'] as String? ?? '';
+            final lastName = profile['lastName'] as String? ?? '';
+            schedulerName = '$firstName $lastName'.trim();
+            if (schedulerName.isEmpty) schedulerName = 'The Scheduler';
+            schedulerPhone = profile['phone'] as String? ?? '';
+          }
+          schedulerEmail = schedulerData['email'] as String? ?? '';
+          
+          final schedulerProfile =
+              schedulerData['schedulerProfile'] as Map<String, dynamic>?;
+          if (schedulerProfile != null) {
+            schedulerType = schedulerProfile['type'] as String? ?? 'Scheduler';
+            
+            // Get organization name based on scheduler type
+            if (schedulerType == 'Athletic Director') {
+              schedulerOrganization = schedulerProfile['schoolName'] as String? ?? '';
+            } else if (schedulerType == 'Coach') {
+              schedulerOrganization = schedulerProfile['teamName'] as String? ?? '';
+            } else if (schedulerType == 'Assigner') {
+              schedulerOrganization = schedulerProfile['organizationName'] as String? ?? '';
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ GAME SERVICE: Error loading scheduler info: $e');
+        // Continue with default values
+      }
+
+      // Get all games associated with this schedule
       final gamesQuery = await firestore
           .collection(FirebaseCollections.games)
           .where(FirebaseFields.scheduleId, isEqualTo: scheduleId)
           .get();
 
+      // Collect all affected officials and their game details
+      final Map<String, List<Map<String, dynamic>>> officialGames = {};
+      
+      for (var gameDoc in gamesQuery.docs) {
+        try {
+          final gameData = gameDoc.data();
+          final selectedOfficials = gameData['selectedOfficials'];
+          
+          if (selectedOfficials is List) {
+            for (var official in selectedOfficials) {
+              if (official is Map && official['id'] != null) {
+                final officialId = official['id'] as String;
+                
+                // Parse game date
+                DateTime? gameDate;
+                if (gameData['date'] != null) {
+                  try {
+                    if (gameData['date'] is String) {
+                      gameDate = DateTime.parse(gameData['date'] as String);
+                    } else if (gameData['date'] is DateTime) {
+                      gameDate = gameData['date'] as DateTime;
+                    }
+                  } catch (e) {
+                    debugPrint('⚠️ Error parsing game date: $e');
+                  }
+                }
+                
+                // Parse game time
+                String gameTime = 'TBD';
+                if (gameData['time'] != null) {
+                  gameTime = gameData['time'].toString();
+                }
+                
+                final gameInfo = {
+                  'gameId': gameDoc.id,
+                  'sport': gameData['sport'] as String? ?? 'Unknown',
+                  'date': gameDate,
+                  'time': gameTime,
+                  'opponent': gameData['opponent'] as String? ?? 'Unknown',
+                  'location': gameData['location'] as String? ?? 'Unknown',
+                };
+                
+                if (!officialGames.containsKey(officialId)) {
+                  officialGames[officialId] = [];
+                }
+                officialGames[officialId]!.add(gameInfo);
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ GAME SERVICE: Error processing game ${gameDoc.id}: $e');
+          // Continue with next game
+          continue;
+        }
+      }
+
+      // Create notifications for all affected officials
       final batch = firestore.batch();
+      final now = DateTime.now();
+      
+      for (var entry in officialGames.entries) {
+        try {
+          final officialId = entry.key;
+          final games = entry.value;
+          
+          // Create a notification for each game (officials need to know which specific games were removed)
+          for (var game in games) {
+            try {
+              final notificationRef = firestore.collection('notifications').doc();
+              
+              final gameDate = game['date'] as DateTime?;
+              final gameDetails = <String, dynamic>{
+                'sport': game['sport'] as String? ?? 'Unknown',
+                'time': game['time'] as String? ?? 'TBD',
+                'opponent': game['opponent'] as String? ?? 'Unknown',
+                'location': game['location'] as String? ?? 'Unknown',
+              };
+              
+              // Only add date if it's not null
+              if (gameDate != null) {
+                gameDetails['date'] = gameDate.toIso8601String();
+              }
+              
+              batch.set(notificationRef, {
+                'userId': officialId,
+                'type': 'game_removed',
+                'title': 'Game Removed',
+                'message':
+                    'A game you were hired for has been removed from Efficials.',
+                'gameDetails': gameDetails,
+                'schedulerInfo': {
+                  'name': schedulerName,
+                  'email': schedulerEmail,
+                  'phone': schedulerPhone,
+                  'type': schedulerType,
+                  'organization': schedulerOrganization,
+                },
+                'createdAt': Timestamp.fromDate(now),
+                'read': false,
+              });
+            } catch (e) {
+              debugPrint(
+                  '⚠️ GAME SERVICE: Error creating notification for game ${game['gameId']}: $e');
+              // Continue with next game
+              continue;
+            }
+          }
+        } catch (e) {
+          debugPrint(
+              '⚠️ GAME SERVICE: Error processing notifications for official ${entry.key}: $e');
+          // Continue with next official
+          continue;
+        }
+      }
+
+      // Delete all games
       for (var gameDoc in gamesQuery.docs) {
         batch.delete(gameDoc.reference);
       }
@@ -554,11 +742,13 @@ class GameService extends BaseService {
       // Delete the schedule document
       batch.delete(scheduleDoc.reference);
 
-      // Commit the batch
+      // Commit the batch (includes notifications and deletions)
       await batch.commit();
 
       debugPrint(
-          '✅ GAME SERVICE: Schedule $scheduleId and associated games deleted successfully');
+          '✅ GAME SERVICE: Schedule $scheduleId and ${gamesQuery.docs.length} games deleted successfully');
+      debugPrint(
+          '✅ GAME SERVICE: Created notifications for ${officialGames.length} affected officials');
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Error deleting schedule: $e');
       throw Exception('Failed to delete schedule: $e');
@@ -685,6 +875,103 @@ class GameService extends BaseService {
       return unpublishedGames;
     } catch (e) {
       debugPrint('❌ GAME SERVICE: Error fetching unpublished games: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPublishedGames() async {
+    try {
+      debugPrint(
+          '🔄 GAME SERVICE: Getting published games from Firestore (will sort by game date/time)');
+
+      // Get current user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return [];
+      }
+
+      // Query Firestore for published games by current user
+      // Use single field query and filter in memory to avoid composite index requirement
+      final querySnapshot = await firestore
+          .collection('games')
+          .where('userId', isEqualTo: currentUserId)
+          .get();
+
+      debugPrint(
+          '✅ GAME SERVICE: Retrieved ${querySnapshot.docs.length} games from Firestore for user');
+
+      // Filter published games and sort in memory
+      final publishedGames = querySnapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            return {
+              ...data,
+              'id': doc.id,
+            };
+          })
+          .where((game) => game['status'] == 'Published')
+          .toList();
+
+      // Sort by game date and time in ascending order (earliest first)
+      publishedGames.sort((a, b) {
+        final aDate = a['date'];
+        final bDate = b['date'];
+        final aTime = a['time'];
+        final bTime = b['time'];
+
+        // Handle null dates - games without dates go to the end
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+
+        try {
+          // Parse dates
+          final aDateTime = aDate is DateTime ? aDate : DateTime.parse(aDate);
+          final bDateTime = bDate is DateTime ? bDate : DateTime.parse(bDate);
+
+          // Compare dates first
+          final dateComparison = aDateTime.compareTo(bDateTime);
+          if (dateComparison != 0) return dateComparison;
+
+          // If dates are the same, compare times
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+
+          // Parse time strings (format: "HH:MM AM/PM" or "HH:MM")
+          final aTimeStr = aTime.toString();
+          final bTimeStr = bTime.toString();
+
+          try {
+            // Try to parse as TimeOfDay format
+            final aTimeOfDay = _parseTimeString(aTimeStr);
+            final bTimeOfDay = _parseTimeString(bTimeStr);
+
+            if (aTimeOfDay != null && bTimeOfDay != null) {
+              final aMinutes = aTimeOfDay.hour * 60 + aTimeOfDay.minute;
+              final bMinutes = bTimeOfDay.hour * 60 + bTimeOfDay.minute;
+              return aMinutes.compareTo(bMinutes);
+            }
+          } catch (e) {
+            debugPrint('⚠️ GAME SERVICE: Error parsing time: $e');
+          }
+
+          // Fallback to string comparison
+          return aTimeStr.compareTo(bTimeStr);
+        } catch (e) {
+          debugPrint('⚠️ GAME SERVICE: Error parsing game date: $e');
+          return 0;
+        }
+      });
+
+      debugPrint(
+          '🎯 GAME SERVICE: Filtered and sorted ${publishedGames.length} published games by game date/time (ascending)');
+      return publishedGames;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error fetching published games: $e');
       return [];
     }
   }
@@ -1106,6 +1393,30 @@ class GameService extends BaseService {
         'officialsHired': newOfficialsHired
       });
 
+      // Update the official's totalAcceptedGames count
+      final officialId = officialData['id'] as String;
+      final userDoc =
+          await firestore.collection('users').doc(officialId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        if (userData != null) {
+          final officialProfile =
+              userData['officialProfile'] as Map<String, dynamic>?;
+          if (officialProfile != null) {
+            final totalAcceptedGames =
+                (officialProfile['totalAcceptedGames'] ?? 0) + 1;
+
+            await firestore.collection('users').doc(officialId).update({
+              'officialProfile.totalAcceptedGames': totalAcceptedGames,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+
+            debugPrint(
+                '✅ GAME SERVICE: Updated totalAcceptedGames for official $officialId to $totalAcceptedGames');
+          }
+        }
+      }
+
       debugPrint(
           '✅ GAME SERVICE: Successfully added confirmed official to game $gameId');
       return true;
@@ -1169,6 +1480,373 @@ class GameService extends BaseService {
     } catch (e) {
       debugPrint('🔴 GAME SERVICE: Failed to get games by schedule name: $e');
       return [];
+    }
+  }
+
+  /// Back out of a game assignment
+  Future<bool> backOutOfGame(
+      String gameId, String officialId, String reason) async {
+    try {
+      debugPrint(
+          '🔄 GAME SERVICE: Official $officialId backing out of game $gameId');
+      debugPrint('🔄 GAME SERVICE: Reason: $reason');
+
+      // Get game details for notification
+      final gameDoc = await firestore.collection('games').doc(gameId).get();
+      if (!gameDoc.exists) {
+        debugPrint('🔴 GAME SERVICE: Game $gameId not found');
+        return false;
+      }
+      final gameData = gameDoc.data() as Map<String, dynamic>;
+
+      // Get schedule name if not in game data
+      String scheduleName = gameData['scheduleName'] ?? 'Unknown Schedule';
+      if (scheduleName == 'Unknown Schedule' && gameData['scheduleId'] != null) {
+        try {
+          final scheduleDoc = await firestore.collection('schedules').doc(gameData['scheduleId']).get();
+          if (scheduleDoc.exists) {
+            final scheduleData = scheduleDoc.data();
+            if (scheduleData != null && scheduleData['name'] != null) {
+              scheduleName = scheduleData['name'] as String;
+              debugPrint('✅ GAME SERVICE: Retrieved schedule name from schedules collection: $scheduleName');
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ GAME SERVICE: Error fetching schedule name: $e');
+        }
+      }
+
+      // Remove the official from confirmed officials
+      final success = await removeConfirmedOfficial(gameId, officialId);
+
+      if (success) {
+        // Get the scheduler ID (check both field names for backwards compatibility)
+        final schedulerId = gameData['schedulerId'] ?? gameData['userId'];
+        
+        if (schedulerId == null) {
+          debugPrint('⚠️ GAME SERVICE: No scheduler ID found in game data');
+        }
+        
+        // Get official info for notification
+        String officialName = 'Unknown Official';
+        final officialDoc = await firestore.collection('users').doc(officialId).get();
+        if (officialDoc.exists) {
+          final officialData = officialDoc.data();
+          if (officialData != null) {
+            final profile = officialData['profile'] as Map<String, dynamic>?;
+            if (profile != null) {
+              final firstName = profile['firstName'] ?? '';
+              final lastName = profile['lastName'] ?? '';
+              officialName = '$firstName $lastName'.trim();
+              if (officialName.isEmpty) officialName = 'Unknown Official';
+            }
+          }
+        }
+        
+        // Update the official's follow-through stats
+        if (officialDoc.exists) {
+          final userData = officialDoc.data();
+          if (userData != null) {
+            // Remove the game from the user's confirmed games list
+            final confirmedGameIds =
+                List<String>.from(userData['confirmedGameIds'] ?? []);
+            debugPrint('   Before removal: $confirmedGameIds');
+            confirmedGameIds.remove(gameId);
+            debugPrint('   After removal: $confirmedGameIds');
+
+            // Update backed out games count
+            final officialProfile =
+                userData['officialProfile'] as Map<String, dynamic>?;
+            if (officialProfile != null) {
+              final totalBackedOutGames =
+                  (officialProfile['totalBackedOutGames'] ?? 0) + 1;
+
+              // Recalculate follow-through rate
+              final totalAcceptedGames =
+                  officialProfile['totalAcceptedGames'] ?? 0;
+              double followThroughRate = 100.0;
+              if (totalAcceptedGames > 0) {
+                final successfulGames = totalAcceptedGames - totalBackedOutGames;
+                followThroughRate = (successfulGames / totalAcceptedGames) * 100.0;
+                followThroughRate = followThroughRate.clamp(0.0, 100.0);
+              }
+
+              await firestore.collection('users').doc(officialId).update({
+                'confirmedGameIds': confirmedGameIds,
+                'officialProfile.totalBackedOutGames': totalBackedOutGames,
+                'officialProfile.followThroughRate': followThroughRate,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+              
+              debugPrint('✅ GAME SERVICE: Updated Firestore with confirmedGameIds: $confirmedGameIds');
+
+              debugPrint(
+                  '✅ GAME SERVICE: Updated follow-through stats for official $officialId');
+              debugPrint('   Total accepted: $totalAcceptedGames');
+              debugPrint('   Total backed out: $totalBackedOutGames');
+              debugPrint(
+                  '   Follow-through rate: ${followThroughRate.toStringAsFixed(1)}%');
+            } else {
+              // Just remove from confirmed games if no official profile
+              await firestore.collection('users').doc(officialId).update({
+                'confirmedGameIds': confirmedGameIds,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+            }
+          }
+        }
+
+        // Store the back out in a collection for tracking
+        final backOutId = await firestore.collection('back_outs').add({
+          'gameId': gameId,
+          'officialId': officialId,
+          'officialName': officialName,
+          'reason': reason,
+          'timestamp': FieldValue.serverTimestamp(),
+          'excused': false, // Track whether this backout has been excused
+          'reviewed': false, // Track whether scheduler has reviewed but not excused
+          'gameSport': gameData['sport'],
+          'gameDate': gameData['date'],
+          'gameTime': gameData['time'],
+          'gameOpponent': gameData['opponent'],
+          'gameLocation': gameData['location'],
+          'scheduleName': scheduleName,
+          'schedulerId': schedulerId, // The scheduler who created the game
+        });
+
+        // Create a notification for the scheduler
+        if (schedulerId != null) {
+          await firestore.collection('notifications').add({
+            'userId': schedulerId,
+            'type': 'official_backed_out',
+            'title': 'Official Backed Out',
+            'message':
+                '$officialName has backed out of your ${gameData['sport']} game vs ${gameData['opponent'] ?? 'TBD'}. You can excuse this backout to restore their follow-through rate.',
+            'timestamp': FieldValue.serverTimestamp(),
+            'isRead': false,
+            'data': {
+              'gameId': gameId,
+              'officialId': officialId,
+              'officialName': officialName,
+              'backOutId': backOutId.id,
+              'reason': reason,
+              'gameSport': gameData['sport'],
+              'gameDate': gameData['date'],
+              'gameTime': gameData['time'],
+              'gameOpponent': gameData['opponent'],
+              'gameLocation': gameData['location'],
+              'scheduleName': scheduleName,
+            },
+          });
+        }
+
+        debugPrint('✅ GAME SERVICE: Successfully backed out of game $gameId');
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to back out of game: $e');
+      return false;
+    }
+  }
+
+  /// Excuse an official's backout and restore their follow-through rate
+  Future<bool> excuseBackout(
+      String backOutId, String schedulerId, String excuseReason) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Excusing backout $backOutId');
+
+      // Get the backout details
+      final backOutDoc =
+          await firestore.collection('back_outs').doc(backOutId).get();
+      if (!backOutDoc.exists) {
+        debugPrint('🔴 GAME SERVICE: Backout $backOutId not found');
+        return false;
+      }
+
+      final backOutData = backOutDoc.data() as Map<String, dynamic>;
+      final officialId = backOutData['officialId'] as String;
+      final gameId = backOutData['gameId'] as String;
+
+      // Update the backout record to mark it as excused
+      await firestore.collection('back_outs').doc(backOutId).update({
+        'excused': true,
+        'excusedBy': schedulerId,
+        'excuseReason': excuseReason,
+        'excusedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Update the official's follow-through stats
+      // When excused, both totalAcceptedGames and totalBackedOutGames are decremented
+      // so the game doesn't count in the calculation at all
+      final userDoc =
+          await firestore.collection('users').doc(officialId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        if (userData != null) {
+          final officialProfile =
+              userData['officialProfile'] as Map<String, dynamic>?;
+          if (officialProfile != null) {
+            final totalAcceptedGames =
+                (officialProfile['totalAcceptedGames'] ?? 0) - 1;
+            final totalBackedOutGames =
+                (officialProfile['totalBackedOutGames'] ?? 0) - 1;
+
+            // Recalculate follow-through rate
+            double followThroughRate = 100.0;
+            if (totalAcceptedGames > 0) {
+              final successfulGames = totalAcceptedGames - totalBackedOutGames;
+              followThroughRate = (successfulGames / totalAcceptedGames) * 100.0;
+              followThroughRate = followThroughRate.clamp(0.0, 100.0);
+            }
+
+            await firestore.collection('users').doc(officialId).update({
+              'officialProfile.totalAcceptedGames': totalAcceptedGames.clamp(0, double.infinity).toInt(),
+              'officialProfile.totalBackedOutGames': totalBackedOutGames.clamp(0, double.infinity).toInt(),
+              'officialProfile.followThroughRate': followThroughRate,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+
+            debugPrint(
+                '✅ GAME SERVICE: Restored follow-through stats for official $officialId');
+            debugPrint('   Total accepted: $totalAcceptedGames');
+            debugPrint('   Total backed out: $totalBackedOutGames');
+            debugPrint(
+                '   Follow-through rate: ${followThroughRate.toStringAsFixed(1)}%');
+
+            // Get scheduler info for the notification
+            final schedulerDoc =
+                await firestore.collection('users').doc(schedulerId).get();
+            String schedulerName = 'The scheduler';
+            if (schedulerDoc.exists) {
+              final schedulerData = schedulerDoc.data();
+              if (schedulerData != null) {
+                final profile =
+                    schedulerData['profile'] as Map<String, dynamic>?;
+                if (profile != null) {
+                  final firstName = profile['firstName'] ?? '';
+                  final lastName = profile['lastName'] ?? '';
+                  schedulerName = '$firstName $lastName'.trim();
+                  if (schedulerName.isEmpty) schedulerName = 'The scheduler';
+                }
+              }
+            }
+
+            // Create a notification for the official
+            await firestore.collection('notifications').add({
+              'userId': officialId,
+              'type': 'backout_excused',
+              'title': 'Backout Excused - Follow-Through Rate Restored',
+              'message':
+                  'Your backout for the ${backOutData['gameSport']} game (${backOutData['gameOpponent']}) has been excused by $schedulerName. Your follow-through rate has been restored. Reason: $excuseReason',
+              'timestamp': FieldValue.serverTimestamp(),
+              'isRead': false,
+              'data': {
+                'gameId': gameId,
+                'backOutId': backOutId,
+                'schedulerId': schedulerId,
+                'schedulerName': schedulerName,
+              },
+            });
+          }
+        }
+      }
+
+      debugPrint('✅ GAME SERVICE: Successfully excused backout $backOutId');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to excuse backout: $e');
+      return false;
+    }
+  }
+
+  /// Get all pending (unexcused and not reviewed) backouts for games created by the scheduler
+  Future<List<Map<String, dynamic>>> getPendingBackouts(
+      String schedulerId) async {
+    try {
+      debugPrint(
+          '🔍 GAME SERVICE: Getting pending backouts for scheduler $schedulerId');
+
+      // Query for backouts where the scheduler matches and not excused
+      // We'll filter out reviewed ones in memory since we can't do multiple inequality filters
+      final querySnapshot = await firestore
+          .collection('back_outs')
+          .where('schedulerId', isEqualTo: schedulerId)
+          .where('excused', isEqualTo: false)
+          .get();
+
+      final backouts = <Map<String, dynamic>>[];
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        
+        // Skip if already reviewed
+        if (data['reviewed'] == true) continue;
+        
+        // Use officialName from stored data first, fall back to lookup if needed
+        String officialName = data['officialName'] as String? ?? '';
+        
+        if (officialName.isEmpty) {
+          // Get official info if not stored
+          final officialId = data['officialId'] as String;
+          final officialDoc =
+              await firestore.collection('users').doc(officialId).get();
+          
+          if (officialDoc.exists) {
+            final officialData = officialDoc.data();
+            if (officialData != null) {
+              final profile =
+                  officialData['profile'] as Map<String, dynamic>?;
+              if (profile != null) {
+                final firstName = profile['firstName'] ?? '';
+                final lastName = profile['lastName'] ?? '';
+                officialName = '$firstName $lastName'.trim();
+              }
+            }
+          }
+          if (officialName.isEmpty) officialName = 'Unknown Official';
+        }
+
+        backouts.add({
+          ...data,
+          'id': doc.id,
+          'officialName': officialName,
+        });
+      }
+
+      // Sort by timestamp (most recent first)
+      backouts.sort((a, b) {
+        final aTime = a['timestamp'] as Timestamp?;
+        final bTime = b['timestamp'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+
+      debugPrint(
+          '✅ GAME SERVICE: Found ${backouts.length} pending backouts for scheduler');
+      return backouts;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to get pending backouts: $e');
+      return [];
+    }
+  }
+
+  /// Mark a backout as reviewed (but not excused) - it won't show in notifications anymore
+  Future<bool> markBackoutAsReviewed(String backOutId) async {
+    try {
+      debugPrint('🔄 GAME SERVICE: Marking backout $backOutId as reviewed');
+
+      await firestore.collection('back_outs').doc(backOutId).update({
+        'reviewed': true,
+        'reviewedAt': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('✅ GAME SERVICE: Successfully marked backout as reviewed');
+      return true;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to mark backout as reviewed: $e');
+      return false;
     }
   }
 }

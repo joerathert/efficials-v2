@@ -3,17 +3,114 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can update their own profile, admins can update any profile
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Endorsements collection
+    match /endorsements/{endorsementId} {
+      // Anyone authenticated can read endorsements
+      allow read: if isAuthenticated();
+      
+      // Users can create/delete their own endorsements
+      allow create: if isAuthenticated() && 
+        request.resource.data.endorserUserId == request.auth.uid;
+      
+      // Users can delete their own endorsements, admins can delete any
+      allow delete: if isAuthenticated() && 
+        (resource.data.endorserUserId == request.auth.uid || isAdmin());
+    }
+
+    // Back outs collection
+    match /back_outs/{backoutId} {
+      // Anyone authenticated can read backouts (for stats display)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own backouts
+      allow create: if isAuthenticated() && 
+        request.resource.data.officialId == request.auth.uid;
+      
+      // Users can update their own backouts, admins can update any (for forgiveness)
+      allow update: if isAuthenticated() && 
+        (resource.data.officialId == request.auth.uid || isAdmin());
+      
+      // Only admins can delete backouts
+      allow delete: if isAdmin();
+    }
+
+    // Admin audit log collection
+    match /admin_audit_log/{logId} {
+      // Only admins can read the audit log
+      allow read: if isAdmin();
+      
+      // Only admins can create audit log entries
+      allow create: if isAdmin();
+      
+      // Audit logs cannot be updated or deleted (immutable)
+      allow update, delete: if false;
+    }
+
+    // Games collection
+    match /games/{gameId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Schedules collection
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Locations collection
+    match /locations/{locationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Game templates collection
+    match /game_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Lists of officials collection
+    match /lists_of_officials/{listId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Temporary fallback for development - remove in production
+    // This allows access to any other collections not explicitly defined
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 12, 31);
+      allow read, write: if isAuthenticated() && request.time < timestamp.date(2025, 12, 31);
     }
   }
 }

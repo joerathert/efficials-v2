@@ -44,12 +44,22 @@ import 'screens/review_list_screen.dart';
 import 'screens/edit_list_screen.dart';
 import 'screens/review_game_info_screen.dart';
 import 'screens/game_information_screen.dart';
+import 'screens/official_game_details_screen.dart';
 import 'screens/edit_game_info_screen.dart';
 import 'screens/schedule_details_screen.dart';
 import 'screens/create_game_template_screen.dart';
 import 'screens/locations_screen.dart';
 import 'screens/unpublished_games_screen.dart';
 import 'screens/schedules/assigner_manage_schedules_screen.dart';
+import 'screens/backout_notifications_screen.dart';
+import 'screens/notifications_screen.dart';
+import 'screens/official_profile_view_screen.dart';
+import 'screens/view_official_profile_screen.dart';
+import 'screens/admin/admin_panel_screen.dart';
+import 'screens/admin/admin_user_search_screen.dart';
+import 'screens/admin/admin_user_detail_screen.dart';
+import 'screens/admin/admin_audit_log_screen.dart';
+import 'screens/admin/admin_backouts_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,8 +124,13 @@ class MyApp extends StatelessWidget {
             '/coach-profile': (context) => const CoachProfileScreen(),
             '/assigner-profile': (context) => const AssignerProfileScreen(),
             '/assigner-home': (context) => const AssignerHomeScreen(),
-            '/assigner_manage_schedules': (context) => const AssignerManageSchedulesScreen(),
+            '/assigner_manage_schedules': (context) =>
+                const AssignerManageSchedulesScreen(),
             '/official-profile': (context) => const OfficialProfileScreen(),
+            '/official-profile-view': (context) =>
+                const OfficialProfileViewScreen(),
+            '/view-official-profile': (context) =>
+                const ViewOfficialProfileScreen(),
             '/official-home': (context) => const OfficialHomeScreen(),
             '/official-step2': (context) => const OfficialStep2Screen(),
             '/official-step3': (context) => const OfficialStep3Screen(),
@@ -143,13 +158,25 @@ class MyApp extends StatelessWidget {
             '/edit-list': (context) => const EditListScreen(),
             '/review-game-info': (context) => const ReviewGameInfoScreen(),
             '/game-information': (context) => const GameInformationScreen(),
+            '/official-game-details': (context) =>
+                const OfficialGameDetailsScreen(),
             '/edit_game_info': (context) => const EditGameInfoScreen(),
             '/schedule_details': (context) => const ScheduleDetailsScreen(),
             '/create_game_template': (context) =>
                 const CreateGameTemplateScreen(),
             '/locations': (context) => LocationsScreen(),
             '/unpublished-games': (context) => const UnpublishedGamesScreen(),
-            // TODO: Add other routes as we create them
+            '/backout-notifications': (context) =>
+                const BackoutNotificationsScreen(),
+            '/notifications': (context) => const NotificationsScreen(),
+            // Admin routes
+            '/admin': (context) => const AdminPanelScreen(),
+            '/admin/users': (context) => const AdminUserSearchScreen(),
+            '/admin/officials': (context) =>
+                const AdminUserSearchScreen(officialsOnly: true),
+            '/admin/user-detail': (context) => const AdminUserDetailScreen(),
+            '/admin/audit-log': (context) => const AdminAuditLogScreen(),
+            '/admin/backouts': (context) => const AdminBackoutsScreen(),
           },
         );
       },
@@ -386,12 +413,12 @@ class _MyHomePageState extends State<MyHomePage> {
                             _QuickAccessButton(
                               title: 'Athletic Director',
                               subtitle: 'Manage games & schedules',
-                              email: 'joerathert@efficials.com',
+                              email: 'bob.mayhew@efficials.com',
                               password: 'test123',
                               color: Colors.blue,
                               onTap: () => _quickSignIn(
                                   context,
-                                  'joerathert@efficials.com',
+                                  'bob.mayhew@efficials.com',
                                   'test123',
                                   '/athletic-director-home'),
                             ),
@@ -412,27 +439,40 @@ class _MyHomePageState extends State<MyHomePage> {
                             _QuickAccessButton(
                               title: 'Assigner',
                               subtitle: 'Assign officials to games',
-                              email: 'assigner.test@efficials.com',
-                              password: 'test123456',
+                              email: 'jason.unverzagt@efficials.com',
+                              password: 'test123',
                               color: Colors.purple,
                               onTap: () => _quickSignIn(
                                   context,
-                                  'assigner.test@efficials.com',
-                                  'test123456',
+                                  'jason.unverzagt@efficials.com',
+                                  'test123',
                                   '/assigner-home'),
                             ),
                             const SizedBox(height: 6),
                             _QuickAccessButton(
                               title: 'Official',
                               subtitle: 'View assigned games',
-                              email: 'official.test@efficials.com',
-                              password: 'test123456',
+                              email: 'joe.rathert@efficials.com',
+                              password: 'test123',
                               color: Colors.orange,
                               onTap: () => _quickSignIn(
                                   context,
-                                  'official.test@efficials.com',
-                                  'test123456',
-                                  '/official-profile'),
+                                  'joe.rathert@efficials.com',
+                                  'test123',
+                                  '/official-home'),
+                            ),
+                            const SizedBox(height: 6),
+                            _QuickAccessButton(
+                              title: 'Administrator',
+                              subtitle: 'Manage users & system',
+                              email: 'admin@efficials.com',
+                              password: 'test123',
+                              color: Colors.red,
+                              onTap: () => _quickSignIn(
+                                  context,
+                                  'admin@efficials.com',
+                                  'test123',
+                                  '/athletic-director-home'), // Admin goes to AD home since they're an Athletic Director
                             ),
                           ],
                         ),

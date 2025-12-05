@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import '../../services/game_service.dart';
 
 class AthleticDirectorHomeScreen extends StatefulWidget {
   const AthleticDirectorHomeScreen({super.key});
@@ -17,6 +18,8 @@ class _AthleticDirectorHomeScreenState
   bool _isLoading = true;
   List<Map<String, dynamic>> publishedGames = [];
   bool _hasShownPublishSuccess = false; // Prevent duplicate success messages
+  int _pendingBackoutCount = 0; // Count of pending backout notifications
+  final GameService _gameService = GameService();
 
   @override
   void initState() {
@@ -35,7 +38,33 @@ class _AthleticDirectorHomeScreenState
 
   Future<void> _initializeData() async {
     await _loadAlertPreferences();
-    _fetchGames();
+    await Future.wait([
+      _fetchGames(),
+      _loadPendingBackoutCount(),
+    ]);
+  }
+
+  Future<void> _loadPendingBackoutCount() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        setState(() => _pendingBackoutCount = 0);
+        return;
+      }
+
+      final backouts = await _gameService.getPendingBackouts(currentUser.uid);
+      if (mounted) {
+        setState(() {
+          _pendingBackoutCount = backouts.length;
+        });
+      }
+      debugPrint('🔔 AD HOME: Loaded $_pendingBackoutCount pending backouts');
+    } catch (e) {
+      debugPrint('🔴 AD HOME: Error loading pending backouts: $e');
+      if (mounted) {
+        setState(() => _pendingBackoutCount = 0);
+      }
+    }
   }
 
   @override
@@ -151,42 +180,74 @@ class _AthleticDirectorHomeScreenState
           ))
           .get();
 
-      final games = snapshot.docs.map((doc) {
-        final data = doc.data();
-        // Convert Firestore data back to the format expected by the UI
-        return {
-          'id': doc.id,
-          'scheduleId': data['scheduleId'],
-          'scheduleName': data['scheduleName'],
-          'sport': data['sport'],
-          'date': data['date'] != null ? DateTime.parse(data['date']) : null,
-          'time': data['time'] != null
-              ? TimeOfDay(
-                  hour: int.parse(data['time'].split(':')[0]),
-                  minute: int.parse(data['time'].split(':')[1]),
-                )
-              : null,
-          'location': data['location'],
-          'opponent': data['opponent'],
-          'officialsRequired': data['officialsRequired'] ?? 0,
-          'gameFee': data['gameFee'],
-          'gender': data['gender'],
-          'levelOfCompetition': data['levelOfCompetition'],
-          'hireAutomatically': data['hireAutomatically'] ?? false,
-          'method': data['method'],
-          'selectedOfficials': data['selectedOfficials'],
-          'selectedCrews': data['selectedCrews'],
-          'selectedCrew': data['selectedCrew'],
-          'selectedListName': data['selectedListName'],
-          'selectedLists': data['selectedLists'],
-          'officialsHired': data['officialsHired'] ?? 0,
-          'status': data['status'],
-          'createdAt': data['createdAt'],
-          'isAway': data['isAway'] ?? false,
-          'homeTeam': data['homeTeam'],
-          'awayTeam': data['awayTeam'],
-        };
-      }).toList();
+      final games = <Map<String, dynamic>>[];
+
+      for (final doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+
+          // Parse time with error handling
+          TimeOfDay? gameTime;
+          if (data['time'] != null) {
+            try {
+              final timeParts = data['time'].toString().split(':');
+              if (timeParts.length >= 2) {
+                gameTime = TimeOfDay(
+                  hour: int.parse(timeParts[0]),
+                  minute: int.parse(timeParts[1]),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error parsing time for game ${doc.id}: $e');
+              gameTime = null;
+            }
+          }
+
+          // Parse date with error handling
+          DateTime? gameDate;
+          if (data['date'] != null) {
+            try {
+              gameDate = DateTime.parse(data['date']);
+            } catch (e) {
+              debugPrint('Error parsing date for game ${doc.id}: $e');
+              gameDate = null;
+            }
+          }
+
+          // Convert Firestore data back to the format expected by the UI
+          games.add({
+            'id': doc.id,
+            'scheduleId': data['scheduleId'],
+            'scheduleName': data['scheduleName'],
+            'sport': data['sport'],
+            'date': gameDate,
+            'time': gameTime,
+            'location': data['location'],
+            'opponent': data['opponent'],
+            'officialsRequired': data['officialsRequired'] ?? 0,
+            'gameFee': data['gameFee'],
+            'gender': data['gender'],
+            'levelOfCompetition': data['levelOfCompetition'],
+            'hireAutomatically': data['hireAutomatically'] ?? false,
+            'method': data['method'],
+            'selectedOfficials': data['selectedOfficials'],
+            'selectedCrews': data['selectedCrews'],
+            'selectedCrew': data['selectedCrew'],
+            'selectedListName': data['selectedListName'],
+            'selectedLists': data['selectedLists'],
+            'officialsHired': data['officialsHired'] ?? 0,
+            'status': data['status'],
+            'createdAt': data['createdAt'],
+            'isAway': data['isAway'] ?? false,
+            'homeTeam': data['homeTeam'],
+            'awayTeam': data['awayTeam'],
+          });
+        } catch (e) {
+          debugPrint('Error processing game ${doc.id}: $e');
+          // Skip this game and continue with the rest
+          continue;
+        }
+      }
 
       // Sort games by date and time (chronological order, nearest first)
       games.sort((a, b) {
@@ -268,8 +329,10 @@ class _AthleticDirectorHomeScreenState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (upcomingGames.isEmpty && pastGames.isEmpty) {
+    // Check if we're showing upcoming games and there are none
+    if (!showPastGames && upcomingGames.isEmpty) {
       final bool hasAnyGames = publishedGames.isNotEmpty;
+      final bool hasPastGames = pastGames.isNotEmpty;
 
       if (!hasAnyGames) {
         // No games exist - show welcome message
@@ -334,6 +397,90 @@ class _AthleticDirectorHomeScreenState
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else if (hasPastGames && !showPastGames) {
+        // Only past games exist - show message to view past games
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Transform.translate(
+                  offset: const Offset(0, -80),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 80,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'No Upcoming Games',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onBackground,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'You have ${pastGames.length} past game${pastGames.length == 1 ? '' : 's'}, but no upcoming games scheduled.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: 400,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isFabExpanded = true;
+                            });
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 24),
+                          label: const Text(
+                            'Add New Game',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            showPastGames = true;
+                          });
+                        },
+                        icon: const Icon(Icons.history, size: 20),
+                        label: const Text(
+                          'View Past Games',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
                         ),
                       ),
                     ],
@@ -756,6 +903,55 @@ class _AthleticDirectorHomeScreenState
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
+        actions: [
+          // Notification bell icon with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/notifications')
+                      .then((_) {
+                    // Refresh the backout count when returning
+                    _loadPendingBackoutCount();
+                  });
+                },
+                tooltip: 'Notifications',
+              ),
+              if (_pendingBackoutCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      _pendingBackoutCount > 9
+                          ? '9+'
+                          : _pendingBackoutCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       drawer: Drawer(
         backgroundColor: colorScheme.surface,
@@ -795,7 +991,16 @@ class _AthleticDirectorHomeScreenState
                   style: TextStyle(color: colorScheme.onSurface)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/select-schedule');
+                Navigator.pushNamed(
+                  context,
+                  '/select-schedule',
+                  arguments: {'viewOnly': true}, // Flag to indicate we're just viewing schedules
+                ).then((result) {
+                  // Refresh games list if a schedule was deleted
+                  if (result is Map && result['scheduleDeleted'] == true) {
+                    _fetchGames();
+                  }
+                });
               },
             ),
             ListTile(
@@ -806,6 +1011,49 @@ class _AthleticDirectorHomeScreenState
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/lists-of-officials',
                     arguments: {'fromHamburgerMenu': true});
+              },
+            ),
+            ListTile(
+              leading: Stack(
+                children: [
+                  Icon(Icons.notification_important, color: colorScheme.primary),
+                  if (_pendingBackoutCount > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
+                        child: Text(
+                          _pendingBackoutCount > 9
+                              ? '9+'
+                              : _pendingBackoutCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              title: Text('Notifications',
+                  style: TextStyle(color: colorScheme.onSurface)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/notifications').then((_) {
+                  // Refresh the backout count when returning
+                  _loadPendingBackoutCount();
+                });
               },
             ),
             ListTile(
@@ -833,6 +1081,23 @@ class _AthleticDirectorHomeScreenState
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: Icon(
+                showPastGames ? Icons.upcoming : Icons.history,
+                color: colorScheme.primary,
+              ),
+              title: Text(
+                showPastGames ? 'View Upcoming Games' : 'View Past Games',
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  showPastGames = !showPastGames;
+                });
               },
             ),
             const Divider(color: Colors.grey),
@@ -927,7 +1192,12 @@ class _AthleticDirectorHomeScreenState
                           setState(() {
                             isFabExpanded = false;
                           });
-                          Navigator.pushNamed(context, '/select-schedule');
+                          Navigator.pushNamed(context, '/select-schedule').then((result) {
+                            // Refresh games list if a schedule was deleted
+                            if (result is Map && result['scheduleDeleted'] == true) {
+                              _fetchGames();
+                            }
+                          });
                         },
                         backgroundColor: colorScheme.primary,
                         label: Text('Start from Scratch',

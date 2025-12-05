@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
 import '../services/location_service.dart';
+import '../services/user_service.dart';
+import '../services/auth_service.dart';
 
 class ChooseLocationScreen extends StatefulWidget {
   const ChooseLocationScreen({super.key});
@@ -23,11 +25,14 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   bool isEdit = false;
   Map<String, dynamic>? originalArgs;
   bool _userHasSelectedLocation = false;
+  final UserService _userService = UserService();
+  String? _userType;
 
   @override
   void initState() {
     super.initState();
     _fetchLocations();
+    _fetchUserType();
   }
 
   @override
@@ -99,6 +104,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
     }
   }
 
+  Future<void> _fetchUserType() async {
+    try {
+      final user = await _userService.getCurrentUser();
+      setState(() {
+        _userType = user?.schedulerProfile?.type;
+      });
+    } catch (e) {
+      print('Error fetching user type: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -110,11 +126,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         backgroundColor: colorScheme.surface,
         title: Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
-            return Icon(
-              Icons.sports,
-              color:
-                  themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
-              size: 32,
+            return IconButton(
+              icon: Icon(
+                Icons.sports,
+                color: themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
+                size: 32,
+              ),
+              onPressed: () async {
+                final authService = AuthService();
+                final homeRoute = await authService.getHomeRoute();
+                Navigator.pushNamedAndRemoveUntil(context, homeRoute, (route) => false);
+              },
             );
           },
         ),

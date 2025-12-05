@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/game_template_model.dart';
 import '../services/game_service.dart';
+import '../services/auth_service.dart';
 
 class ScheduleDetailsScreen extends StatefulWidget {
   const ScheduleDetailsScreen({super.key});
@@ -168,12 +169,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
             final templateData =
                 association['templateData'] as Map<String, dynamic>?;
             associatedTemplateName = templateData?['name'] as String?;
-            debugPrint(
-                '🎯 SCHEDULE DETAILS: Associated template name: $associatedTemplateName');
-            debugPrint('🎯 SCHEDULE DETAILS: Template data: $templateData');
           } else {
             associatedTemplateName = null;
-            debugPrint('🎯 SCHEDULE DETAILS: No associated template found');
           }
           isLoadingTemplate = false;
         });
@@ -217,9 +214,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       final success =
           await _gameService.removeTemplateAssociation(scheduleName!);
       if (success && mounted) {
-        setState(() {
-          associatedTemplateName = null;
-        });
+        // Refresh template information from server to ensure UI consistency
+        await _loadAssociatedTemplate();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Template association removed')),
         );
@@ -580,10 +576,12 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
       appBar: AppBar(
         backgroundColor: colorScheme.surface,
         title: GestureDetector(
-          onTap: () {
+          onTap: () async {
+            final authService = AuthService();
+            final homeRoute = await authService.getHomeRoute();
             Navigator.pushNamedAndRemoveUntil(
               context,
-              '/athletic-director-home',
+              homeRoute,
               (route) => false,
             );
           },
@@ -597,15 +595,17 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () {
+          onPressed: () async {
             // Check if we can pop back to the previous screen
             if (Navigator.canPop(context)) {
               Navigator.pop(context);
             } else {
-              // Fallback to AD home screen if navigation stack is empty
+              // Fallback to user home screen if navigation stack is empty
+              final authService = AuthService();
+              final homeRoute = await authService.getHomeRoute();
               Navigator.pushNamedAndRemoveUntil(
                 context,
-                '/athletic-director-home',
+                homeRoute,
                 (route) => false,
               );
             }
@@ -693,21 +693,20 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: _removeAssociatedTemplate,
-                                child: Container(
+                              IconButton(
+                                onPressed: _removeAssociatedTemplate,
+                                icon: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.red.shade600,
+                                ),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.red.withOpacity(0.1),
                                   padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.red.withOpacity(0.3),
-                                        width: 1),
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Colors.red.shade600,
+                                  shape: const CircleBorder(),
+                                  side: BorderSide(
+                                    color: Colors.red.withOpacity(0.3),
+                                    width: 1,
                                   ),
                                 ),
                               ),

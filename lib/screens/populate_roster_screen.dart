@@ -327,6 +327,72 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
       );
     }
 
+    if (filteredOfficials.isEmpty && hasAppliedFilters) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 80,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No officials meet the current filter parameters',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try broadening your search criteria',
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.pushNamed(
+                  context,
+                  '/filter-settings',
+                  arguments: {
+                    'sport': sport,
+                    'previousFilters': filters,
+                  },
+                ).then((filterResult) {
+                  if (filterResult != null &&
+                      filterResult is Map<String, dynamic>) {
+                    _applyFilters(filterResult);
+                  }
+                });
+              },
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              icon: Icon(
+                Icons.filter_list,
+                color: colorScheme.onPrimary,
+              ),
+              label: Text(
+                'Adjust Filters',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // When filters are applied, also show the filter button
     return Column(
       children: [
@@ -462,6 +528,14 @@ class _PopulateRosterScreenState extends State<PopulateRosterScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'Follow-Through: ${(official['followThroughRate'] ?? 100.0).toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],

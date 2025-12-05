@@ -4,6 +4,7 @@ import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
 import '../services/game_service.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
 // Use the typedef from GameService
@@ -23,6 +24,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   GameTemplateModel? template;
   UserModel? _currentUser;
   final UserService _userService = UserService();
+  bool viewOnly = false; // Flag to determine if we're viewing schedules or creating a game
 
   @override
   void initState() {
@@ -51,6 +53,11 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       // Handle the case when args is a Map
       if (args is Map<String, dynamic>?) {
         if (args != null) {
+          // Check if we're in view-only mode (from hamburger menu)
+          if (args.containsKey('viewOnly')) {
+            viewOnly = args['viewOnly'] as bool? ?? false;
+          }
+          
           if (args.containsKey('template')) {
             template = args['template'] as GameTemplateModel?;
           } else if (args.containsKey('name') && args.containsKey('sport')) {
@@ -180,10 +187,12 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                     : Colors.black, // Black in light mode
                 size: 32,
               ),
-              onPressed: () {
-                // Navigate to Athletic Director home screen
+              onPressed: () async {
+                // Navigate to user home screen
+                final authService = AuthService();
+                final homeRoute = await authService.getHomeRoute();
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/ad-home',
+                  homeRoute,
                   (route) => false, // Remove all routes
                 );
               },
@@ -388,6 +397,22 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                       }
                                       final selected = schedules.firstWhere(
                                           (s) => s['name'] == selectedSchedule);
+
+                                      // If viewOnly mode (from hamburger menu), navigate to schedule details
+                                      if (viewOnly) {
+                                        debugPrint(
+                                            '📅 SELECT_SCHEDULE: View-only mode, navigating to schedule details');
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/schedule_details',
+                                          arguments: {
+                                            'scheduleName': selectedSchedule,
+                                            'scheduleId': selected['id'],
+                                          },
+                                        );
+                                        return;
+                                      }
+
                                       // Get home team from scheduler's profile
                                       String? homeTeam;
 
@@ -611,7 +636,7 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
-          'Final Confirmation',
+          'Second Confirmation',
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
@@ -638,20 +663,15 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
             ),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(context);
-              await _deleteSchedule(scheduleName, scheduleId);
-              setState(() {
-                selectedSchedule = schedules.isNotEmpty
-                    ? schedules[0]['name'] as String
-                    : null;
-              });
+              _showThirdDeleteConfirmationDialog(scheduleName, scheduleId);
             },
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
             child: Text(
-              'Delete',
+              'Continue',
               style: TextStyle(color: Colors.red),
             ),
           ),
@@ -660,30 +680,310 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
     );
   }
 
+  void _showThirdDeleteConfirmationDialog(
+      String scheduleName, String scheduleId) async {
+    // Get game count and affected officials count
+    final gameService = GameService();
+    int gameCount = 0;
+    Set<String> affectedOfficials = {};
+    
+    try {
+      final games = await gameService.getGamesByScheduleId(scheduleId);
+      gameCount = games.length;
+      
+      // Count unique officials across all games
+      for (var game in games) {
+        final selectedOfficials = game['selectedOfficials'] as List?;
+        if (selectedOfficials != null) {
+          for (var official in selectedOfficials) {
+            if (official is Map && official['id'] != null) {
+              affectedOfficials.add(official['id'] as String);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting game details: $e');
+    }
+
+    if (!mounted) return;
+    
+    // Use showDialog with a result to handle the confirmation
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _FinalDeleteConfirmationDialog(
+        scheduleName: scheduleName,
+        gameCount: gameCount,
+        affectedOfficialsCount: affectedOfficials.length,
+      ),
+    );
+    
+    // If user confirmed deletion
+    if (result == true && mounted) {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Deleting schedule and notifying officials...'),
+            ],
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+      
+      // Delete and navigate back
+      await _deleteSchedule(scheduleName, scheduleId);
+    }
+  }
+
   Future<void> _deleteSchedule(String scheduleName, String scheduleId) async {
     try {
-      // Delete the schedule from Firestore (this also deletes associated games)
+      debugPrint('🗑️ SELECT_SCHEDULE: Starting deletion of schedule: $scheduleName');
+      
+      // Delete the schedule from Firestore (this also deletes associated games and notifies officials)
       final gameService = GameService();
       await gameService.deleteSchedule(scheduleId);
+      
+      debugPrint('✅ SELECT_SCHEDULE: Schedule deleted successfully');
 
-      // Remove from local list
-      setState(() {
-        schedules.removeWhere((s) => s['name'] == scheduleName);
-      });
-
+      // Navigate back immediately without setState to avoid accessing disposed controllers
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Schedule "$scheduleName" deleted successfully')),
+            content: Text('Schedule "$scheduleName" deleted successfully. Officials have been notified.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
         );
+        
+        // Return a result to notify the calling screen to refresh
+        // Pop immediately without setState since we're leaving this screen anyway
+        Navigator.pop(context, {'scheduleDeleted': true});
       }
     } catch (e) {
       debugPrint('❌ SELECT_SCHEDULE: Error deleting schedule: $e');
+      debugPrint('❌ SELECT_SCHEDULE: Stack trace: ${StackTrace.current}');
+      
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting schedule: $e')),
+          SnackBar(
+            content: Text('Error deleting schedule: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
         );
       }
     }
+  }
+}
+
+/// Separate StatefulWidget for the final delete confirmation dialog
+/// This properly manages the TextEditingController lifecycle
+class _FinalDeleteConfirmationDialog extends StatefulWidget {
+  final String scheduleName;
+  final int gameCount;
+  final int affectedOfficialsCount;
+
+  const _FinalDeleteConfirmationDialog({
+    required this.scheduleName,
+    required this.gameCount,
+    required this.affectedOfficialsCount,
+  });
+
+  @override
+  State<_FinalDeleteConfirmationDialog> createState() =>
+      _FinalDeleteConfirmationDialogState();
+}
+
+class _FinalDeleteConfirmationDialogState
+    extends State<_FinalDeleteConfirmationDialog> {
+  late TextEditingController _confirmationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confirmationController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _confirmationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      title: Row(
+        children: [
+          Icon(Icons.warning, color: Colors.red, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'FINAL CONFIRMATION',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are about to permanently delete:',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red, width: 2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '• Schedule: "${widget.scheduleName}"',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• ${widget.gameCount} game${widget.gameCount != 1 ? 's' : ''} will be deleted',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• ${widget.affectedOfficialsCount} official${widget.affectedOfficialsCount != 1 ? 's' : ''} will be notified',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'This action CANNOT be undone!',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Type "DELETE" to confirm:',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirmationController,
+              decoration: InputDecoration(
+                hintText: 'Type DELETE here',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.red, width: 2),
+                ),
+              ),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context, false); // Return false - cancelled
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.primary,
+          ),
+          child: Text(
+            'Cancel',
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_confirmationController.text == 'DELETE') {
+              Navigator.pop(context, true); // Return true - confirmed
+            } else {
+              // Show error if text doesn't match
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please type "DELETE" to confirm'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text(
+            'DELETE PERMANENTLY',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

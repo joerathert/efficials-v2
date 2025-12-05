@@ -471,7 +471,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     }
   }
 
-  void _navigateBack() {
+  void _navigateBack() async {
     debugPrint(
         '_navigateBack called. fromScheduleDetails: $fromScheduleDetails');
     if (fromScheduleDetails) {
@@ -483,11 +483,15 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         },
       );
     } else {
-      debugPrint('Navigating back to athletic director home');
-      // Replace the current navigation stack with a fresh AD home screen
+      debugPrint('Navigating back to user home screen');
+      // Get the appropriate home route based on user type
+      final authService = AuthService();
+      final homeRoute = await authService.getHomeRoute();
+
+      // Replace the current navigation stack with a fresh home screen
       // This ensures the screen refreshes and shows the newly published game
       Navigator.of(context).pushNamedAndRemoveUntil(
-        '/ad-home',
+        homeRoute,
         (route) => false, // Remove all routes
         arguments: {'refresh': true, 'gamePublished': true},
       );
@@ -547,10 +551,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                     : Colors.black, // Black in light mode
                 size: 32,
               ),
-              onPressed: () {
-                // Navigate to Athletic Director home screen
+              onPressed: () async {
+                // Navigate to user home screen
+                final authService = AuthService();
+                final homeRoute = await authService.getHomeRoute();
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/ad-home',
+                  homeRoute,
                   (route) => false, // Remove all routes
                 );
               },

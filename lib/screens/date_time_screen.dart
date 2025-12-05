@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart';
+import '../services/auth_service.dart';
 
 class DateTimeScreen extends StatefulWidget {
   const DateTimeScreen({super.key});
@@ -104,10 +105,12 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                     : Colors.black,
                 size: 32,
               ),
-              onPressed: () {
-                // Navigate to Athletic Director home screen
+              onPressed: () async {
+                // Navigate to user home screen
+                final authService = AuthService();
+                final homeRoute = await authService.getHomeRoute();
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/ad-home',
+                  homeRoute,
                   (route) => false, // Remove all routes
                 );
               },
@@ -277,7 +280,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                             width: 400,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: (selectedDate != null)
+                              onPressed: (selectedDate != null && selectedTime != null)
                                   ? () {
                                       // Use selectedTime if user chose it, otherwise use pre-populated time
                                       TimeOfDay? finalTime = selectedTime;
@@ -349,10 +352,10 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: selectedDate != null
+                                backgroundColor: (selectedDate != null && selectedTime != null)
                                     ? colorScheme.primary
                                     : colorScheme.surfaceVariant,
-                                foregroundColor: selectedDate != null
+                                foregroundColor: (selectedDate != null && selectedTime != null)
                                     ? colorScheme.onPrimary
                                     : colorScheme.onSurfaceVariant,
                                 padding: const EdgeInsets.symmetric(
@@ -366,7 +369,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: selectedDate != null
+                                  color: (selectedDate != null && selectedTime != null)
                                       ? colorScheme.onPrimary
                                       : colorScheme.onSurfaceVariant,
                                 ),

@@ -108,7 +108,7 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
     if (!selectedSports.containsKey(sport)) {
       selectedSports[sport] = {
         'certification': null,
-        'experience': 0,
+        'experience': null, // Changed from 0 to null for proper empty field handling
         'competitionLevels': <String>[],
       };
 
@@ -457,7 +457,7 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 90,
             child: Text(
               label,
               style: TextStyle(
@@ -494,8 +494,18 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
           previousData['selectedSports'] as Map<String, Map<String, dynamic>>;
       int maxExperience = 0;
       String? highestCertification;
-      final sportsData = Map<String, Map<String, dynamic>>.from(
-          selectedSports); // Save detailed sports data
+
+      // Convert selectedSports data to match the expected format for the profile
+      final sportsData = <String, Map<String, dynamic>>{};
+      for (final entry in selectedSports.entries) {
+        final sportName = entry.key;
+        final sportData = entry.value;
+        sportsData[sportName] = {
+          'certificationLevel': sportData['certification'] ?? 'No Certification',
+          'yearsExperience': sportData['experience'] ?? 0,
+          'competitionLevels': sportData['competitionLevels'] ?? [],
+        };
+      }
 
       for (final sportData in selectedSports.values) {
         final experience = sportData['experience'] as int? ?? 0;
@@ -514,6 +524,25 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         }
       }
 
+      // Parse work preferences
+      double? ratePerGame;
+      if (previousData['minRatePerGame'] != null) {
+        final rateString = previousData['minRatePerGame'].toString().replaceAll('\$', '');
+        ratePerGame = double.tryParse(rateString);
+      }
+      // Handle maxTravelDistance which might come as int or double
+      int? maxTravelDistance;
+      if (previousData['maxTravelDistance'] != null) {
+        final travelValue = previousData['maxTravelDistance'];
+        if (travelValue is int) {
+          maxTravelDistance = travelValue;
+        } else if (travelValue is double) {
+          maxTravelDistance = travelValue.toInt();
+        } else if (travelValue is String) {
+          maxTravelDistance = int.tryParse(travelValue);
+        }
+      }
+
       // Create official profile
       final officialProfile = OfficialProfile(
         address: previousData['address'],
@@ -528,6 +557,8 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         bio: null, // Bio field should be for actual biographical information
         sportsData:
             sportsData, // Save detailed sports data with experience, certification, and competition levels
+        ratePerGame: ratePerGame,
+        maxTravelDistance: maxTravelDistance,
       );
 
       // Create profile data
@@ -561,10 +592,10 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
             ),
           );
 
-          // Navigate to home screen
+          // Navigate to official home screen (user is now automatically signed in)
           Navigator.pushNamedAndRemoveUntil(
             context,
-            '/',
+            '/official-home',
             (route) => false,
           );
         } else {

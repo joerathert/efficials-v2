@@ -294,6 +294,23 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        title: GestureDetector(
+          onTap: () async {
+            final authService = AuthService();
+            final homeRoute = await authService.getHomeRoute();
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              homeRoute,
+              (route) => false,
+            );
+          },
+          child: Icon(
+            Icons.sports,
+            color: colorScheme.primary,
+            size: 32,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Center(
         child: ConstrainedBox(
@@ -507,13 +524,16 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               final officialName = official is Map
                   ? official['name'] as String? ?? 'Unknown Official'
                   : official.toString();
+              final officialId = official is Map
+                  ? official['id'] as String? ?? ''
+                  : '';
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => _navigateToOfficialProfile(officialName),
+                        onTap: () => _navigateToOfficialProfile(officialId),
                         child: Text(
                           officialName,
                           style: TextStyle(
@@ -554,7 +574,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                 return CheckboxListTile(
                   title: GestureDetector(
                     onTap: () =>
-                        _navigateToOfficialProfile(official['name'] as String),
+                        _navigateToOfficialProfile(official['id'] as String? ?? ''),
                     child: Text(
                       official['name'] as String,
                       style: TextStyle(
@@ -814,10 +834,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     );
   }
 
-  void _navigateToOfficialProfile(String officialName) {
-    // Implementation for navigating to official profile
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Navigate to $officialName profile')),
+  void _navigateToOfficialProfile(String officialId) {
+    if (officialId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot view profile: Official ID not available')),
+      );
+      return;
+    }
+    
+    Navigator.pushNamed(
+      context,
+      '/view-official-profile',
+      arguments: {'officialId': officialId},
     );
   }
 

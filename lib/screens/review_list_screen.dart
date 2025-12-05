@@ -170,25 +170,30 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       final originalArgs = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
       // Navigate back to Lists of Officials screen
+      // IMPORTANT: Put game data at TOP LEVEL, not nested inside newListCreated
+      // This ensures the Lists of Officials screen can properly save the game creation args
       final Map<String, dynamic> navigationArgs = {
+        // List creation data
         'newListCreated': {
           'listName': listName,
           'sport': sport,
           'officials': selectedOfficialsData,
           'id': listId,
-          // Include context in the result
           'fromInsufficientLists': fromInsufficientLists,
           'fromGameCreation': fromGameCreation,
           'gameArgs': gameArgs,
-    // Include ALL original game creation arguments (scheduleName, homeTeam, date, etc.)
-    // Filter out list-specific arguments that shouldn't be included
-    // Note: 'sport' here refers to the GAME sport, not the list sport
-    ...Map.fromEntries(
-      originalArgs.entries.where((entry) =>
-        !['listName', 'listId', 'isEdit', 'selectedOfficials', 'existingLists'].contains(entry.key)
-      )
-    ),
         },
+        // Include context flags at TOP LEVEL
+        'fromInsufficientLists': fromInsufficientLists,
+        'fromGameCreation': fromGameCreation,
+        'gameArgs': gameArgs,
+        // Include ALL original game creation arguments at TOP LEVEL (scheduleName, homeTeam, date, time, etc.)
+        // Filter out list-specific arguments that shouldn't be included
+        ...Map.fromEntries(
+          originalArgs.entries.where((entry) =>
+            !['listName', 'listId', 'isEdit', 'selectedOfficials', 'existingLists'].contains(entry.key)
+          )
+        ),
       };
 
       debugPrint('🎯 ReviewListScreen: CONSTRUCTING NAVIGATION ARGS:');
@@ -196,13 +201,13 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
       debugPrint('🎯 ReviewListScreen: - fromGameCreation: $fromGameCreation (type: ${fromGameCreation.runtimeType})');
       debugPrint('🎯 ReviewListScreen: - gameArgs present: ${gameArgs != null}');
       debugPrint('🎯 ReviewListScreen: - gameArgs: $gameArgs');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][fromInsufficientLists]: ${navigationArgs['newListCreated']?['fromInsufficientLists']}');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][fromGameCreation]: ${navigationArgs['newListCreated']?['fromGameCreation']}');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[newListCreated][gameArgs]: ${navigationArgs['newListCreated']?['gameArgs']}');
       debugPrint('🎯 ReviewListScreen: - navigationArgs keys: ${navigationArgs.keys.toList()}');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[fromInsufficientLists]: ${navigationArgs['fromInsufficientLists']}');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[fromGameCreation]: ${navigationArgs['fromGameCreation']}');
-      debugPrint('🎯 ReviewListScreen: - navigationArgs[gameArgs]: ${navigationArgs['gameArgs']}');
+      debugPrint('🎯 ReviewListScreen: TOP LEVEL game data:');
+      debugPrint('🎯 ReviewListScreen: - scheduleName: ${navigationArgs['scheduleName']}');
+      debugPrint('🎯 ReviewListScreen: - date: ${navigationArgs['date']}');
+      debugPrint('🎯 ReviewListScreen: - time: ${navigationArgs['time']}');
+      debugPrint('🎯 ReviewListScreen: - location: ${navigationArgs['location']}');
+      debugPrint('🎯 ReviewListScreen: - opponent: ${navigationArgs['opponent']}');
 
       Navigator.pushReplacementNamed(
         context,

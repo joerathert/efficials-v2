@@ -52,6 +52,9 @@ dependencies:
   # Internationalization for date formatting
   intl: ^0.19.0
 
+  # URL launcher for external links
+  url_launcher: ^6.1.12
+
   # Calendar widget for schedule details
   table_calendar: ^3.0.9
 

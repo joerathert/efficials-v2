@@ -75,7 +75,8 @@ class OfficialService extends BaseService {
             if (sportData != null) {
               debugPrint(
                   '🔍 Official ${data['email']} sport data keys: ${sportData.keys.toList()}');
-              officialIhsaLevel = sportData['certification'];
+              // Try both possible field names for certification
+              officialIhsaLevel = sportData['certification'] ?? sportData['certificationLevel'];
               debugPrint(
                   '✅ Found sport-specific certification: $officialIhsaLevel');
             } else {
@@ -152,7 +153,7 @@ class OfficialService extends BaseService {
             return false;
           }
 
-          final experience = sportData['experience'];
+          final experience = sportData['experience'] ?? sportData['yearsExperience'];
           if (experience == null) {
             debugPrint(
                 '❌ Official ${data['email']} has no experience for $sport');
@@ -286,9 +287,13 @@ class OfficialService extends BaseService {
           'distance': officialProfile['distance'] ?? 0.0,
           'yearsExperience': (officialProfile['sportsData']
                   as Map<String, dynamic>?)?[sport]?['experience'] ??
+              (officialProfile['sportsData']
+                  as Map<String, dynamic>?)?[sport]?['yearsExperience'] ??
               0,
           'ihsaLevel': (officialProfile['sportsData']
                   as Map<String, dynamic>?)?[sport]?['certification'] ??
+              (officialProfile['sportsData']
+                  as Map<String, dynamic>?)?[sport]?['certificationLevel'] ??
               'registered',
           'competitionLevels': (officialProfile['sportsData']
                   as Map<String, dynamic>?)?[sport]?['competitionLevels'] ??

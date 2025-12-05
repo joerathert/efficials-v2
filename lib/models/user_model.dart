@@ -258,6 +258,11 @@ class OfficialProfile {
   final String? bio;
   final Map<String, Map<String, dynamic>>?
       sportsData; // Detailed sports data with experience, certification, competition levels
+  final double? ratePerGame; // Minimum rate per game in dollars
+  final int? maxTravelDistance; // Maximum travel distance in miles
+  final int schedulerEndorsements; // Number of endorsements from schedulers
+  final int officialEndorsements; // Number of endorsements from other officials
+  final bool showCareerStats; // Whether to show career stats to other users
 
   const OfficialProfile({
     this.address,
@@ -271,6 +276,11 @@ class OfficialProfile {
     this.totalBackedOutGames = 0,
     this.bio,
     this.sportsData,
+    this.ratePerGame,
+    this.maxTravelDistance,
+    this.schedulerEndorsements = 0,
+    this.officialEndorsements = 0,
+    this.showCareerStats = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -286,6 +296,11 @@ class OfficialProfile {
       'totalBackedOutGames': totalBackedOutGames,
       'bio': bio,
       'sportsData': sportsData,
+      'ratePerGame': ratePerGame,
+      'maxTravelDistance': maxTravelDistance,
+      'schedulerEndorsements': schedulerEndorsements,
+      'officialEndorsements': officialEndorsements,
+      'showCareerStats': showCareerStats,
     };
   }
 
@@ -304,6 +319,11 @@ class OfficialProfile {
       sportsData: map['sportsData'] != null
           ? Map<String, Map<String, dynamic>>.from(map['sportsData'])
           : null,
+      ratePerGame: map['ratePerGame']?.toDouble(),
+      maxTravelDistance: map['maxTravelDistance']?.toInt(),
+      schedulerEndorsements: (map['schedulerEndorsements'] ?? 0).toInt(),
+      officialEndorsements: (map['officialEndorsements'] ?? 0).toInt(),
+      showCareerStats: map['showCareerStats'] ?? true,
     );
   }
 }
@@ -313,6 +333,7 @@ class UserModel {
   final String id; // Firebase Auth UID
   final String email;
   final String role; // 'scheduler' | 'official'
+  final bool isAdmin; // Admin privileges for app management
   final ProfileData profile;
   final SchedulerProfile? schedulerProfile;
   final OfficialProfile? officialProfile;
@@ -326,6 +347,7 @@ class UserModel {
     required this.id,
     required this.email,
     required this.role,
+    this.isAdmin = false,
     required this.profile,
     this.schedulerProfile,
     this.officialProfile,
@@ -342,6 +364,7 @@ class UserModel {
     required String email,
     required ProfileData profile,
     required SchedulerProfile schedulerProfile,
+    bool isAdmin = false,
     List<String> fcmTokens = const [],
     List<String> dismissedGameIds = const [],
     List<String> pendingGameIds = const [],
@@ -353,6 +376,7 @@ class UserModel {
       id: id,
       email: email,
       role: 'scheduler',
+      isAdmin: isAdmin,
       profile: profile,
       schedulerProfile: schedulerProfile,
       fcmTokens: fcmTokens,
@@ -369,6 +393,7 @@ class UserModel {
     required String email,
     required ProfileData profile,
     required OfficialProfile officialProfile,
+    bool isAdmin = false,
     List<String> fcmTokens = const [],
     List<String> dismissedGameIds = const [],
     List<String> pendingGameIds = const [],
@@ -380,6 +405,7 @@ class UserModel {
       id: id,
       email: email,
       role: 'official',
+      isAdmin: isAdmin,
       profile: profile,
       officialProfile: officialProfile,
       fcmTokens: fcmTokens,
@@ -395,6 +421,7 @@ class UserModel {
       'id': id,
       'email': email,
       'role': role,
+      'isAdmin': isAdmin,
       'profile': profile.toMap(),
       'fcmTokens': fcmTokens,
       'dismissedGameIds': dismissedGameIds,
@@ -419,6 +446,7 @@ class UserModel {
       id: map['id'] ?? '',
       email: map['email'] ?? '',
       role: map['role'] ?? '',
+      isAdmin: map['isAdmin'] ?? false,
       profile: ProfileData.fromMap(map['profile'] ?? {}),
       schedulerProfile: map['schedulerProfile'] != null
           ? SchedulerProfile.fromMap(map['schedulerProfile'])
@@ -444,6 +472,7 @@ class UserModel {
     String? id,
     String? email,
     String? role,
+    bool? isAdmin,
     ProfileData? profile,
     SchedulerProfile? schedulerProfile,
     OfficialProfile? officialProfile,
@@ -457,6 +486,7 @@ class UserModel {
       id: id ?? this.id,
       email: email ?? this.email,
       role: role ?? this.role,
+      isAdmin: isAdmin ?? this.isAdmin,
       profile: profile ?? this.profile,
       schedulerProfile: schedulerProfile ?? this.schedulerProfile,
       officialProfile: officialProfile ?? this.officialProfile,

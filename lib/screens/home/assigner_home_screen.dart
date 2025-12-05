@@ -22,6 +22,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
   int _unpublishedGamesCount = 0;
+  int _pendingBackoutCount = 0; // Count of pending backout notifications
   List<Map<String, dynamic>> _gamesNeedingOfficials = [];
 
   // Animation controllers
@@ -65,7 +66,31 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       _loadUnreadNotificationCount(),
       _loadUnpublishedGamesCount(),
       _loadGamesNeedingOfficials(),
+      _loadPendingBackoutCount(),
     ]);
+  }
+
+  Future<void> _loadPendingBackoutCount() async {
+    try {
+      final currentUser = await _userRepository.getCurrentUser();
+      if (currentUser == null) {
+        if (mounted) setState(() => _pendingBackoutCount = 0);
+        return;
+      }
+
+      final backouts = await _gameService.getPendingBackouts(currentUser.id);
+      if (mounted) {
+        setState(() {
+          _pendingBackoutCount = backouts.length;
+        });
+      }
+      debugPrint('🔔 ASSIGNER HOME: Loaded $_pendingBackoutCount pending backouts');
+    } catch (e) {
+      debugPrint('🔴 ASSIGNER HOME: Error loading pending backouts: $e');
+      if (mounted) {
+        setState(() => _pendingBackoutCount = 0);
+      }
+    }
   }
 
   Future<void> _checkAssignerSetup() async {
@@ -159,9 +184,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   Future<void> _loadGamesNeedingOfficials() async {
     debugPrint('🏠 _loadGamesNeedingOfficials() STARTING');
     try {
-      debugPrint('🏠 About to call _gameService.getGames()');
-      final games = await _gameService.getGames();
-      debugPrint('🏠 Got ${games.length} games from getGames()');
+      debugPrint('🏠 About to call _gameService.getPublishedGames()');
+      final games = await _gameService.getPublishedGames();
+      debugPrint('🏠 Got ${games.length} games from getPublishedGames()');
 
       final gamesNeedingOfficials = games.where((game) {
         final needsOfficials = (game['officialsHired'] as int? ?? 0) < (game['officialsRequired'] as int? ?? 0);
@@ -266,6 +291,55 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
+        actions: [
+          // Notification bell icon with badge for backout notifications
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.efficialsYellow,
+                ),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/notifications')
+                      .then((_) {
+                    // Refresh the backout count when returning
+                    _loadPendingBackoutCount();
+                  });
+                },
+                tooltip: 'Notifications',
+              ),
+              if (_pendingBackoutCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      _pendingBackoutCount > 9
+                          ? '9+'
+                          : _pendingBackoutCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       drawer: Drawer(
         backgroundColor: Colors.grey[800],
@@ -347,6 +421,48 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                 Navigator.pushNamed(context, '/unpublished_games').then((_) {
                   _loadUnpublishedGamesCount(); // Refresh count after returning
                   _loadGamesNeedingOfficials();
+                });
+              },
+            ),
+            ListTile(
+              leading: Stack(
+                children: [
+                  const Icon(Icons.notification_important, color: AppColors.efficialsYellow),
+                  if (_pendingBackoutCount > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
+                        child: Text(
+                          _pendingBackoutCount > 9
+                              ? '9+'
+                              : _pendingBackoutCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              title: const Text('Notifications',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/notifications').then((_) {
+                  _loadPendingBackoutCount(); // Refresh count after returning
                 });
               },
             ),

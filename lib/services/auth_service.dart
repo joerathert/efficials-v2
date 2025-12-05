@@ -71,6 +71,12 @@ class AuthService {
         return AuthResult.failure('Failed to create authentication account');
       }
 
+      // Automatically sign in the user after successful account creation
+      await _auth.signInWithEmailAndPassword(
+        email: email.trim().toLowerCase(),
+        password: password,
+      );
+
       // Create user model
       final userModel = role == 'scheduler'
           ? UserModel.scheduler(
@@ -290,5 +296,20 @@ class AuthService {
 
     final userModel = await getCurrentUserProfile();
     return userModel?.schedulerType;
+  }
+
+  /// Get the appropriate home route based on user scheduler type
+  Future<String> getHomeRoute() async {
+    final schedulerType = await getSchedulerType();
+    switch (schedulerType) {
+      case 'Athletic Director':
+        return '/ad-home';
+      case 'Coach':
+        return '/coach-home';
+      case 'Assigner':
+        return '/assigner-home';
+      default:
+        return '/ad-home'; // Default fallback
+    }
   }
 }

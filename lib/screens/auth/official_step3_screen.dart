@@ -39,8 +39,24 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
 
   // Selected sports with their details
   Map<String, Map<String, dynamic>> selectedSports = {};
+  // Maintain order of sports (most recently added first)
+  List<String> sportsOrder = [];
 
   late Map<String, dynamic> previousData;
+
+  ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -50,10 +66,22 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
 
     // Initialize selectedSports from previous data if it exists
     if (previousData.containsKey('selectedSports')) {
+      final previousSports = previousData['selectedSports']
+          as Map<String, Map<String, dynamic>>;
       setState(() {
-        selectedSports = Map<String, Map<String, dynamic>>.from(
-            previousData['selectedSports']
-                as Map<String, Map<String, dynamic>>);
+        selectedSports = Map<String, Map<String, dynamic>>.from(previousSports);
+        // Initialize order with existing sports (most recently added first)
+        sportsOrder = previousSports.keys.toList().reversed.toList();
+      });
+      // Scroll to top after initialization
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
       });
     }
   }
@@ -63,9 +91,21 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
       setState(() {
         selectedSports[sport] = {
           'certification': null,
-          'experience': 0,
+          'experience': null, // Changed from 0 to null for proper empty field handling
           'competitionLevels': <String>[],
         };
+        // Add to the beginning of the order list so it appears at the top
+        sportsOrder.insert(0, sport);
+      });
+      // Scroll to top to show the new sport
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
       });
     }
   }
@@ -73,6 +113,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
   void _removeSport(String sport) {
     setState(() {
       selectedSports.remove(sport);
+      sportsOrder.remove(sport);
     });
   }
 
@@ -263,6 +304,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
                   // Form Fields
                   Expanded(
                     child: SingleChildScrollView(
+                      controller: _scrollController,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -351,8 +393,8 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
                           else
                             Column(
                               children: [
-                                ...selectedSports.entries.map((entry) =>
-                                    _buildSportCard(entry.key, entry.value)),
+                                ...sportsOrder.map((sportName) =>
+                                    _buildSportCard(sportName, selectedSports[sportName]!)),
                                 const SizedBox(height: 32),
 
                                 // Button Row - Add Sport above Continue
@@ -487,6 +529,55 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
               ),
               const SizedBox(height: 16),
 
+              // Years of Experience Field (moved up)
+              SizedBox(
+                width: 240,
+                child: TextFormField(
+                  initialValue: sportData['experience'] == null
+                      ? null
+                      : sportData['experience'].toString(),
+                  decoration: InputDecoration(
+                    labelText: 'Years of Experience',
+                    hintText: 'Set years of experience',
+                    labelStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: theme.brightness == Brightness.dark
+                            ? colorScheme.primary // Yellow for dark mode
+                            : Colors.black, // Black for light mode
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: theme.brightness == Brightness.dark
+                        ? Colors.grey[700]
+                        : colorScheme.surface,
+                  ),
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 16,
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    sportData['experience'] = value.isEmpty ? null : int.tryParse(value) ?? 0;
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // Certification Level Dropdown
               SizedBox(
                 width: 240,
@@ -541,55 +632,6 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
                     setState(() {
                       sportData['certification'] = value;
                     });
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Years of Experience Field
-              SizedBox(
-                width: 240,
-                child: TextFormField(
-                  initialValue: sportData['experience'] == 0
-                      ? null
-                      : sportData['experience'].toString(),
-                  decoration: InputDecoration(
-                    labelText: 'Years of Experience',
-                    hintText: 'Set years of experience',
-                    labelStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: theme.brightness == Brightness.dark
-                            ? colorScheme.primary // Yellow for dark mode
-                            : Colors.black, // Black for light mode
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: theme.brightness == Brightness.dark
-                        ? Colors.grey[700]
-                        : colorScheme.surface,
-                  ),
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 16,
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    sportData['experience'] = int.tryParse(value) ?? 0;
                   },
                 ),
               ),

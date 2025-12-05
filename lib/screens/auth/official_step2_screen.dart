@@ -3,6 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 
+// Custom TextInputFormatter to force uppercase
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
+}
+
 class OfficialStep2Screen extends StatefulWidget {
   const OfficialStep2Screen({super.key});
 
@@ -63,8 +77,12 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
     if (value == null || value.trim().isEmpty) {
       return 'State is required';
     }
-    if (value.trim().length != 2) {
+    final trimmed = value.trim();
+    if (trimmed.length != 2) {
       return 'Please enter state abbreviation (e.g., IL, CA)';
+    }
+    if (!RegExp(r'^[A-Z]{2}$').hasMatch(trimmed)) {
+      return 'Please enter two uppercase letters for state';
     }
     return null;
   }
@@ -431,9 +449,18 @@ class _OfficialStep2ScreenState extends State<OfficialStep2Screen> {
                                             : colorScheme
                                                 .onSurface, // Theme-aware text for light mode
                                       ),
-                                      textCapitalization:
-                                          TextCapitalization.characters,
+                                      inputFormatters: [
+                                        LengthLimitingTextInputFormatter(2),
+                                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                                        UpperCaseTextFormatter(),
+                                      ],
                                       textInputAction: TextInputAction.next,
+                                      maxLength: 2,
+                                      buildCounter: (_,
+                                              {required currentLength,
+                                              required isFocused,
+                                              maxLength}) =>
+                                          const SizedBox.shrink(),
                                       validator: _validateState,
                                     ),
                                   ),

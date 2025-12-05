@@ -207,13 +207,13 @@ class _AssignerManageSchedulesScreenState
       if (template == null ||
           template['includeTime'] != true ||
           template['time'] == null) {
-        nextRoute = '/date_time';
+        nextRoute = '/date-time';
       } else if (template['includeLocation'] != true ||
           template['location'] == null ||
           template['location'].isEmpty) {
-        nextRoute = '/choose_location';
+        nextRoute = '/choose-location';
       } else {
-        nextRoute = '/additional_game_info';
+        nextRoute = '/additional-game-info';
       }
 
       Navigator.pushNamed(
@@ -620,13 +620,13 @@ class _AssignerManageSchedulesScreenState
                                   calendarStyle: CalendarStyle(
                                     outsideDaysVisible: false,
                                     todayDecoration: BoxDecoration(
-                                      color: AppColors.efficialsBlue
+                                      color: AppColors.efficialsYellow
                                           .withOpacity(0.5),
                                       shape: BoxShape.rectangle,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     selectedDecoration: BoxDecoration(
-                                      color: AppColors.efficialsBlue,
+                                      color: AppColors.efficialsYellow,
                                       shape: BoxShape.rectangle,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
@@ -674,50 +674,12 @@ class _AssignerManageSchedulesScreenState
                                       final hasEvents = events.isNotEmpty;
 
                                       Color? backgroundColor =
-                                          AppColors.efficialsBlue;
+                                          AppColors.efficialsYellow;
                                       Color textColor =
                                           AppColors.efficialsBlack;
 
-                                      if (hasEvents) {
-                                        bool allAway = true;
-                                        bool allFullyHired = true;
-                                        bool needsOfficials = false;
-
-                                        for (var event in events) {
-                                          final isEventAway =
-                                              event['isAway'] as bool? ?? false;
-                                          final hiredOfficials =
-                                              event['officialsHired'] as int? ??
-                                                  0;
-                                          final requiredOfficials =
-                                              int.tryParse(
-                                                      event['officialsRequired']
-                                                              ?.toString() ??
-                                                          '0') ??
-                                                  0;
-                                          final isFullyHired = hiredOfficials >=
-                                              requiredOfficials;
-
-                                          if (!isEventAway) allAway = false;
-                                          if (!isFullyHired) {
-                                            allFullyHired = false;
-                                          }
-                                          if (!isEventAway && !isFullyHired) {
-                                            needsOfficials = true;
-                                          }
-                                        }
-
-                                        if (allAway) {
-                                          backgroundColor = Colors.grey[300];
-                                          textColor = Colors.white;
-                                        } else if (needsOfficials) {
-                                          backgroundColor = Colors.red[400];
-                                          textColor = Colors.white;
-                                        } else if (allFullyHired) {
-                                          backgroundColor = Colors.green[400];
-                                          textColor = Colors.white;
-                                        }
-                                      }
+                                      // For selected days, always show yellow background regardless of events
+                                      // The yellow indicates selection, not event status
 
                                       return GestureDetector(
                                         onLongPress: () =>
@@ -731,7 +693,7 @@ class _AssignerManageSchedulesScreenState
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                             border: Border.all(
-                                                color: AppColors.efficialsBlue,
+                                                color: AppColors.efficialsYellow,
                                                 width: 2),
                                             boxShadow: hasEvents
                                                 ? [
@@ -838,7 +800,7 @@ class _AssignerManageSchedulesScreenState
                                             border: isSelected
                                                 ? Border.all(
                                                     color:
-                                                        AppColors.efficialsBlue,
+                                                        AppColors.efficialsYellow,
                                                     width: 2)
                                                 : isToday &&
                                                         backgroundColor == null
@@ -1188,17 +1150,17 @@ class _AssignerManageSchedulesScreenState
                             if (template == null ||
                                 template['includeTime'] != true ||
                                 template['time'] == null) {
-                              nextRoute = '/date_time';
+                              nextRoute = '/date-time';
                             }
                             // Check if template has location set - if not, go to location screen
                             else if (template['includeLocation'] != true ||
                                 template['location'] == null ||
                                 template['location'].isEmpty) {
-                              nextRoute = '/choose_location';
+                              nextRoute = '/choose-location';
                             }
                             // Template has time and location set - go to additional_game_info to enter opponent and other details
                             else {
-                              nextRoute = '/additional_game_info';
+                              nextRoute = '/additional-game-info';
                             }
 
                             Navigator.pushNamed(

@@ -19,6 +19,27 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
   Map<String, List<GameTemplateModel>> groupedTemplates = {};
   String? expandedTemplateId;
 
+  // Helper method to get sport-specific icons
+  IconData _getSportIcon(String? sport) {
+    if (sport == null) return Icons.description;
+    switch (sport.toLowerCase()) {
+      case 'football':
+        return Icons.sports_football;
+      case 'basketball':
+        return Icons.sports_basketball;
+      case 'soccer':
+        return Icons.sports_soccer;
+      case 'baseball':
+        return Icons.sports_baseball;
+      case 'volleyball':
+        return Icons.sports_volleyball;
+      case 'tennis':
+        return Icons.sports_tennis;
+      default:
+        return Icons.sports;
+    }
+  }
+
   // For schedule association
   String? scheduleName;
   String? sport;
@@ -378,9 +399,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
           ...template.selectedCrews!.map(
             (crew) => _buildDetailRow(
               'Crew',
-              crew is Map<String, dynamic>
-                  ? crew['name'] ?? 'Unknown Crew'
-                  : (crew as dynamic).name ?? 'Unknown Crew',
+              crew['name'] ?? 'Unknown Crew',
             ),
           ),
         ],
@@ -659,7 +678,7 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                                         8),
                                                           ),
                                                           child: Icon(
-                                                            Icons.description,
+                                                            _getSportIcon(template.sport),
                                                             color: colorScheme
                                                                 .primary,
                                                             size: 24,
@@ -673,51 +692,16 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                                 CrossAxisAlignment
                                                                     .start,
                                                             children: [
-                                                              Row(
-                                                                children: [
-                                                                  Expanded(
-                                                                    child: Text(
-                                                                      template
-                                                                          .name,
-                                                                      style:
-                                                                          TextStyle(
-                                                                        fontSize:
-                                                                            18,
-                                                                        fontWeight:
-                                                                            FontWeight.bold,
-                                                                        color: colorScheme
-                                                                            .onSurface,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  // Expand/collapse caret icon
-                                                                  Container(
-                                                                    padding:
-                                                                        const EdgeInsets
-                                                                            .all(
-                                                                            4),
-                                                                    decoration:
-                                                                        BoxDecoration(
-                                                                      color: colorScheme
-                                                                          .primary
-                                                                          .withOpacity(
-                                                                              0.1),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              4),
-                                                                    ),
-                                                                    child: Icon(
-                                                                      isExpanded
-                                                                          ? Icons
-                                                                              .expand_less
-                                                                          : Icons
-                                                                              .expand_more,
-                                                                      color: colorScheme
-                                                                          .primary,
-                                                                      size: 16,
-                                                                    ),
-                                                                  ),
-                                                                ],
+                                                              Text(
+                                                                template.name,
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 18,
+                                                                  fontWeight:
+                                                                      FontWeight.bold,
+                                                                  color: colorScheme
+                                                                      .onSurface,
+                                                                ),
                                                               ),
                                                               const SizedBox(
                                                                   height: 4),
@@ -731,86 +715,35 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                                       .onSurfaceVariant,
                                                                 ),
                                                               ),
-                                                              const SizedBox(
-                                                                  height: 8),
                                                             ],
                                                           ),
                                                         ),
                                                         const SizedBox(
                                                             width: 8),
-                                                        SizedBox(
-                                                          width: 120,
-                                                          child: Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .end,
-                                                            children: [
-                                                              IconButton(
-                                                                onPressed: () {
-                                                                  _editTemplate(
-                                                                      template);
-                                                                },
-                                                                icon: Icon(
-                                                                  Icons.edit,
-                                                                  color: colorScheme
-                                                                      .primary,
-                                                                  size: 20,
-                                                                ),
-                                                                tooltip:
-                                                                    'Edit Template',
-                                                                padding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                visualDensity:
-                                                                    VisualDensity
-                                                                        .compact,
-                                                              ),
-                                                              IconButton(
-                                                                onPressed: () {
-                                                                  _showDeleteConfirmationDialog(
-                                                                      template
-                                                                          .name,
-                                                                      template);
-                                                                },
-                                                                icon: Icon(
-                                                                  Icons
-                                                                      .delete_outline,
-                                                                  color: Colors
-                                                                      .red
-                                                                      .shade600,
-                                                                  size: 20,
-                                                                ),
-                                                                tooltip:
-                                                                    'Delete Template',
-                                                                padding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                visualDensity:
-                                                                    VisualDensity
-                                                                        .compact,
-                                                              ),
-                                                              IconButton(
-                                                                onPressed: () {
-                                                                  _useTemplate(
-                                                                      template);
-                                                                },
-                                                                icon: Icon(
-                                                                  Icons
-                                                                      .arrow_forward,
-                                                                  color: Colors
-                                                                      .green,
-                                                                  size: 20,
-                                                                ),
-                                                                tooltip:
-                                                                    'Use Template',
-                                                                padding:
-                                                                    EdgeInsets
-                                                                        .zero,
-                                                                visualDensity:
-                                                                    VisualDensity
-                                                                        .compact,
-                                                              ),
-                                                            ],
+                                                        // Expand/collapse caret icon
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(4),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: colorScheme
+                                                                .primary
+                                                                .withOpacity(
+                                                                    0.1),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                    4),
+                                                          ),
+                                                          child: Icon(
+                                                            isExpanded
+                                                                ? Icons
+                                                                    .expand_less
+                                                                : Icons
+                                                                    .expand_more,
+                                                            color: colorScheme
+                                                                .primary,
+                                                            size: 20,
                                                           ),
                                                         ),
                                                       ],
@@ -837,10 +770,106 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                                                                       16,
                                                                       16,
                                                                       16,
-                                                                      20),
+                                                                      16),
                                                               child:
                                                                   _buildTemplateDetails(
                                                                       template),
+                                                            ),
+                                                            // Action buttons - only shown when expanded
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .fromLTRB(
+                                                                      16,
+                                                                      0,
+                                                                      16,
+                                                                      16),
+                                                              child: Row(
+                                                                children: [
+                                                                  Expanded(
+                                                                    child: OutlinedButton.icon(
+                                                                      onPressed: () {
+                                                                        _editTemplate(
+                                                                            template);
+                                                                      },
+                                                                      icon: Icon(
+                                                                        Icons.edit,
+                                                                        color: colorScheme
+                                                                            .primary,
+                                                                        size: 18,
+                                                                      ),
+                                                                      label: Text(
+                                                                        'Edit',
+                                                                        style: TextStyle(
+                                                                          color: colorScheme
+                                                                              .primary,
+                                                                        ),
+                                                                      ),
+                                                                      style: OutlinedButton.styleFrom(
+                                                                        side: BorderSide(
+                                                                          color: colorScheme
+                                                                              .primary,
+                                                                        ),
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          vertical: 12,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(width: 8),
+                                                                  Expanded(
+                                                                    child: OutlinedButton.icon(
+                                                                      onPressed: () {
+                                                                        _showDeleteConfirmationDialog(
+                                                                            template.name,
+                                                                            template);
+                                                                      },
+                                                                      icon: Icon(
+                                                                        Icons.delete_outline,
+                                                                        color: Colors.red.shade600,
+                                                                        size: 18,
+                                                                      ),
+                                                                      label: Text(
+                                                                        'Delete',
+                                                                        style: TextStyle(
+                                                                          color: Colors.red.shade600,
+                                                                        ),
+                                                                      ),
+                                                                      style: OutlinedButton.styleFrom(
+                                                                        side: BorderSide(
+                                                                          color: Colors.red.shade600,
+                                                                        ),
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          vertical: 12,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(width: 8),
+                                                                  Expanded(
+                                                                    child: ElevatedButton.icon(
+                                                                      onPressed: () {
+                                                                        _useTemplate(
+                                                                            template);
+                                                                      },
+                                                                      icon: const Icon(
+                                                                        Icons.arrow_forward,
+                                                                        size: 18,
+                                                                      ),
+                                                                      label: const Text(
+                                                                        'Use',
+                                                                      ),
+                                                                      style: ElevatedButton.styleFrom(
+                                                                        backgroundColor: Colors.green,
+                                                                        foregroundColor: Colors.white,
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          vertical: 12,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
                                                             ),
                                                           ],
                                                         )
