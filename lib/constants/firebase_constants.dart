@@ -53,6 +53,7 @@ class FirebaseFields {
   static const String state = 'state';
   static const String zipCode = 'zipCode';
   static const String createdBy = 'createdBy';
+  static const String homeTeamName = 'homeTeamName';
 
   // Official list fields
   static const String name = 'name';

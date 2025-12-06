@@ -60,6 +60,11 @@ import 'screens/admin/admin_user_search_screen.dart';
 import 'screens/admin/admin_user_detail_screen.dart';
 import 'screens/admin/admin_audit_log_screen.dart';
 import 'screens/admin/admin_backouts_screen.dart';
+import 'screens/bulk_import/bulk_import_preflight_screen.dart';
+import 'screens/bulk_import/bulk_import_wizard_screen.dart';
+import 'screens/bulk_import/bulk_import_generate_screen.dart';
+import 'screens/bulk_import/bulk_import_upload_screen.dart';
+import 'screens/bulk_import/bulk_import_preview_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -177,6 +182,12 @@ class MyApp extends StatelessWidget {
             '/admin/user-detail': (context) => const AdminUserDetailScreen(),
             '/admin/audit-log': (context) => const AdminAuditLogScreen(),
             '/admin/backouts': (context) => const AdminBackoutsScreen(),
+            // Bulk Import routes
+            '/bulk_import': (context) => const BulkImportPreflightScreen(),
+            '/bulk_import_wizard': (context) => const BulkImportWizardScreen(),
+            '/bulk_import_generate': (context) => const BulkImportGenerateScreen(),
+            '/bulk_import_upload': (context) => const BulkImportUploadScreen(),
+            '/bulk_import_preview': (context) => const BulkImportPreviewScreen(),
           },
         );
       },

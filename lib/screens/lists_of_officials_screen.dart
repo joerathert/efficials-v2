@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/game_template_model.dart';
 import '../services/official_list_service.dart';
+import '../services/auth_service.dart';
 
 class ListsOfOfficialsScreen extends StatefulWidget {
   const ListsOfOfficialsScreen({super.key});
@@ -318,10 +319,12 @@ class _ListsOfOfficialsScreenState extends State<ListsOfOfficialsScreen> {
             color: colorScheme.primary,
             size: 32,
           ),
-          onPressed: () {
-            // Navigate back to Athletic Director home screen
+          onPressed: () async {
+            // Navigate to appropriate home screen based on user role
+            final authService = AuthService();
+            final homeRoute = await authService.getHomeRoute();
             Navigator.of(context).pushNamedAndRemoveUntil(
-              '/ad-home',
+              homeRoute,
               (route) => false, // Remove all routes
             );
           },

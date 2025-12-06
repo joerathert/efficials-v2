@@ -7,8 +7,7 @@ import '../services/user_service.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
-// Use the typedef from GameService
-typedef ScheduleData = Map<String, Object>;
+// ScheduleData typedef is imported from game_service.dart
 
 class SelectScheduleScreen extends StatefulWidget {
   const SelectScheduleScreen({super.key});
@@ -19,7 +18,7 @@ class SelectScheduleScreen extends StatefulWidget {
 
 class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
   String? selectedSchedule;
-  List<ScheduleData> schedules = [];
+  List<Map<String, dynamic>> schedules = [];
   bool isLoading = true;
   GameTemplateModel? template;
   UserModel? _currentUser;
@@ -439,6 +438,11 @@ class _SelectScheduleScreenState extends State<SelectScheduleScreen> {
                                           homeTeam = profile.teamName;
                                           debugPrint(
                                               '🏈 SELECT_SCHEDULE: Setting homeTeam to AD profile team: $homeTeam');
+                                        } else if (profile.type == 'Assigner') {
+                                          // For Assigners, get home team from the selected schedule
+                                          homeTeam = selected['homeTeamName'] as String?;
+                                          debugPrint(
+                                              '🏈 SELECT_SCHEDULE: Setting homeTeam to Assigner schedule team: $homeTeam');
                                         } else {
                                           debugPrint(
                                               '🏈 SELECT_SCHEDULE: User is ${profile.type}, not setting homeTeam');

@@ -4,6 +4,7 @@ import '../../app_colors.dart';
 import '../../app_theme.dart';
 import '../../services/user_repository.dart';
 import '../../services/game_service.dart';
+import '../../models/game_template_model.dart';
 
 class AssignerManageSchedulesScreen extends StatefulWidget {
   const AssignerManageSchedulesScreen({super.key});
@@ -17,9 +18,11 @@ class _AssignerManageSchedulesScreenState
     extends State<AssignerManageSchedulesScreen> {
   String? selectedTeam;
   List<String> teams = [];
+  List<Map<String, dynamic>> schedules = [];
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
+  final TextEditingController _deleteConfirmationController = TextEditingController();
   DateTime? _selectedDay;
   List<Map<String, dynamic>> _selectedDayGames = [];
   String? assignerSport;
@@ -34,6 +37,152 @@ class _AssignerManageSchedulesScreenState
   bool isSameDay(DateTime? a, DateTime? b) {
     if (a == null || b == null) return false;
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Future<void> _showDeleteScheduleDialog() async {
+    if (selectedTeam == null) return;
+
+    // Find the schedule data
+    final schedule = schedules.firstWhere(
+      (s) => s['name'] == selectedTeam,
+      orElse: () => <String, dynamic>{},
+    );
+
+    final scheduleId = schedule['id'];
+    final scheduleName = selectedTeam!;
+
+    if (scheduleId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.darkSurface,
+        title: const Text(
+          'Delete Schedule',
+          style: TextStyle(
+            color: AppColors.efficialsYellow,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "$scheduleName"? This will also delete all games associated with this schedule.',
+              style: const TextStyle(color: primaryTextColor),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'This action CANNOT be undone!',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Type "DELETE" to confirm:',
+              style: TextStyle(
+                color: primaryTextColor,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _deleteConfirmationController,
+              decoration: InputDecoration(
+                hintText: 'Type DELETE here',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                ),
+              ),
+              style: const TextStyle(
+                color: primaryTextColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _deleteConfirmationController.clear();
+              Navigator.pop(context, false);
+            },
+            child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_deleteConfirmationController.text == 'DELETE') {
+                _deleteConfirmationController.clear();
+                Navigator.pop(context, true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please type "DELETE" to confirm'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text(
+              'DELETE PERMANENTLY',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _gameService.deleteSchedule(scheduleId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Schedule deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Reset selected team and refresh the schedules list
+          setState(() {
+            selectedTeam = null;
+          });
+          await _fetchTeams();
+          // If there are teams available, select the first one
+          if (teams.isNotEmpty && mounted) {
+            setState(() {
+              selectedTeam = teams.first;
+            });
+            await _fetchGames();
+            await _loadAssociatedTemplate();
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete schedule: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   List<Map<String, dynamic>> _getGamesForDay(DateTime day) {
@@ -279,10 +428,11 @@ class _AssignerManageSchedulesScreenState
 
   Future<void> _fetchTeams() async {
     try {
-      final schedules = await _gameService.getSchedules();
+      final fetchedSchedules = await _gameService.getSchedules();
       setState(() {
+        schedules = fetchedSchedules;
         teams =
-            schedules.map((schedule) => schedule['name'] as String).toList();
+            fetchedSchedules.map((schedule) => schedule['name'] as String).toList();
       });
     } catch (e) {
       debugPrint('Error fetching schedules: $e');
@@ -423,6 +573,28 @@ class _AssignerManageSchedulesScreenState
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Manage Schedules', style: appBarTextStyle),
+        actions: selectedTeam != null ? [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'delete') {
+                _showDeleteScheduleDialog();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete Schedule', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] : null,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -565,14 +737,60 @@ class _AssignerManageSchedulesScreenState
                         ),
                         const SizedBox(height: 24),
                         if (selectedTeam != null) ...[
-                          Text(
-                            '$selectedTeam Schedule',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.efficialsYellow,
-                            ),
-                            textAlign: TextAlign.center,
+                          Column(
+                            children: [
+                              Text(
+                                '$selectedTeam Schedule',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.efficialsYellow,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (associatedTemplateName != null) ...[
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Tooltip(
+                                    message: 'This schedule uses the "$associatedTemplateName" template for new games',
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      constraints: const BoxConstraints(maxWidth: 300),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.efficialsYellow.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.efficialsYellow.withOpacity(0.5),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.link,
+                                            size: 14,
+                                            color: AppColors.efficialsYellow,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              'Template: $associatedTemplateName',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.efficialsYellow,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 24),
                           Container(
@@ -1083,7 +1301,7 @@ class _AssignerManageSchedulesScreenState
                   onPressed: () {
                     Navigator.pushNamed(
                       context,
-                      '/select_game_template',
+                      '/game-templates',
                       arguments: {
                         'scheduleName': selectedTeam,
                         'sport': assignerSport,
@@ -1105,7 +1323,7 @@ class _AssignerManageSchedulesScreenState
                       ? null
                       : () async {
                           // Load template from database if one is associated with this team
-                          Map<String, dynamic>? template;
+                          Map<String, dynamic>? rawTemplate;
 
                           if (associatedTemplateName != null) {
                             try {
@@ -1116,7 +1334,7 @@ class _AssignerManageSchedulesScreenState
                                 final templateData = await _gameService
                                     .getTemplateAssociations(selectedTeam!);
                                 if (templateData.isNotEmpty) {
-                                  template = templateData.first['templateData']
+                                  rawTemplate = templateData.first['templateData']
                                       as Map<String, dynamic>?;
                                 }
                               }
@@ -1126,36 +1344,73 @@ class _AssignerManageSchedulesScreenState
                           }
 
                           if (mounted) {
+                            // Convert template Map to GameTemplateModel if available
+                            GameTemplateModel? gameTemplateModel;
+                            if (rawTemplate != null) {
+                              try {
+                                gameTemplateModel = GameTemplateModel.fromJson(rawTemplate);
+                              } catch (e) {
+                                debugPrint('Error converting template Map to GameTemplateModel: $e');
+                              }
+                            }
+
                             // Determine the navigation flow based on template settings
                             String nextRoute;
+                            // Get the actual team name from the schedule data
+                            final selectedSchedule = schedules.firstWhere(
+                              (s) => s['name'] == selectedTeam,
+                              orElse: () => <String, dynamic>{},
+                            );
+
+                            // Handle schedules that don't have homeTeamName set yet
+                            // Temporary mapping for existing schedules
+                            String homeTeamName;
+                            final scheduleHomeTeamName = selectedSchedule['homeTeamName'];
+                            if (scheduleHomeTeamName is String && scheduleHomeTeamName.isNotEmpty) {
+                              homeTeamName = scheduleHomeTeamName;
+                            } else if (selectedTeam == 'Edwardsville Varsity') {
+                              homeTeamName = 'Edwardsville Tigers'; // Temporary fix
+                            } else {
+                              homeTeamName = selectedTeam ?? 'Unknown Team'; // Fallback to schedule name
+                            }
+
                             Map<String, dynamic> routeArgs = {
                               'scheduleName': selectedTeam,
                               'date': _selectedDay,
                               'fromScheduleDetails': true,
-                              'template': template,
+                              'template': gameTemplateModel,
                               'isAssignerFlow': true,
-                              'opponent': selectedTeam,
+                              'homeTeam': homeTeamName, // Use the actual team name, not schedule name
+                              'opponent': '', // Opponent will be filled in by user
                               'sport': assignerSport,
                             };
 
                             // Add template time to args if it exists, regardless of route
-                            if (template != null &&
-                                template['includeTime'] == true &&
-                                template['time'] != null) {
-                              routeArgs['time'] = template['time'];
+                            if (gameTemplateModel != null &&
+                                gameTemplateModel.includeTime &&
+                                gameTemplateModel.time != null) {
+                              routeArgs['time'] = gameTemplateModel.time;
+                            }
+
+                            // Add template location to args if it exists, regardless of route
+                            if (gameTemplateModel != null &&
+                                gameTemplateModel.includeLocation &&
+                                gameTemplateModel.location != null &&
+                                gameTemplateModel.location!.isNotEmpty) {
+                              routeArgs['location'] = gameTemplateModel.location;
                             }
 
                             // Determine the navigation flow based on template settings
                             // Always go to date_time screen first if no template or template doesn't have time set
-                            if (template == null ||
-                                template['includeTime'] != true ||
-                                template['time'] == null) {
+                            if (gameTemplateModel == null ||
+                                !gameTemplateModel.includeTime ||
+                                gameTemplateModel.time == null) {
                               nextRoute = '/date-time';
                             }
                             // Check if template has location set - if not, go to location screen
-                            else if (template['includeLocation'] != true ||
-                                template['location'] == null ||
-                                template['location'].isEmpty) {
+                            else if (!gameTemplateModel.includeLocation ||
+                                gameTemplateModel.location == null ||
+                                gameTemplateModel.location!.isEmpty) {
                               nextRoute = '/choose-location';
                             }
                             // Template has time and location set - go to additional_game_info to enter opponent and other details

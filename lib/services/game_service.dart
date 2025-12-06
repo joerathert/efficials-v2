@@ -6,7 +6,7 @@ import '../constants/firebase_constants.dart';
 import 'base_service.dart';
 
 // Add this typedef for clarity
-typedef ScheduleData = Map<String, Object>;
+typedef ScheduleData = Map<String, dynamic>;
 
 class GameService extends BaseService {
   // Singleton pattern
@@ -320,7 +320,12 @@ class GameService extends BaseService {
   Future<Map<String, dynamic>?> updateTemplate(
       Map<String, dynamic> templateData) async {
     try {
-      final templateId = templateData['id'] as String;
+      final templateId = templateData['id'];
+      if (templateId == null) {
+        debugPrint('❌ GAME SERVICE: Template ID is null in updateTemplate');
+        return null;
+      }
+      final templateIdString = templateId as String;
       debugPrint('🔄 GAME SERVICE: Updating template: $templateId');
       debugPrint(
           '🔄 GAME SERVICE: Update data keys: ${templateData.keys.toList()}');
@@ -340,7 +345,7 @@ class GameService extends BaseService {
       // Update in Firestore
       await firestore
           .collection(FirebaseCollections.gameTemplates)
-          .doc(templateId)
+          .doc(templateIdString)
           .update(updateData);
 
       debugPrint('✅ GAME SERVICE: Template updated successfully in Firestore');
@@ -462,6 +467,7 @@ class GameService extends BaseService {
           'id': doc.id,
           'name': data[FirebaseFields.name] as String,
           'sport': data[FirebaseFields.sport] as String,
+          'homeTeamName': data[FirebaseFields.homeTeamName] as String?,
           'createdAt': (data[FirebaseFields.createdAt] as Timestamp).toDate(),
         };
       }).toList();
@@ -475,7 +481,7 @@ class GameService extends BaseService {
     }
   }
 
-  Future<Map<String, dynamic>> createSchedule(String name, String sport) async {
+  Future<Map<String, dynamic>> createSchedule(String name, String sport, {String? homeTeamName}) async {
     try {
       // Get the current authenticated user
       final authService = AuthService();
@@ -505,6 +511,7 @@ class GameService extends BaseService {
         FirebaseFields.createdAt: DateTime.now(),
         FirebaseFields.createdBy:
             currentUserId, // Use actual authenticated user ID
+        if (homeTeamName != null) FirebaseFields.homeTeamName: homeTeamName,
       });
 
       // Return the created schedule with the document ID
@@ -800,7 +807,7 @@ class GameService extends BaseService {
       // Use single field query and filter in memory to avoid composite index requirement
       final querySnapshot = await firestore
           .collection('games')
-          .where('userId', isEqualTo: currentUserId)
+          .where('schedulerId', isEqualTo: currentUserId)
           .get();
 
       debugPrint(
@@ -897,7 +904,7 @@ class GameService extends BaseService {
       // Use single field query and filter in memory to avoid composite index requirement
       final querySnapshot = await firestore
           .collection('games')
-          .where('userId', isEqualTo: currentUserId)
+          .where('schedulerId', isEqualTo: currentUserId)
           .get();
 
       debugPrint(

@@ -58,6 +58,18 @@ dependencies:
   # Calendar widget for schedule details
   table_calendar: ^3.0.9
 
+  # Excel file generation and parsing for bulk import
+  excel: ^4.0.3
+  
+  # File picker for selecting Excel files
+  file_picker: ^8.0.0+1
+  
+  # Share files (for exporting Excel templates)
+  share_plus: ^9.0.0
+  
+  # Path provider for file storage
+  path_provider: ^2.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

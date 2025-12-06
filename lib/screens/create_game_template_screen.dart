@@ -391,6 +391,35 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       return;
     }
 
+    // Check if a template with this name already exists
+    try {
+      final existingTemplates = await GameService().getTemplates();
+      final templateName = _nameController.text.trim();
+      final duplicateTemplate = existingTemplates.where(
+        (template) => template.name.toLowerCase() == templateName.toLowerCase(),
+      ).toList();
+
+      // If we're creating a new template and found duplicates
+      if (!_isEditMode && duplicateTemplate.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A template with this name already exists!')),
+        );
+        return;
+      }
+
+      // If we're editing, make sure we're not conflicting with another template
+      if (_isEditMode && duplicateTemplate.isNotEmpty &&
+          _editingTemplate != null && duplicateTemplate.any((t) => t.id != _editingTemplate!.id)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A template with this name already exists!')),
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error checking for duplicate template names: $e');
+      // Continue with template creation/update even if this check fails
+    }
+
     if (includeGameFee &&
         _gameFeeController.text.isNotEmpty &&
         !RegExp(r'^\d+(\.\d+)?$').hasMatch(_gameFeeController.text)) {
@@ -527,7 +556,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
     }
 
     try {
-      final action = _isEditMode ? 'update' : 'create';
+      // If edit mode is set but no template exists, treat as create
+      final isActuallyEditMode = _isEditMode && _editingTemplate != null;
+      final action = isActuallyEditMode ? 'update' : 'create';
       debugPrint(
           '🎯 ${action.toUpperCase()} TEMPLATE: About to $action template: ${templateData['name']}');
       debugPrint(
@@ -539,16 +570,17 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           '🎯 ${action.toUpperCase()} TEMPLATE: Selected officials list: $selectedOfficialList');
       debugPrint(
           '🎯 ${action.toUpperCase()} TEMPLATE: Template data: $templateData');
+      debugPrint('🎯 ${action.toUpperCase()} TEMPLATE: _isEditMode: $_isEditMode, _editingTemplate: ${_editingTemplate?.name ?? "null"}');
 
       // For updates, include the template ID in the data
-      final dataToSave = _isEditMode
+      final dataToSave = isActuallyEditMode
           ? {...templateData, 'id': _editingTemplate!.id}
           : templateData;
 
       debugPrint(
           '🎯 ${action.toUpperCase()} TEMPLATE: Data to save: $dataToSave');
 
-      final result = _isEditMode
+      final result = isActuallyEditMode
           ? await GameService().updateTemplate(dataToSave)
           : await GameService().createTemplate(dataToSave);
 
@@ -559,7 +591,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Template ${_isEditMode ? 'updated' : 'saved'} successfully!')),
+                  'Template ${(_isEditMode && _editingTemplate != null) ? 'updated' : 'saved'} successfully!')),
         );
         Navigator.pop(context, result); // Return the result
       } else {
@@ -568,16 +600,16 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Failed to ${_isEditMode ? 'update' : 'save'} template. Please try again.')),
+                  'Failed to ${(_isEditMode && _editingTemplate != null) ? 'update' : 'save'} template. Please try again.')),
         );
       }
     } catch (e) {
       debugPrint(
-          '🔴 ${(_isEditMode ? 'UPDATE' : 'CREATE')} TEMPLATE: Error ${_isEditMode ? 'updating' : 'saving'} template: $e');
+          '🔴 ${(_isEditMode && _editingTemplate != null ? 'UPDATE' : 'CREATE')} TEMPLATE: Error ${(_isEditMode && _editingTemplate != null) ? 'updating' : 'saving'} template: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                'Error ${_isEditMode ? 'updating' : 'saving'} template: $e')),
+                'Error ${(_isEditMode && _editingTemplate != null) ? 'updating' : 'saving'} template: $e')),
       );
     }
   }
@@ -591,10 +623,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
         backgroundColor: colorScheme.surface,
         title: IconButton(
           icon: Icon(Icons.sports, color: colorScheme.primary, size: 32),
-          onPressed: () {
-            // Navigate to Athletic Director home screen
+          onPressed: () async {
+            // Navigate to appropriate home screen based on user role
+            final authService = AuthService();
+            final homeRoute = await authService.getHomeRoute();
             Navigator.of(context).pushNamedAndRemoveUntil(
-              '/ad-home',
+              homeRoute,
               (route) => false, // Remove all routes
             );
           },
@@ -618,9 +652,9 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                 children: [
                   Center(
                     child: Text(
-                        _isEditMode
+                        (_isEditMode && _editingTemplate != null)
                             ? 'Edit Template'
-                            : 'Template Configuration',
+                            : 'Create Template',
                         style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -1583,7 +1617,7 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: Text(_isEditMode ? 'Update Template' : 'Save Template',
+                child: Text((_isEditMode && _editingTemplate != null) ? 'Update Template' : 'Save Template',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),

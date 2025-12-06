@@ -55,8 +55,42 @@ class LinkedGamesList extends StatelessWidget {
   }
 
   Widget _buildGameCard(Map<String, dynamic> game) {
-    final date = game['date'] as DateTime?;
-    final time = game['time'] as TimeOfDay?;
+    // Parse date properly - it comes from Firestore as a string
+    DateTime? date;
+    if (game['date'] != null) {
+      try {
+        final dateValue = game['date'];
+        date = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+      } catch (e) {
+        debugPrint('LinkedGamesList: Error parsing date: $e');
+        date = null;
+      }
+    }
+
+    // Parse time properly - it comes from Firestore as a string
+    TimeOfDay? time;
+    if (game['time'] != null) {
+      try {
+        final timeValue = game['time'];
+        if (timeValue is TimeOfDay) {
+          time = timeValue;
+        } else {
+          // Parse time string (format: "HH:MM")
+          final timeStr = timeValue.toString();
+          final parts = timeStr.split(':');
+          if (parts.length == 2) {
+            final hour = int.tryParse(parts[0]);
+            final minute = int.tryParse(parts[1]);
+            if (hour != null && minute != null) {
+              time = TimeOfDay(hour: hour, minute: minute);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('LinkedGamesList: Error parsing time: $e');
+        time = null;
+      }
+    }
 
     // Handle different field name variations
     final officialsRequired = _getIntValue(game, 'officialsRequired') ??

@@ -460,7 +460,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         }
       }
 
-      // Check if official is in selected lists
+      // Check if official is in a single selected list (e.g., from bulk import)
+      final selectedListName = game['selectedListName'] as String?;
+      if (selectedListName != null && selectedListName.isNotEmpty) {
+        print('🔍 Checking selectedListName: $selectedListName for official $officialId');
+        if (await _isOfficialInListByNameAsync(officialId, selectedListName)) {
+          print('✅ Official $officialId IS in list $selectedListName');
+          return true;
+        } else {
+          print('❌ Official $officialId NOT in list $selectedListName');
+        }
+      }
+
+      // Check if official is in selected lists (array format)
       final selectedLists = game['selectedLists'] as List<dynamic>?;
       if (selectedLists != null && selectedLists.isNotEmpty) {
         // Check if official is in any of the selected lists
@@ -468,6 +480,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           if (listConfig is Map && listConfig['list'] != null) {
             final listName = listConfig['list'] as String;
             if (await _isOfficialInListByNameAsync(officialId, listName)) {
+              return true;
+            }
+          }
+          // Also handle simple string format
+          if (listConfig is String && listConfig.isNotEmpty) {
+            if (await _isOfficialInListByNameAsync(officialId, listConfig)) {
               return true;
             }
           }
@@ -484,8 +502,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // If no specific selection criteria, check if it's "hire automatically" method
       // In this case, all eligible officials should see the game
       final method = game['method'] as String?;
-      if (method == 'hire_automatically') {
-        return true;
+      if (method == 'hire_automatically' || method == 'use_list') {
+        // For use_list method, we've already checked selectedListName above
+        // If we get here with use_list but no list matched, it means the official
+        // is not in that list
+        if (method == 'use_list' && selectedListName == null) {
+          // No list specified, show to all officials
+          return true;
+        }
       }
 
       return false;
@@ -499,14 +523,17 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       String officialId, String listName) async {
     try {
       // First, find the list document by name
+      print('🔍 Looking for official_lists with name: "$listName"');
       final listsQuery = await _listService.firestore
           .collection('official_lists')
           .where('name', isEqualTo: listName)
           .get();
 
       if (listsQuery.docs.isEmpty) {
+        print('⚠️ No list found with name: "$listName"');
         return false;
       }
+      print('✅ Found list "$listName" with ${listsQuery.docs.length} docs');
 
       // Get the first matching list (should only be one with unique names)
       final listDoc = listsQuery.docs.first;
@@ -514,8 +541,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       final officials = listData['officials'] as List<dynamic>?;
 
       if (officials == null) {
+        print('⚠️ List "$listName" has no officials array');
         return false;
       }
+      print('📋 List "$listName" has ${officials.length} officials');
 
       // Check if the official ID is in the list
       for (final official in officials) {

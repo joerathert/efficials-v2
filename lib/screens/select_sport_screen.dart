@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 
 class SelectSportScreen extends StatefulWidget {
   const SelectSportScreen({super.key});
@@ -75,10 +76,12 @@ class _SelectSportScreenState extends State<SelectSportScreen> {
                 : Colors.black,
             size: 32,
           ),
-          onPressed: () {
-            // Navigate to Athletic Director home screen
+          onPressed: () async {
+            // Navigate to appropriate home screen based on user role
+            final authService = AuthService();
+            final homeRoute = await authService.getHomeRoute();
             Navigator.of(context).pushNamedAndRemoveUntil(
-              '/ad-home',
+              homeRoute,
               (route) => false, // Remove all routes
             );
           },

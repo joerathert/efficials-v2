@@ -77,6 +77,7 @@ class _AssignerNameScheduleScreenState extends State<AssignerNameScheduleScreen>
       final newSchedule = await gameService.createSchedule(
         name,
         sport,
+        homeTeamName: homeTeamName,
       );
 
       // Schedule created successfully

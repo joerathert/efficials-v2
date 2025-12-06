@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../models/game_template_model.dart'; // We'll create this
 import '../services/game_service.dart';
+import '../services/auth_service.dart';
 
 class GameTemplatesScreen extends StatefulWidget {
   const GameTemplatesScreen({super.key});
@@ -476,10 +477,12 @@ class _GameTemplatesScreenState extends State<GameTemplatesScreen> {
                     : Colors.black, // Black in light mode
                 size: 32,
               ),
-              onPressed: () {
-                // Navigate to Athletic Director home screen
+              onPressed: () async {
+                // Navigate to appropriate home screen based on user role
+                final authService = AuthService();
+                final homeRoute = await authService.getHomeRoute();
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/ad-home',
+                  homeRoute,
                   (route) => false, // Remove all routes
                 );
               },

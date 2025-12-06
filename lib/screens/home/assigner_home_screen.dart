@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_colors.dart';
 import '../../app_theme.dart';
 import '../../services/user_repository.dart';
@@ -30,7 +29,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
   bool _isExpanded = false;
-  bool _showQuickActions = true;
 
   final UserRepository _userRepository = UserRepository();
   final GameService _gameService = GameService();
@@ -62,7 +60,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   Future<void> _initializeAssignerHome() async {
     await Future.wait([
       _checkAssignerSetup(),
-      _loadQuickActionsPreference(),
       _loadUnreadNotificationCount(),
       _loadUnpublishedGamesCount(),
       _loadGamesNeedingOfficials(),
@@ -136,24 +133,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     }
   }
 
-  Future<void> _loadQuickActionsPreference() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (mounted) {
-        setState(() {
-          _showQuickActions = prefs.getBool('showQuickActions') ?? true;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading Quick Actions preference: $e');
-      // Default to showing Quick Actions if there's an error
-      if (mounted) {
-        setState(() {
-          _showQuickActions = true;
-        });
-      }
-    }
-  }
 
   Future<void> _loadUnreadNotificationCount() async {
     try {
@@ -182,32 +161,53 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   }
 
   Future<void> _loadGamesNeedingOfficials() async {
-    debugPrint('🏠 _loadGamesNeedingOfficials() STARTING');
     try {
-      debugPrint('🏠 About to call _gameService.getPublishedGames()');
       final games = await _gameService.getPublishedGames();
-      debugPrint('🏠 Got ${games.length} games from getPublishedGames()');
 
       final gamesNeedingOfficials = games.where((game) {
-        final needsOfficials = (game['officialsHired'] as int? ?? 0) < (game['officialsRequired'] as int? ?? 0);
+        final officialsHired = game['officialsHired'] as int? ?? 0;
+        final officialsRequired = game['officialsRequired'] as int? ?? 0;
+        final needsOfficials = officialsHired < officialsRequired;
         final hasDate = game['date'] != null;
-        final isFuture = hasDate && (game['date'] as DateTime).isAfter(DateTime.now());
+
+        // Parse date properly - it comes from Firestore as a string
+        DateTime? gameDate;
+        if (hasDate) {
+          try {
+            final dateValue = game['date'];
+            gameDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+          } catch (e) {
+            debugPrint('🏠 ERROR parsing game date: $e');
+            gameDate = null;
+          }
+        }
+
+        final isFuture = gameDate != null && gameDate.isAfter(DateTime.now());
 
         return needsOfficials && hasDate && isFuture;
       }).toList();
 
-      gamesNeedingOfficials.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+      gamesNeedingOfficials.sort((a, b) {
+        try {
+          final aDateValue = a['date'];
+          final bDateValue = b['date'];
+          final aDate = aDateValue is DateTime ? aDateValue : DateTime.parse(aDateValue.toString());
+          final bDate = bDateValue is DateTime ? bDateValue : DateTime.parse(bDateValue.toString());
+          return aDate.compareTo(bDate);
+        } catch (e) {
+          debugPrint('🏠 ERROR sorting games by date: $e');
+          return 0;
+        }
+      });
 
       if (mounted) {
         setState(() {
           _gamesNeedingOfficials = gamesNeedingOfficials;
         });
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('🏠 ERROR in _loadGamesNeedingOfficials: $e');
-      debugPrint('🏠 Stack trace: $stackTrace');
     }
-    debugPrint('🏠 _loadGamesNeedingOfficials() FINISHED');
   }
 
   void _toggleExpandedView() {
@@ -250,7 +250,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
         });
         break;
       case 3: // Templates (Game Templates)
-        Navigator.pushNamed(context, '/game_templates').then((_) {
+        Navigator.pushNamed(context, '/game-templates').then((_) {
           // Refresh games needing officials when returning from templates screen
           _loadUnpublishedGamesCount();
           _loadGamesNeedingOfficials();
@@ -418,7 +418,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               ),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/unpublished_games').then((_) {
+                Navigator.pushNamed(context, '/unpublished-games').then((_) {
                   _loadUnpublishedGamesCount(); // Refresh count after returning
                   _loadGamesNeedingOfficials();
                 });
@@ -484,7 +484,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/game_templates').then((_) {
+                Navigator.pushNamed(context, '/game-templates').then((_) {
                   _loadUnpublishedGamesCount();
                   _loadGamesNeedingOfficials();
                 });
@@ -505,10 +505,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/settings').then((_) {
-                  // Refresh Quick Actions preference when returning from settings
-                  _loadQuickActionsPreference();
-                });
+                Navigator.pushNamed(context, '/settings');
               },
             ),
             ListTile(
@@ -644,92 +641,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                               // Spacing after Assigner tile
                               const SizedBox(height: 20),
 
-                              if (_showQuickActions) ...[
-                                const SizedBox(height: 10),
-
-                                // Quick Actions Section
-                                FadeTransition(
-                                  opacity: _fadeAnimation,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Quick Actions',
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildActionCard(
-                                              icon: Icons.calendar_today,
-                                              title: 'Manage Schedules',
-                                              onTap: () {
-                                                Navigator.pushNamed(context,
-                                                        '/assigner_manage_schedules')
-                                                    .then((_) {
-                                                  _loadGamesNeedingOfficials();
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: _buildActionCard(
-                                              icon: Icons.people,
-                                              title: 'Manage Officials',
-                                              onTap: () {
-                                                Navigator.pushNamed(context,
-                                                        '/select_officials')
-                                                    .then((_) {
-                                                  _loadGamesNeedingOfficials();
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildActionCard(
-                                              icon: Icons.copy,
-                                              title: 'Game Templates',
-                                              onTap: () {
-                                                Navigator.pushNamed(context,
-                                                        '/game_templates')
-                                                    .then((_) {
-                                                  _loadGamesNeedingOfficials();
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: _buildActionCard(
-                                              icon: Icons.notifications,
-                                              title: 'Notifications',
-                                              onTap: () {
-                                                Navigator.pushNamed(context,
-                                                        '/notifications')
-                                                    .then((_) {
-                                                  _loadGamesNeedingOfficials();
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 30),
-                              ],
-
                               // Games Needing Officials Section
                               FadeTransition(
                                 opacity: _fadeAnimation,
@@ -785,58 +696,322 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     debugPrint('🏠 _buildGamesNeedingOfficialsSection called with ${_gamesNeedingOfficials.length} games');
     if (_gamesNeedingOfficials.isEmpty) {
       debugPrint('🏠 Games list is empty, showing empty state');
-      // Check if there are any upcoming games at all
-      final now = DateTime.now();
-      final hasUpcomingGames = _gameService.getGames().then((games) {
-        return games
-            .any((game) => game['date'] != null && (game['date'] as DateTime).isAfter(now));
+      // Check if there are any schedules at all
+      final hasAnySchedules = _gameService.getSchedules().then((schedules) {
+        return schedules.isNotEmpty;
       }).catchError((_) => false);
 
-      return FutureBuilder<bool>(
-        future: hasUpcomingGames,
-        builder: (context, snapshot) {
-          final hasGames = snapshot.data ?? false;
+      // Check if there are any games at all (published or unpublished, past or future)
+      final hasAnyGamesAtAll = Future.wait([
+        _gameService.getPublishedGames(),
+        _gameService.getUnpublishedGames(),
+      ]).then((results) {
+        final publishedGames = results[0];
+        final unpublishedGames = results[1];
+        return publishedGames.isNotEmpty || unpublishedGames.isNotEmpty;
+      }).catchError((_) => false);
 
+      // Check if there are any upcoming games (published or unpublished)
+      final now = DateTime.now();
+      final hasAnyUpcomingGames = Future.wait([
+        _gameService.getPublishedGames(),
+        _gameService.getUnpublishedGames(),
+      ]).then((results) {
+        final publishedGames = results[0];
+        final unpublishedGames = results[1];
+        final allGames = [...publishedGames, ...unpublishedGames];
+
+        return allGames.any((game) {
+          if (game['date'] == null) return false;
+          try {
+            final dateValue = game['date'];
+            final gameDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+            return gameDate.isAfter(now);
+          } catch (e) {
+            debugPrint('🏠 ERROR parsing date in empty state check: $e');
+            return false;
+          }
+        });
+      }).catchError((_) => false);
+
+      // Also check for unpublished games
+      final hasUnpublishedGames = _gameService.getUnpublishedGames().then((games) {
+        return games.isNotEmpty;
+      }).catchError((_) => false);
+
+      return FutureBuilder<List<bool>>(
+        future: Future.wait([hasAnySchedules, hasAnyGamesAtAll, hasAnyUpcomingGames, hasUnpublishedGames]),
+        builder: (context, snapshot) {
+          // Show loading state while waiting for all futures to complete
+          if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.efficialsYellow.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.efficialsYellow.withOpacity(0.3),
+                ),
+              ),
+              child: const Column(
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      color: AppColors.efficialsYellow,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.efficialsYellow,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final results = snapshot.data!;
+          final hasSchedules = results[0];
+          final hasAnyGames = results[1];
+          final hasUpcomingGames = results[2];
+          final hasUnpublished = results[3];
+
+          // If no schedules exist at all, show welcome message for creating first schedule
+          if (!hasSchedules) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.efficialsYellow.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.efficialsYellow.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.sports,
+                    color: AppColors.efficialsYellow,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Welcome to Efficials!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.efficialsYellow,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Get started by creating your first team schedule. Build schedules to organize your games and assign officials.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/assigner_manage_schedules');
+                    },
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('Create Schedule'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.efficialsYellow,
+                      foregroundColor: AppColors.efficialsBlack,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // If schedules exist but no games, show message about adding first game
+          if (!hasAnyGames) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.efficialsYellow.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.efficialsYellow.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: AppColors.efficialsYellow,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Add Your First Game',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.efficialsYellow,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'You have a schedule created, but no games added yet. Go to your schedule to add your first game and start hiring officials.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/assigner_manage_schedules');
+                    },
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('Go to Schedule'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.efficialsYellow,
+                      foregroundColor: AppColors.efficialsBlack,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // If games exist but none are upcoming, show message about past games
+          if (!hasUpcomingGames) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.efficialsYellow.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.efficialsYellow.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.history,
+                    color: AppColors.efficialsYellow,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No Upcoming Games',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.efficialsYellow,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'All your games have passed. Create new games to continue hiring officials.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: secondaryTextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/game_templates');
+                    },
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Create New Game'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.efficialsYellow,
+                      foregroundColor: AppColors.efficialsBlack,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // If there are upcoming games, show the appropriate message
           return Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: hasGames
+              color: hasUpcomingGames && !hasUnpublished
                   ? Colors.green.withOpacity(0.1)
                   : AppColors.efficialsYellow.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: hasGames
+                  color: hasUpcomingGames && !hasUnpublished
                       ? Colors.green.withOpacity(0.3)
                       : AppColors.efficialsYellow.withOpacity(0.3)),
             ),
             child: Column(
               children: [
                 Icon(
-                  hasGames ? Icons.check_circle : Icons.calendar_today,
-                  color: hasGames ? Colors.green : AppColors.efficialsYellow,
+                  hasUpcomingGames && !hasUnpublished ? Icons.check_circle : Icons.calendar_today,
+                  color: hasUpcomingGames && !hasUnpublished ? Colors.green : AppColors.efficialsYellow,
                   size: 48,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  hasGames ? 'All Games Covered!' : 'No Upcoming Games',
+                  hasUnpublished
+                      ? 'Games Ready to Publish'
+                      : hasUpcomingGames
+                          ? 'All Games Covered!'
+                          : 'No Upcoming Games',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: hasGames ? Colors.green : AppColors.efficialsYellow,
+                    color: hasUnpublished
+                        ? AppColors.efficialsYellow
+                        : hasUpcomingGames
+                            ? Colors.green
+                            : AppColors.efficialsYellow,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  hasGames
-                      ? 'All upcoming games have the necessary number of officials confirmed.'
-                      : 'You have no games scheduled for future dates.',
+                  hasUnpublished
+                      ? 'You have unpublished games that need to be published before officials can be assigned.'
+                      : hasUpcomingGames
+                          ? 'All upcoming games have the necessary number of officials confirmed.'
+                          : 'You have no games scheduled for future dates.',
                   style: const TextStyle(
                     fontSize: 14,
                     color: secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (hasUnpublished) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/unpublished-games').then((_) {
+                        _loadUnpublishedGamesCount();
+                        _loadGamesNeedingOfficials();
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.efficialsYellow,
+                      foregroundColor: AppColors.efficialsBlack,
+                    ),
+                    child: const Text('View Unpublished Games'),
+                  ),
+                ],
               ],
             ),
           );
@@ -873,78 +1048,40 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   void _navigateToGame(Map<String, dynamic> game) {
     Navigator.pushNamed(
       context,
-      '/game_information',
+      '/game-information',
       arguments: {
         'id': game['id'],
         'sport': game['sport'],
-        'sportName': game['sport'],
+        'scheduleName': game['scheduleName'] ?? '',
         'opponent': game['opponent'],
         'date': game['date'],
         'time': game['time'],
         'location': game['location'],
-        'locationName': game['location'],
+        'levelOfCompetition': game['levelOfCompetition'] ?? '',
+        'gender': game['gender'] ?? '',
         'officialsRequired': game['officialsRequired'],
         'officialsHired': game['officialsHired'],
+        'gameFee': game['gameFee']?.toString() ?? 'Not set',
+        'hireAutomatically': game['hireAutomatically'] ?? false,
         'isAway': game['isAway'],
+        'method': game['method'],
+        'selectedListName': game['selectedListName'],
+        'selectedLists': game['selectedLists'],
+        'selectedCrews': game['selectedCrews'],
+        'selectedCrew': game['selectedCrew'],
+        'selectedOfficials': game['selectedOfficials'],
         'sourceScreen': 'assigner_home',
       },
-    );
+    ).then((result) {
+      // Refresh games list when returning from game information screen
+      // This handles cases where a game was deleted or modified
+      if (result == true || result != null) {
+        _loadUnpublishedGamesCount();
+        _loadGamesNeedingOfficials();
+      }
+    });
   }
 
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.darkSurface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              spreadRadius: 1,
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              color: AppColors.efficialsYellow,
-              size: 28,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: primaryTextColor,
-              ),
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: secondaryTextColor,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 
   void _handleLogout() {
     showDialog(
