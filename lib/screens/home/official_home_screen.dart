@@ -33,6 +33,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   List<String> _confirmedGameIds = []; // Track confirmed game IDs
   bool _isLoading = true;
   int _pendingInvitationsCount = 0;
+  int _preferenceRefreshCounter = 0; // Counter to force FutureBuilder refresh
 
   // Calendar state
   DateTime _focusedDay = DateTime.now();
@@ -132,15 +133,56 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         return true;
       }).toList();
 
-      // Add home team to games that don't have it
+      // Add home team and determine pending status for games
       final pendingGames = <Map<String, dynamic>>[];
       for (final game in pendingGamesRaw) {
-        if (game['homeTeam'] == null) {
-          final gameWithHomeTeam = await _addHomeTeamToGame(game);
-          pendingGames.add(gameWithHomeTeam);
-        } else {
-          pendingGames.add(game);
+        final gameWithHomeTeam = game['homeTeam'] == null
+            ? await _addHomeTeamToGame(game)
+            : game;
+
+        // Load crew information for crew games
+        Map<String, dynamic> gameWithCrewInfo = gameWithHomeTeam;
+        final selectedCrews = gameWithHomeTeam['selectedCrews'] as List<dynamic>?;
+        final isCrewGame = selectedCrews != null && selectedCrews.isNotEmpty;
+
+        if (isCrewGame && _currentUser?.id != null) {
+          final crewInfo = await _loadCrewInfoForGame(gameWithHomeTeam, _currentUser!.id);
+          gameWithCrewInfo = {...gameWithHomeTeam, ...crewInfo};
         }
+
+        // Determine pending status for crew games
+        String pendingStatus = 'waiting_for_scheduler'; // Default
+        String? memberPreference;
+
+        if (isCrewGame && _currentUser?.id != null) {
+          // Check if crew chief has expressed interest
+          final interestedOfficials = await _gameService.getInterestedOfficialsForGame(game['id'] as String);
+          final hasCrewChiefInterest = interestedOfficials.any((official) =>
+              official['id'] == _currentUser!.id);
+
+          if (hasCrewChiefInterest) {
+            pendingStatus = 'waiting_for_scheduler';
+          } else {
+            pendingStatus = 'waiting_for_crew_chief';
+            // Load member's preference for this game
+            final userCrewId = gameWithCrewInfo['userCrewId'] as String?;
+            if (userCrewId != null) {
+              memberPreference = await _crewRepo.getCrewMemberPreference(
+                  game['id'] as String, userCrewId, _currentUser!.id);
+            }
+          }
+        }
+
+        final gameData = {
+          ...gameWithCrewInfo,
+          'pending_status': pendingStatus,
+        };
+
+        if (memberPreference != null) {
+          gameData['member_preference'] = memberPreference;
+        }
+
+        pendingGames.add(gameData);
       }
 
       setState(() {
@@ -272,6 +314,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       // Load pending crew invitations count
       await _loadPendingInvitationsCount();
+
+      // Increment preference refresh counter to force FutureBuilders to refresh
+      _preferenceRefreshCounter++;
     } catch (e) {
       print('Error loading data: $e');
     } finally {
@@ -409,17 +454,22 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             if (gameId != null &&
                 !_dismissedGameIds.contains(gameId) &&
                 !pendingGameIds.contains(gameId)) {
-              // For games that don't have homeTeam set, try to derive it from the scheduler's profile
-              if (game['homeTeam'] == null) {
-                final gameWithHomeTeam = await _addHomeTeamToGame(game);
-                filteredGames.add(gameWithHomeTeam);
-              } else {
-                filteredGames.add(game);
+
+              // Load crew information for crew games
+              Map<String, dynamic> gameWithCrewInfo = game;
+              final selectedCrews = game['selectedCrews'] as List<dynamic>?;
+              if (selectedCrews != null && selectedCrews.isNotEmpty) {
+                final crewInfo = await _loadCrewInfoForGame(game, currentOfficialId);
+                gameWithCrewInfo = {...game, ...crewInfo};
               }
 
-              final loadedGame = game['homeTeam'] == null
-                  ? await _addHomeTeamToGame(game)
-                  : game;
+              // For games that don't have homeTeam set, try to derive it from the scheduler's profile
+              if (gameWithCrewInfo['homeTeam'] == null) {
+                final gameWithHomeTeam = await _addHomeTeamToGame(gameWithCrewInfo);
+                filteredGames.add(gameWithHomeTeam);
+              } else {
+                filteredGames.add(gameWithCrewInfo);
+              }
             }
           }
         }
@@ -432,6 +482,412 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     } catch (e) {
       print('Error loading available games: $e');
       _availableGames = [];
+    }
+  }
+
+  Future<void> _updatePersistentPendingGames() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      // Extract game IDs from pending games
+      final pendingGameIds = _pendingGames.map((game) => game['id'] as String).toList();
+
+      // Update Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'pendingGameIds': pendingGameIds,
+      });
+
+      print('✅ Updated persistent pending games: $pendingGameIds');
+    } catch (e) {
+      print('❌ Error updating persistent pending games: $e');
+    }
+  }
+
+  Widget _buildPendingGamesList() {
+    // Separate games by status
+    final waitingForCrewChief = _pendingGames.where(
+      (game) => game['pending_status'] == 'waiting_for_crew_chief'
+    ).toList();
+
+    final waitingForScheduler = _pendingGames.where(
+      (game) => game['pending_status'] != 'waiting_for_crew_chief'
+    ).toList();
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        // Waiting for Crew Chief Decision section
+        if (waitingForCrewChief.isNotEmpty) ...[
+          _buildSectionHeader('Waiting for Crew Chief Decision', waitingForCrewChief.length),
+          const SizedBox(height: 8),
+          ...waitingForCrewChief.map((game) => _buildPendingGameCard(game, isWaitingForCrewChief: true)),
+          if (waitingForScheduler.isNotEmpty) const SizedBox(height: 24),
+        ],
+
+        // Waiting for Scheduler Response section
+        if (waitingForScheduler.isNotEmpty) ...[
+          _buildSectionHeader('Waiting for Scheduler Response', waitingForScheduler.length),
+          const SizedBox(height: 8),
+          ...waitingForScheduler.map((game) => _buildPendingGameCard(game, isWaitingForCrewChief: false)),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.orange,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, int>> _getCrewMemberPreferenceSummary(String gameId, String crewId, int refreshCounter) async {
+    // The refreshCounter parameter forces the FutureBuilder to refresh when it changes
+    return await _crewRepo.getCrewMemberPreferenceSummary(gameId, crewId);
+  }
+
+  void _navigateToGameDetails(Map<String, dynamic> game) {
+    Navigator.pushNamed(
+      context,
+      '/official-game-details',
+      arguments: game,
+    );
+  }
+
+  void _showCrewPreferenceDetails(BuildContext context, Map<String, dynamic> game, List<QueryDocumentSnapshot> preferenceDocs) async {
+    // Fetch member names
+    List<Map<String, dynamic>> preferencesWithNames = [];
+
+    for (final doc in preferenceDocs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final crewMemberId = data['crew_member_id'] as String?;
+      final preference = data['preference'] as String?;
+
+      if (crewMemberId != null) {
+        try {
+          // Fetch user data to get the name
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(crewMemberId)
+              .get();
+
+          String memberName = 'Unknown';
+          if (userDoc.exists && userDoc.data() != null) {
+            final userData = userDoc.data()!;
+            final profile = userData['profile'] as Map<String, dynamic>? ?? {};
+            final firstName = profile['firstName'] as String? ?? '';
+            final lastName = profile['lastName'] as String? ?? '';
+            memberName = '$firstName $lastName'.trim();
+            if (memberName.isEmpty) memberName = 'Unknown';
+          }
+
+          preferencesWithNames.add({
+            'member_name': memberName,
+            'preference': preference,
+          });
+        } catch (e) {
+          print('Error fetching member name: $e');
+          preferencesWithNames.add({
+            'member_name': 'Unknown',
+            'preference': preference,
+          });
+        }
+      }
+    }
+
+    // Sort by preference then name
+    preferencesWithNames.sort((a, b) {
+      final prefA = a['preference'] as String?;
+      final prefB = b['preference'] as String?;
+      final nameA = a['member_name'] as String?;
+      final nameB = b['member_name'] as String?;
+
+      // First sort by preference (thumbs_up before thumbs_down)
+      if (prefA != prefB) {
+        if (prefA == 'thumbs_up') return -1;
+        if (prefB == 'thumbs_up') return 1;
+        return 0;
+      }
+
+      // Then sort by name
+      return (nameA ?? '').compareTo(nameB ?? '');
+    });
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.group, color: AppColors.efficialsYellow, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Crew Preferences',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatGameTitle(game),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (preferencesWithNames.isEmpty)
+                Center(
+                  child: Text(
+                    'No preferences recorded yet',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              else
+                ...preferencesWithNames.map((pref) {
+                  final memberName = pref['member_name'] as String?;
+                  final preference = pref['preference'] as String?;
+
+                  IconData icon;
+                  Color iconColor;
+                  String preferenceText;
+
+                  switch (preference) {
+                    case 'thumbs_up':
+                      icon = Icons.thumb_up;
+                      iconColor = Colors.green[600]!;
+                      preferenceText = 'Likes this game';
+                      break;
+                    case 'thumbs_down':
+                      icon = Icons.thumb_down;
+                      iconColor = Colors.red[600]!;
+                      preferenceText = 'Dislikes this game';
+                      break;
+                    default:
+                      icon = Icons.help_outline;
+                      iconColor = Colors.grey[600]!;
+                      preferenceText = 'No preference';
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 16, color: iconColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            memberName ?? 'Unknown',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          preferenceText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: iconColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'Close',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> _loadCrewInfoForGame(
+      Map<String, dynamic> game, String officialId) async {
+    try {
+      final selectedCrews = game['selectedCrews'] as List<dynamic>? ?? [];
+      if (selectedCrews.isEmpty) {
+        return {};
+      }
+
+      // Get user's crews
+      final userCrews = await _crewRepo.getCrewsForOfficial(officialId);
+      final userChiefCrews = await _crewRepo.getCrewsWhereChief(officialId);
+
+      for (final crew in selectedCrews) {
+        String crewId;
+        if (crew is String) {
+          crewId = crew;
+        } else if (crew is Map && crew['id'] != null) {
+          crewId = crew['id'] as String;
+        } else {
+          continue;
+        }
+
+        // Check if user is chief of this crew
+        final chiefCrew = userChiefCrews.firstWhere(
+          (c) => c.id == crewId,
+          orElse: () => Crew(
+            name: '',
+            crewTypeId: 0,
+            crewChiefId: '',
+            createdBy: '',
+            isActive: false,
+            paymentMethod: '',
+          ),
+        );
+        if (chiefCrew.id != null) {
+          return {
+            'isUserCrewChief': true,
+            'isUserCrewMember': false,
+            'userCrewId': crewId,
+            'userCrewName': chiefCrew.name,
+          };
+        }
+
+        // Check if user is member of this crew
+        final memberCrew = userCrews.firstWhere(
+          (c) => c.id == crewId,
+          orElse: () => Crew(
+            name: '',
+            crewTypeId: 0,
+            crewChiefId: '',
+            createdBy: '',
+            isActive: false,
+            paymentMethod: '',
+          ),
+        );
+        if (memberCrew.id != null) {
+          return {
+            'isUserCrewChief': false,
+            'isUserCrewMember': true,
+            'userCrewId': crewId,
+            'userCrewName': memberCrew.name,
+          };
+        }
+      }
+
+      return {};
+    } catch (e) {
+      print('Error loading crew info for game: $e');
+      return {};
+    }
+  }
+
+  Future<void> _setCrewMemberPreference(Map<String, dynamic> game, String preference) async {
+    try {
+      if (_currentUser?.id == null || game['userCrewId'] == null) return;
+
+      final gameId = game['id'] as String;
+      final crewId = game['userCrewId'] as String;
+      final memberId = _currentUser!.id;
+
+      final success = await _crewRepo.setCrewMemberGamePreference(
+          gameId, crewId, memberId, preference);
+
+      if (success) {
+        // Add game to pending games list (waiting for crew chief decision)
+        final crewInfo = await _loadCrewInfoForGame(game, memberId);
+        final gameWithStatus = {
+          ...game,  // Preserve all original game data
+          ...crewInfo,  // Add crew-specific info
+          'pending_status': 'waiting_for_crew_chief', // New field to track status
+          'member_preference': preference,
+        };
+
+        setState(() {
+          // Add to pending games if not already there
+          if (!_pendingGames.any((g) => g['id'] == gameId)) {
+            _pendingGames.add(gameWithStatus);
+          }
+          // Remove from available games
+          _availableGames.removeWhere((g) => g['id'] == gameId);
+          // Increment counter to force preference refresh for crew chiefs
+          _preferenceRefreshCounter++;
+        });
+
+        // Update persistent data
+        await _updatePersistentPendingGames();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              preference == 'thumbs_up'
+                  ? 'You indicated you like this game - waiting for crew chief decision'
+                  : 'You indicated you don\'t like this game - waiting for crew chief decision',
+            ),
+            backgroundColor: preference == 'thumbs_up' ? Colors.green : Colors.orange,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save your preference. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error setting crew member preference: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error saving preference. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -517,8 +973,24 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Check if official is in selected crews
       final selectedCrews = game['selectedCrews'] as List<dynamic>?;
       if (selectedCrews != null && selectedCrews.isNotEmpty) {
-        // TODO: Implement crew membership checking when crew service is available
-        // For now, crews are not implemented, so skip this check
+        // Check if the official is a member of any of the selected crews
+        final officialCrews = await _crewRepo.getCrewsForOfficial(officialId);
+        final officialCrewIds = officialCrews.map((crew) => crew.id).toSet();
+
+        for (final selectedCrew in selectedCrews) {
+          String crewId;
+          if (selectedCrew is String) {
+            crewId = selectedCrew;
+          } else if (selectedCrew is Map && selectedCrew['id'] != null) {
+            crewId = selectedCrew['id'] as String;
+          } else {
+            continue;
+          }
+
+          if (officialCrewIds.contains(crewId)) {
+            return true;
+          }
+        }
       }
 
       // If no specific selection criteria, check if it's "hire automatically" method
@@ -994,14 +1466,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             child: _pendingGames.isEmpty
                 ? _buildEmptyState(
                     'No pending applications', Icons.hourglass_empty)
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _pendingGames.length,
-                    itemBuilder: (context, index) {
-                      final game = _pendingGames[index];
-                      return _buildPendingGameCard(game);
-                    },
-                  ),
+                : _buildPendingGamesList(),
           ),
         ],
       ),
@@ -1581,18 +2046,31 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   Widget _buildAvailableGameCard(Map<String, dynamic> game) {
     // Check if this is a "Hire Automatically" game
     final isHireAutomatically = game['hireAutomatically'] == true;
+
+    // Check if this is a crew-offered game
+    final selectedCrews = game['selectedCrews'] as List<dynamic>?;
+    final isCrewGame = selectedCrews != null && selectedCrews.isNotEmpty;
+
+    // Get crew information from game data (should be loaded in _loadAvailableGames)
+    final isUserCrewChief = game['isUserCrewChief'] as bool? ?? false;
+    final isUserCrewMember = game['isUserCrewMember'] as bool? ?? false;
+    final userCrewId = game['userCrewId'] as String?;
+    final userCrewName = game['userCrewName'] as String?;
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return InkWell(
+      onTap: () => _navigateToGameDetails(game),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1607,15 +2085,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: isCrewGame
+                      ? AppColors.efficialsYellow.withOpacity(0.2)
+                      : Colors.blue.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'AVAILABLE',
+                  isCrewGame ? 'CREW GAME' : 'AVAILABLE',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue[300],
+                    color: isCrewGame
+                        ? Colors.white
+                        : Colors.blue[300],
                   ),
                 ),
               ),
@@ -1658,6 +2140,136 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ],
           ),
+          // Show crew information for crew games
+          if (isCrewGame) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.efficialsYellow.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isUserCrewChief ? Icons.star : Icons.group,
+                    size: 14,
+                    color: AppColors.efficialsYellow,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isUserCrewChief
+                              ? 'Your crew "${userCrewName ?? 'Unknown'}" can accept this game'
+                              : isUserCrewMember
+                                  ? 'Offered to your crew "${userCrewName ?? 'Unknown'}"'
+                                  : 'Crew game - contact your crew chief',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        // Show crew member preferences for crew chiefs
+                        if (isUserCrewChief && userCrewId != null) ...[
+                          const SizedBox(height: 4),
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('crew_member_game_preferences')
+                                .where('game_id', isEqualTo: game['id'])
+                                .where('crew_id', isEqualTo: userCrewId)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData && snapshot.data != null) {
+                                final docs = snapshot.data!.docs;
+                                int thumbsUp = 0;
+                                int thumbsDown = 0;
+                                List<Map<String, dynamic>> preferences = [];
+
+                                // Collect preference data
+                                List<String> memberIds = [];
+                                for (final doc in docs) {
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  final preference = data['preference'] as String?;
+                                  final crewMemberId = data['crew_member_id'] as String?;
+
+                                  if (crewMemberId != null) {
+                                    memberIds.add(crewMemberId);
+                                    preferences.add({
+                                      'member_id': crewMemberId,
+                                      'preference': preference,
+                                    });
+                                  }
+
+                                  if (preference == 'thumbs_up') thumbsUp++;
+                                  if (preference == 'thumbs_down') thumbsDown++;
+                                }
+
+                                final totalResponses = thumbsUp + thumbsDown;
+                                print('🔍 PREFERENCE STREAM: Game ${game['id']}, Crew $userCrewId - Up: $thumbsUp, Down: $thumbsDown, Total: $totalResponses');
+
+                                if (totalResponses > 0) {
+                                  return GestureDetector(
+                                    onTap: () => _showCrewPreferenceDetails(context, game, docs),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.efficialsYellow.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.thumb_up,
+                                              size: 12, color: Colors.green[600]),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '$thumbsUp',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.green[600],
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Icon(Icons.thumb_down,
+                                              size: 12, color: Colors.red[600]),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '$thumbsDown',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.red[600],
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 10,
+                                            color: AppColors.efficialsYellow,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1673,6 +2285,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Dismiss button (always available)
                   ElevatedButton(
                     onPressed: () => _dismissGame(game),
                     style: ElevatedButton.styleFrom(
@@ -1688,31 +2301,60 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => isHireAutomatically
-                        ? _claimGame(game)
-                        : _showExpressInterestDialog(game),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isHireAutomatically
-                          ? Colors.green
-                          : Theme.of(context).colorScheme.primary,
-                      foregroundColor: isHireAutomatically
-                          ? Colors.white
-                          : Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
+                  // Action button - only for crew chiefs or non-crew games
+                  if (isCrewGame ? isUserCrewChief : true) ...[
+                    ElevatedButton(
+                      onPressed: () => isHireAutomatically
+                          ? _claimGame(game)
+                          : _showExpressInterestDialog(game),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHireAutomatically
+                            ? Colors.green
+                            : Theme.of(context).colorScheme.primary,
+                        foregroundColor: isHireAutomatically
+                            ? Colors.white
+                            : Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        isHireAutomatically ? 'Claim' : 'Express Interest',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
-                    child: Text(
-                      isHireAutomatically ? 'Claim' : 'Express Interest',
-                      style: const TextStyle(fontSize: 12),
+                  ] else if (isCrewGame && isUserCrewMember) ...[
+                    // Thumbs up/down buttons for crew members
+                    ElevatedButton.icon(
+                      onPressed: () => _setCrewMemberPreference(game, 'thumbs_up'),
+                      icon: const Icon(Icons.thumb_up, size: 16),
+                      label: const Text('Like', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    ElevatedButton.icon(
+                      onPressed: () => _setCrewMemberPreference(game, 'thumbs_down'),
+                      icon: const Icon(Icons.thumb_down, size: 16),
+                      label: const Text('Dislike', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -1823,7 +2465,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  Widget _buildPendingGameCard(Map<String, dynamic> game) {
+  Widget _buildPendingGameCard(Map<String, dynamic> game, {bool isWaitingForCrewChief = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1849,15 +2491,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: isWaitingForCrewChief
+                      ? AppColors.efficialsYellow.withOpacity(0.2)
+                      : Colors.orange.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'PENDING',
+                  isWaitingForCrewChief ? 'WAITING FOR CREW CHIEF' : 'PENDING',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.orange[300],
+                    color: isWaitingForCrewChief
+                        ? Colors.white
+                        : Colors.orange[300],
                   ),
                 ),
               ),
@@ -1916,7 +2562,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ),
                   Text(
-                    'Applied: Pending response',
+                    isWaitingForCrewChief
+                        ? 'You indicated: ${game['member_preference'] == 'thumbs_up' ? 'Like' : 'Dislike'} - Waiting for crew chief'
+                        : 'Applied: Pending scheduler response',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],
@@ -2444,10 +3092,37 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         await _gameService.addInterestedOfficial(gameId, officialData);
 
     if (success) {
-      // Move game from available to pending
+      // Handle crew games differently
+      final isCrewGame = game['selectedCrews'] != null && (game['selectedCrews'] as List).isNotEmpty;
+
       setState(() {
         _availableGames.removeWhere((g) => g['id'] == game['id']);
-        _pendingGames.add(game);
+
+        if (isCrewGame) {
+          // For crew games, update any existing pending entries or add new one
+          final existingIndices = _pendingGames.asMap().entries
+              .where((entry) => entry.value['id'] == game['id'])
+              .map((entry) => entry.key)
+              .toList();
+
+          final gameWithStatus = {
+            ...game,
+            'pending_status': 'waiting_for_scheduler', // Now waiting for scheduler
+          };
+
+          if (existingIndices.isNotEmpty) {
+            // Update all existing entries for this game
+            for (final index in existingIndices) {
+              _pendingGames[index] = gameWithStatus;
+            }
+          } else {
+            // Add new entry
+            _pendingGames.add(gameWithStatus);
+          }
+        } else {
+          // Regular games - just add to pending
+          _pendingGames.add(game);
+        }
       });
 
       // Save persistent data

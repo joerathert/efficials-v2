@@ -14,7 +14,7 @@ class ChooseLocationScreen extends StatefulWidget {
 }
 
 class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
-  String? selectedLocation;
+  Map<String, dynamic>? selectedLocationData;
   List<Map<String, dynamic>> locations = [];
   bool isLoading = true;
   GameTemplateModel? template;
@@ -54,7 +54,13 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         isEdit = args['isEdit'] as bool? ?? false;
         // Pre-select the location if it exists in the arguments and user hasn't selected one yet
         if (!_userHasSelectedLocation && args.containsKey('location') && args['location'] != null) {
-          selectedLocation = args['location'] as String?;
+          // Handle both string (legacy) and map (new) location data
+          if (args['location'] is Map<String, dynamic>) {
+            selectedLocationData = args['location'] as Map<String, dynamic>;
+          } else if (args['location'] is String) {
+            // For legacy data, just store the name - address will be empty
+            selectedLocationData = {'name': args['location'] as String};
+          }
         }
         debugPrint('🎯 CHOOSE_LOCATION: Received template: ${template?.name}');
         debugPrint(
@@ -62,7 +68,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         debugPrint(
             '🎯 CHOOSE_LOCATION: Template includeLocation: ${template?.includeLocation}');
         debugPrint(
-            '🎯 CHOOSE_LOCATION: Pre-selected location: $selectedLocation');
+            '🎯 CHOOSE_LOCATION: Pre-selected location: ${selectedLocationData?['name']}');
       }
     }
   }
@@ -279,7 +285,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                         filled: true,
                                         fillColor: colorScheme.surface,
                                       ),
-                                      value: selectedLocation,
+                                      value: selectedLocationData?['name'],
                                       hint: Text(
                                         'Choose a location',
                                         style: TextStyle(
@@ -321,18 +327,28 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                                   'zip': newLoc['zip'],
                                                   'id': newLoc['id'],
                                                 });
-                                                selectedLocation =
-                                                    newLoc['name'];
+                                                selectedLocationData = {
+                                                  'name': newLoc['name'],
+                                                  'address': newLoc['address'],
+                                                  'city': newLoc['city'],
+                                                  'state': newLoc['state'],
+                                                  'zip': newLoc['zip'],
+                                                  'id': newLoc['id'],
+                                                };
                                               });
-                                              debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to new location: $selectedLocation');
+                                              debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to new location: ${selectedLocationData?['name']}');
                                             }
                                           });
                                         } else {
                                           setState(() {
-                                            selectedLocation = newValue;
+                                            // Find the full location data for the selected location name
+                                            selectedLocationData = locations.firstWhere(
+                                              (loc) => loc['name'] == newValue,
+                                              orElse: () => {'name': newValue as String},
+                                            );
                                             _userHasSelectedLocation = true;
                                           });
-                                          debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to: $selectedLocation');
+                                          debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to: ${selectedLocationData?['name']}');
                                           debugPrint('🎯 CHOOSE_LOCATION: _userHasSelectedLocation set to: $_userHasSelectedLocation');
                                         }
                                       },
@@ -353,18 +369,18 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                             width: 400,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: (selectedLocation != null &&
-                                      selectedLocation !=
+                              onPressed: (selectedLocationData != null &&
+                                      selectedLocationData!['name'] !=
                                           '+ Create new location')
                                   ? () {
                                       if (isEdit) {
                                         // When editing, return all original args merged with updated location data
                                         final isAwayGame =
-                                            selectedLocation == 'Away Game';
-                                        debugPrint('🎯 CHOOSE_LOCATION: Popping with selected location: $selectedLocation');
+                                            selectedLocationData?['name'] == 'Away Game';
+                                        debugPrint('🎯 CHOOSE_LOCATION: Popping with selected location: ${selectedLocationData?['name']}');
                                         Navigator.pop(context, {
                                           ...?originalArgs,
-                                          'location': selectedLocation,
+                                          'location': selectedLocationData,
                                           'isAwayGame': isAwayGame,
                                           'isAway': isAwayGame,
                                           'isEdit': true,
@@ -373,7 +389,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                       } else {
                                         // Normal game creation flow
                                         final isAwayGame =
-                                            selectedLocation == 'Away Game';
+                                            selectedLocationData?['name'] == 'Away Game';
                                         Navigator.pushNamed(
                                           context,
                                           isAwayGame
@@ -387,7 +403,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                             'template': template,
                                             'date': selectedDate,
                                             'time': selectedTime,
-                                            'location': selectedLocation,
+                                            'location': selectedLocationData,
                                             'isAwayGame': isAwayGame,
                                             'isAway': isAwayGame,
                                           },

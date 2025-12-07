@@ -164,11 +164,14 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     try {
       final games = await _gameService.getPublishedGames();
 
-      final gamesNeedingOfficials = games.where((game) {
+      final gamesNeedingOfficials = <Map<String, dynamic>>[];
+
+      for (final game in games) {
         final officialsHired = game['officialsHired'] as int? ?? 0;
         final officialsRequired = game['officialsRequired'] as int? ?? 0;
         final needsOfficials = officialsHired < officialsRequired;
         final hasDate = game['date'] != null;
+        final hasValidSchedule = game['scheduleId'] != null && game['scheduleId'].toString().isNotEmpty;
 
         // Parse date properly - it comes from Firestore as a string
         DateTime? gameDate;
@@ -184,8 +187,19 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
 
         final isFuture = gameDate != null && gameDate.isAfter(DateTime.now());
 
-        return needsOfficials && hasDate && isFuture;
-      }).toList();
+        // Only include games that have a valid schedule that still exists
+        if (needsOfficials && hasDate && isFuture && hasValidSchedule) {
+          try {
+            final schedule = await _gameService.getSchedule(game['scheduleId']);
+            if (schedule != null) {
+              gamesNeedingOfficials.add(game); // Only include if schedule exists
+            }
+          } catch (e) {
+            debugPrint('🏠 ERROR validating schedule for game ${game['id']}: $e');
+            // Exclude games where we can't validate the schedule
+          }
+        }
+      }
 
       gamesNeedingOfficials.sort((a, b) {
         try {

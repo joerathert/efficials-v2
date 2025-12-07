@@ -856,6 +856,114 @@ class CrewRepository {
     }
   }
 
+  // ===== CREW MEMBER GAME PREFERENCES METHODS =====
+
+  /// Set a crew member's preference for a game offered to their crew
+  Future<bool> setCrewMemberGamePreference(
+      String gameId, String crewId, String crewMemberId, String preference) async {
+    try {
+      final preferenceData = {
+        'game_id': gameId,
+        'crew_id': crewId,
+        'crew_member_id': crewMemberId,
+        'preference': preference,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+
+      await _firestore
+          .collection('crew_member_game_preferences')
+          .doc('${gameId}_${crewId}_${crewMemberId}')
+          .set(preferenceData);
+
+      print('✅ CREW PREFERENCE: Set preference $preference for member $crewMemberId on game $gameId');
+      return true;
+    } catch (e) {
+      print('❌ CREW PREFERENCE: Error setting preference: $e');
+      return false;
+    }
+  }
+
+  /// Get crew member preferences for a specific game and crew
+  Future<List<Map<String, dynamic>>> getCrewMemberPreferencesForGame(
+      String gameId, String crewId) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('crew_member_game_preferences')
+          .where('game_id', isEqualTo: gameId)
+          .where('crew_id', isEqualTo: crewId)
+          .orderBy('updated_at', descending: true)
+          .get();
+
+      final preferences = <Map<String, dynamic>>[];
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data();
+        // Get member name
+        final memberId = data['crew_member_id'] as String;
+        final userDoc = await _firestore.collection('users').doc(memberId).get();
+        if (userDoc.exists && userDoc.data() != null) {
+          final userData = userDoc.data()!;
+          final profile = userData['profile'] as Map<String, dynamic>? ?? {};
+          final firstName = profile['firstName'] as String? ?? '';
+          final lastName = profile['lastName'] as String? ?? '';
+          data['member_name'] = '$firstName $lastName'.trim();
+        } else {
+          data['member_name'] = 'Unknown';
+        }
+        preferences.add(data);
+      }
+
+      print('✅ CREW PREFERENCE: Found ${preferences.length} preferences for game $gameId, crew $crewId');
+      return preferences;
+    } catch (e) {
+      print('❌ CREW PREFERENCE: Error getting preferences: $e');
+      return [];
+    }
+  }
+
+  /// Get a crew member's preference for a specific game
+  Future<String?> getCrewMemberPreference(
+      String gameId, String crewId, String crewMemberId) async {
+    try {
+      final doc = await _firestore
+          .collection('crew_member_game_preferences')
+          .doc('${gameId}_${crewId}_${crewMemberId}')
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        return doc.data()!['preference'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('❌ CREW PREFERENCE: Error getting preference: $e');
+      return null;
+    }
+  }
+
+  /// Get crew member preference summary for a game (counts of thumbs up/down)
+  Future<Map<String, int>> getCrewMemberPreferenceSummary(String gameId, String crewId) async {
+    try {
+      final preferences = await getCrewMemberPreferencesForGame(gameId, crewId);
+      final summary = <String, int>{
+        'thumbs_up': 0,
+        'thumbs_down': 0,
+        'neutral': 0,
+      };
+
+      for (final pref in preferences) {
+        final preference = pref['preference'] as String? ?? 'neutral';
+        summary[preference] = (summary[preference] ?? 0) + 1;
+      }
+
+      print('✅ CREW PREFERENCE: Summary for game $gameId, crew $crewId: $summary');
+      print('✅ CREW PREFERENCE: Preferences list: $preferences');
+      return summary;
+    } catch (e) {
+      print('❌ CREW PREFERENCE: Error getting summary: $e');
+      return {'thumbs_up': 0, 'thumbs_down': 0, 'neutral': 0};
+    }
+  }
+
   // Get crew by ID
   Future<Crew?> getCrewById(String crewId) async {
     try {

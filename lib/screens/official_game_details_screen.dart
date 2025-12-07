@@ -217,6 +217,10 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     final gameDate = _formatGameDate(game);
     final gameTime = _formatGameTime(game);
     final locationName = game['location'] ?? 'TBD';
+    final locationAddress = game['locationAddress'] as String?;
+    final locationDisplay = locationAddress != null && locationAddress.isNotEmpty
+        ? '$locationName\n$locationAddress'
+        : locationName;
     final fee = _parseFee(game['gameFee']);
 
     return Container(
@@ -240,7 +244,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
           _buildDetailRow(
               Icons.schedule, 'Date & Time', '$gameDate at $gameTime'),
           const SizedBox(height: 12),
-          _buildDetailRow(Icons.location_on, 'Location', locationName),
+          _buildDetailRow(Icons.location_on, 'Location', locationDisplay),
           const SizedBox(height: 12),
           _buildDetailRow(
               Icons.attach_money, 'Fee', '\$${fee.toStringAsFixed(2)}'),
@@ -310,7 +314,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
           const SizedBox(height: 16),
           if (otherOfficials.isEmpty)
             Text(
-              'You are the only official assigned to this game.',
+              'No other officials have been confirmed for this game.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[400],

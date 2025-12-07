@@ -269,7 +269,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           'time': gameData['time'] != null
               ? '${gameData['time'].hour}:${gameData['time'].minute.toString().padLeft(2, '0')}'
               : null,
-          'location': gameData['location'],
+          'location': gameData['location'] is Map<String, dynamic>
+              ? gameData['location']['name']
+              : gameData['location'],
+          'locationAddress': gameData['location'] is Map<String, dynamic>
+              ? gameData['location']['address']
+              : null,
           'opponent': gameData['opponent'],
           'officialsRequired': gameData['officialsRequired'],
           'gameFee': gameData['gameFee'],
@@ -540,7 +545,11 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       'Time': args['time'] != null
           ? (args['time'] as TimeOfDay).format(context)
           : 'Not set',
-      'Location': args['location'] as String? ?? 'Not set',
+      'Location': args['location'] is Map<String, dynamic>
+          ? (args['location']['address'] != null && args['location']['address'].toString().isNotEmpty
+              ? '${args['location']['name']}\n${args['location']['address']}'
+              : args['location']['name'])
+          : (args['location'] as String? ?? 'Not set'),
       'Opponent': args['opponent'] as String? ?? 'Not set',
     };
 
