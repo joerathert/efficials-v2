@@ -6,6 +6,7 @@ import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../services/game_service.dart';
 import '../services/user_service.dart';
+import '../models/crew_model.dart';
 
 class ReviewGameInfoScreen extends StatefulWidget {
   const ReviewGameInfoScreen({super.key});
@@ -148,7 +149,12 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
   }
 
   Future<void> _publishGame() async {
-    if (_isPublishing) return;
+    debugPrint('🎯 PUBLISH_GAME: Starting game publish process');
+
+    if (_isPublishing) {
+      debugPrint('🎯 PUBLISH_GAME: Already publishing, returning');
+      return;
+    }
 
     setState(() {
       _isPublishing = true;
@@ -156,7 +162,10 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     });
 
     try {
+      debugPrint('🎯 PUBLISH_GAME: Entered try block');
+      debugPrint('🎯 PUBLISH_GAME: Checking time: ${args['time']}');
       if (args['time'] == null) {
+        debugPrint('🎯 PUBLISH_GAME: No time set, showing error');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Please set a game time before publishing.')),
@@ -195,19 +204,25 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         return;
       }
 
+      debugPrint('🎯 PUBLISH_GAME: Validation passed, preparing game data');
+
       final gameData = Map<String, dynamic>.from(args);
       gameData['id'] = gameData['id'] ?? DateTime.now().millisecondsSinceEpoch;
       gameData['createdAt'] = DateTime.now().toIso8601String();
       gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
       gameData['status'] = 'Published';
 
+      debugPrint('🎯 PUBLISH_GAME: Game data prepared: ${gameData['method']}, crew: ${gameData['selectedCrew']?.name ?? 'none'}');
+
       // Get current user ID and profile
       final authService = AuthService();
       final currentUser = authService.currentUser;
       if (currentUser == null) {
+        debugPrint('🎯 PUBLISH_GAME: User not authenticated');
         throw Exception('User not authenticated');
       }
 
+      debugPrint('🎯 PUBLISH_GAME: User authenticated: ${currentUser.uid}');
       debugPrint(
           '🎯 REVIEW_GAME_INFO: Saving game with homeTeam: ${gameData['homeTeam']}');
 
@@ -263,8 +278,10 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           'hireAutomatically': gameData['hireAutomatically'],
           'method': gameData['method'],
           'selectedOfficials': gameData['selectedOfficials'],
-          'selectedCrews': gameData['selectedCrews'],
-          'selectedCrew': gameData['selectedCrew'],
+          'selectedCrews': gameData['selectedCrews'] is List<Crew>
+              ? gameData['selectedCrews'].map((crew) => crew.id).toList()
+              : gameData['selectedCrews'],
+          'selectedCrew': gameData['selectedCrew'] is Crew ? gameData['selectedCrew'].id : gameData['selectedCrew'],
           'selectedListName': gameData['selectedListName'],
           'selectedLists': gameData['selectedLists'],
           'officialsHired': gameData['officialsHired'],
@@ -275,13 +292,15 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           'awayTeam': gameData['awayTeam'],
         };
 
+        debugPrint('🎯 PUBLISH_GAME: About to save to Firestore');
+
         // Save to Firestore games collection
         final firestore = FirebaseFirestore.instance;
         final gameRef = await firestore.collection('games').add(gameDataForDB);
 
-        debugPrint('Game saved to Firestore with ID: ${gameRef.id}');
+        debugPrint('🎯 PUBLISH_GAME: Game saved to Firestore with ID: ${gameRef.id}');
       } catch (e) {
-        debugPrint('Error saving game to Firestore: $e');
+        debugPrint('🎯 PUBLISH_GAME: Error saving game to Firestore: $e');
         throw Exception('Failed to save game: $e');
       }
 
@@ -344,7 +363,15 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           });
         }
       }
+    } catch (e) {
+      debugPrint('🎯 PUBLISH_GAME: Exception during publish: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error publishing game: $e')),
+        );
+      }
     } finally {
+      debugPrint('🎯 PUBLISH_GAME: Finally block executed');
       if (mounted) {
         setState(() {
           _isPublishing = false;
@@ -718,9 +745,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                   final memberCount =
                                       crewData is Map<String, dynamic>
                                           ? crewData['memberCount'] as int? ?? 0
-                                          : (crewData as dynamic).memberCount
-                                                  as int? ??
-                                              0;
+                                          : (crewData as Crew).members?.length ?? 0;
 
                                   return Padding(
                                     padding:
@@ -739,7 +764,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 4),
                                   child: Text(
-                                    'Crew: ${(args['selectedCrew'] as dynamic).name} (${(args['selectedCrew'] as dynamic).memberCount ?? 0} officials)',
+                                    'Crew: ${(args['selectedCrew'] as Crew).name} (${(args['selectedCrew'] as Crew).members?.length ?? 0} officials)',
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: colorScheme.onSurface,

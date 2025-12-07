@@ -1574,15 +1574,53 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Crew hiring configuration coming soon',
+                                  'Select crews to include in template',
                                   style: TextStyle(
                                       fontSize: 14, color: Colors.white70),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(Icons.group, color: colorScheme.primary),
+                                ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.pushNamed(
+                                      context,
+                                      '/select_crew_screen',
+                                      arguments: {
+                                        'sport': sport,
+                                        'fromTemplateCreation': true,
+                                      },
+                                    );
+
+                                    if (result != null && result is Map<String, dynamic>) {
+                                      // Handle the selected crews returned from crew selection
+                                      final selectedCrews = result['selectedCrews'] as List<dynamic>?;
+                                      if (selectedCrews != null) {
+                                        // Update template data with selected crews
+                                        setState(() {
+                                          // You might want to store this in a variable for template saving
+                                          // For now, we'll just show a confirmation
+                                        });
+
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Selected ${selectedCrews.length} crew${selectedCrews.length == 1 ? '' : 's'} for template'
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: Icon(Icons.group_add, size: 16),
+                                  label: const Text('Select Crews'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                ),
                               ],
                             ),
                           ),

@@ -8,6 +8,8 @@ import '../../services/user_service.dart';
 import '../../services/game_service.dart';
 import '../../services/official_list_service.dart';
 import '../../models/user_model.dart';
+import '../../models/crew_model.dart';
+import '../../app_colors.dart';
 
 class OfficialHomeScreen extends StatefulWidget {
   const OfficialHomeScreen({super.key});
@@ -20,6 +22,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   final UserService _userService = UserService();
   final GameService _gameService = GameService();
   final OfficialListService _listService = OfficialListService();
+  final CrewRepository _crewRepo = CrewRepository();
 
   int _currentIndex = 0;
   UserModel? _currentUser;
@@ -29,6 +32,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   List<String> _dismissedGameIds = []; // Track dismissed game IDs
   List<String> _confirmedGameIds = []; // Track confirmed game IDs
   bool _isLoading = true;
+  int _pendingInvitationsCount = 0;
 
   // Calendar state
   DateTime _focusedDay = DateTime.now();
@@ -265,6 +269,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       // Check for confirmed games and update pending/confirmed lists
       await _updateGameStatuses();
+
+      // Load pending crew invitations count
+      await _loadPendingInvitationsCount();
     } catch (e) {
       print('Error loading data: $e');
     } finally {
@@ -273,6 +280,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadPendingInvitationsCount() async {
+    try {
+      if (_currentUser?.id == null) return;
+
+      final invitations = await _crewRepo.getPendingInvitations(_currentUser!.id);
+      if (mounted) {
+        setState(() {
+          _pendingInvitationsCount = invitations.length;
+        });
+      }
+    } catch (e) {
+      print('Error loading pending invitations count: $e');
     }
   }
 
@@ -727,6 +749,57 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        // Crew Management Button (like v1.0)
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pushNamed(context, '/crew_dashboard').then((_) {
+                              // Refresh invitation count when returning from crew dashboard
+                              _loadPendingInvitationsCount();
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.efficialsYellow.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.efficialsYellow.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.groups, // Three people icon like v1.0
+                                  color: AppColors.efficialsYellow,
+                                  size: 20,
+                                ),
+                                if (_pendingInvitationsCount > 0) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      _pendingInvitationsCount > 99
+                                          ? '99+'
+                                          : _pendingInvitationsCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       ],

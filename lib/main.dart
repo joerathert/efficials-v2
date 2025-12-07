@@ -65,6 +65,12 @@ import 'screens/bulk_import/bulk_import_wizard_screen.dart';
 import 'screens/bulk_import/bulk_import_generate_screen.dart';
 import 'screens/bulk_import/bulk_import_upload_screen.dart';
 import 'screens/bulk_import/bulk_import_preview_screen.dart';
+import 'screens/select_crew_screen.dart';
+import 'screens/filter_crews_screen.dart';
+import 'screens/crew_dashboard_screen.dart';
+import 'screens/create_crew_screen.dart';
+import 'screens/crew_details_screen.dart';
+import 'screens/crew_invitations_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -188,6 +194,13 @@ class MyApp extends StatelessWidget {
             '/bulk_import_generate': (context) => const BulkImportGenerateScreen(),
             '/bulk_import_upload': (context) => const BulkImportUploadScreen(),
             '/bulk_import_preview': (context) => const BulkImportPreviewScreen(),
+            '/select_crew_screen': (context) => const SelectCrewScreen(),
+            '/filter_crews_settings': (context) => const FilterCrewsScreen(),
+            // Crew routes
+            '/crew_dashboard': (context) => CrewDashboardScreen(),
+            '/create_crew': (context) => CreateCrewScreen(),
+            '/crew_details': (context) => CrewDetailsScreen(),
+            '/crew_invitations': (context) => CrewInvitationsScreen(),
           },
         );
       },

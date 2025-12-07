@@ -448,8 +448,25 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
             'location',
             'Home Location',
             globalValues['location']?.toString() ?? '',
-            onValueChanged: (value) => globalValues['location'] = value,
-            options: availableLocations.map((loc) => loc['name'] as String).toList(),
+            onValueChanged: (value) async {
+              if (value == '+ Add new location') {
+                // Navigate to add new location screen
+                final result = await Navigator.pushNamed(context, '/add-new-location');
+                if (result != null) {
+                  // Location was created successfully, reload locations
+                  await _loadLocations();
+                  // Pre-select the newly created location
+                  final newLocationName = (result as Map<String, dynamic>)['name'];
+                  globalValues['location'] = newLocationName;
+                }
+              } else {
+                globalValues['location'] = value;
+              }
+            },
+            options: [
+              ...availableLocations.map((loc) => loc['name'] as String),
+              '+ Add new location'
+            ],
           ),
 
           _buildGlobalSettingTile(
@@ -819,7 +836,7 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
                             ),
                           ),
                           hint: Text(
-                            'Select $title',
+                            key == 'method' ? 'Select Method' : 'Select $title',
                             style: const TextStyle(color: Colors.grey),
                           ),
                           value: currentValue.isEmpty ? null : currentValue,
@@ -880,8 +897,22 @@ class _BulkImportWizardScreenState extends State<BulkImportWizardScreen> {
                 colorScheme: const ColorScheme.dark(
                   primary: AppColors.efficialsYellow,
                   onPrimary: Colors.black,
+                  secondary: AppColors.efficialsYellow,
+                  onSecondary: Colors.black,
+                  tertiary: AppColors.efficialsYellow,
+                  onTertiary: Colors.black,
                   surface: AppColors.darkSurface,
                   onSurface: Colors.white,
+                ),
+                timePickerTheme: const TimePickerThemeData(
+                  backgroundColor: AppColors.darkSurface,
+                  hourMinuteColor: AppColors.darkBackground,
+                  hourMinuteTextColor: AppColors.efficialsYellow,
+                  dialHandColor: AppColors.efficialsYellow,
+                  dialBackgroundColor: AppColors.darkBackground,
+                  dayPeriodColor: AppColors.efficialsYellow,
+                  dayPeriodTextColor: Colors.black,
+                  entryModeIconColor: AppColors.efficialsYellow,
                 ),
               ),
               child: child!,

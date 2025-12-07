@@ -463,7 +463,7 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                                 // Navigate to hire crew
                                 Navigator.pushNamed(
                                   context,
-                                  '/select_crew',
+                                  '/select_crew_screen',
                                   arguments: <String, dynamic>{
                                     ...?args,
                                     'sport': sport,

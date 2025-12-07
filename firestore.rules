@@ -32,13 +32,28 @@ service cloud.firestore {
     match /endorsements/{endorsementId} {
       // Anyone authenticated can read endorsements
       allow read: if isAuthenticated();
-      
+
       // Users can create/delete their own endorsements
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
         request.resource.data.endorserUserId == request.auth.uid;
-      
+
       // Users can delete their own endorsements, admins can delete any
-      allow delete: if isAuthenticated() && 
+      allow delete: if isAuthenticated() &&
+        (resource.data.endorserUserId == request.auth.uid || isAdmin());
+    }
+
+    // Crew endorsements collection
+    match /crew_endorsements/{endorsementId} {
+      // Anyone authenticated can read crew endorsements
+      allow read: if isAuthenticated();
+
+      // Only schedulers can create crew endorsements
+      allow create: if isAuthenticated() &&
+        request.resource.data.endorserUserId == request.auth.uid &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'scheduler';
+
+      // Users can delete their own crew endorsements, admins can delete any
+      allow delete: if isAuthenticated() &&
         (resource.data.endorserUserId == request.auth.uid || isAdmin());
     }
 
