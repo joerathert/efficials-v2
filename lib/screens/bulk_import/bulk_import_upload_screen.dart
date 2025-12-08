@@ -415,8 +415,8 @@ class _BulkImportUploadScreenState extends State<BulkImportUploadScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Preview (First 5 Games)',
+                      Text(
+                        'Preview (${parsedGames.take(5).length} Game${parsedGames.take(5).length == 1 ? '' : 's'})',
                         style: TextStyle(
                           color: AppColors.efficialsYellow,
                           fontWeight: FontWeight.bold,

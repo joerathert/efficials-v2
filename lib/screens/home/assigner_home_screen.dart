@@ -167,11 +167,14 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       final gamesNeedingOfficials = <Map<String, dynamic>>[];
 
       for (final game in games) {
+        debugPrint('🏠 CHECKING game ${game['id']}: sport=${game['sport']}, status=${game['status']}');
+
         final officialsHired = game['officialsHired'] as int? ?? 0;
         final officialsRequired = game['officialsRequired'] as int? ?? 0;
         final needsOfficials = officialsHired < officialsRequired;
         final hasDate = game['date'] != null;
-        final hasValidSchedule = game['scheduleId'] != null && game['scheduleId'].toString().isNotEmpty;
+
+        debugPrint('🏠 GAME ${game['id']}: hired=$officialsHired, required=$officialsRequired, needsOfficials=$needsOfficials, hasDate=$hasDate');
 
         // Parse date properly - it comes from Firestore as a string
         DateTime? gameDate;
@@ -179,6 +182,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           try {
             final dateValue = game['date'];
             gameDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+            debugPrint('🏠 GAME ${game['id']}: parsed date = $gameDate');
           } catch (e) {
             debugPrint('🏠 ERROR parsing game date: $e');
             gameDate = null;
@@ -186,18 +190,71 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
         }
 
         final isFuture = gameDate != null && gameDate.isAfter(DateTime.now());
+        debugPrint('🏠 GAME ${game['id']}: isFuture = $isFuture');
 
-        // Only include games that have a valid schedule that still exists
-        if (needsOfficials && hasDate && isFuture && hasValidSchedule) {
-          try {
-            final schedule = await _gameService.getSchedule(game['scheduleId']);
-            if (schedule != null) {
-              gamesNeedingOfficials.add(game); // Only include if schedule exists
+        final hasScheduleId = game['scheduleId'] != null && game['scheduleId'].toString().isNotEmpty;
+        debugPrint('🏠 GAME ${game['id']}: scheduleId = ${game['scheduleId']}, hasScheduleId = $hasScheduleId');
+
+        // Debug: Check time field and link data
+        debugPrint('🏠 GAME ${game['id']}: time = ${game['time']}, linkGroupId = ${game['linkGroupId']}, scheduleId = ${game['scheduleId']}, scheduleName = ${game['scheduleName']}');
+
+        // Include games that need officials and are in the future
+        if (needsOfficials && hasDate && isFuture) {
+          // If game has a scheduleId, validate that the schedule exists
+          if (hasScheduleId) {
+            try {
+              debugPrint('🏠 VALIDATING schedule for game ${game['id']}: scheduleId = ${game['scheduleId']}');
+              final schedule = await _gameService.getSchedule(game['scheduleId']);
+              if (schedule != null) {
+                debugPrint('🏠 SCHEDULE EXISTS for game ${game['id']} - including in list');
+                gamesNeedingOfficials.add(game); // Include if schedule exists
+              } else {
+                debugPrint('🏠 SCHEDULE DOES NOT EXIST for game ${game['id']} - excluding orphaned game');
+              }
+            } catch (e) {
+              debugPrint('🏠 ERROR validating schedule for game ${game['id']}: $e');
             }
-          } catch (e) {
-            debugPrint('🏠 ERROR validating schedule for game ${game['id']}: $e');
-            // Exclude games where we can't validate the schedule
+          } else {
+            // Game has no scheduleId - try to find schedule by name
+            final scheduleName = game['scheduleName'] as String?;
+            if (scheduleName != null && scheduleName.isNotEmpty) {
+              try {
+                debugPrint('🏠 LOOKING UP schedule by name "${scheduleName}" for game ${game['id']}');
+                // Try to find schedule by name (this is a fallback for legacy games)
+                final userSchedules = await _gameService.getSchedules();
+                debugPrint('🏠 USER HAS ${userSchedules.length} schedules');
+
+                // Check each schedule name for debugging
+                for (final schedule in userSchedules) {
+                  debugPrint('🏠 AVAILABLE SCHEDULE: "${schedule['name']}" (id: ${schedule['id']})');
+                }
+
+                ScheduleData? matchingSchedule;
+                try {
+                  matchingSchedule = userSchedules.firstWhere(
+                    (schedule) => schedule['name'] == scheduleName,
+                  );
+                } catch (e) {
+                  // No matching schedule found
+                  matchingSchedule = null;
+                }
+
+                if (matchingSchedule != null) {
+                  debugPrint('🏠 FOUND SCHEDULE by name "${scheduleName}" for game ${game['id']} - including in list');
+                  gamesNeedingOfficials.add(game); // Include if we found the schedule by name
+                } else {
+                  debugPrint('🏠 NO SCHEDULE found by name "${scheduleName}" for game ${game['id']} - excluding as orphaned');
+                  debugPrint('🏠 Expected to find schedule with name: "${scheduleName}"');
+                }
+              } catch (e) {
+                debugPrint('🏠 ERROR looking up schedule by name for game ${game['id']}: $e');
+              }
+            } else {
+              debugPrint('🏠 GAME ${game['id']} has no scheduleId or scheduleName - excluding as orphaned');
+            }
           }
+        } else {
+          debugPrint('🏠 GAME ${game['id']} excluded: needsOfficials=$needsOfficials, hasDate=$hasDate, isFuture=$isFuture');
         }
       }
 
@@ -1046,14 +1103,11 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 600, // Set a fixed height for the LinkedGamesList
-          child: LinkedGamesList(
-            games: _gamesNeedingOfficials,
-            onGameTap: _navigateToGame,
-            emptyMessage: 'No games needing officials',
-            emptyIcon: Icons.check_circle,
-          ),
+        LinkedGamesList(
+          games: _gamesNeedingOfficials,
+          onGameTap: _navigateToGame,
+          emptyMessage: 'No games needing officials',
+          emptyIcon: Icons.check_circle,
         ),
       ],
     );

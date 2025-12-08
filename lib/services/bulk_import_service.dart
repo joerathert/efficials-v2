@@ -758,7 +758,10 @@ class BulkImportService extends BaseService {
           }
 
           // Parse time
-          final time = _parseTime(gameData['Time'] ?? '');
+          final timeStr = gameData['Time'] ?? '';
+          debugPrint('⏰ BULK IMPORT: Parsing time for ${gameData['Opponent']}: "$timeStr"');
+          final time = _parseTime(timeStr);
+          debugPrint('⏰ BULK IMPORT: Parsed time result: $time');
 
           // Validate opponent
           final opponent = gameData['Opponent'];
@@ -910,8 +913,8 @@ class BulkImportService extends BaseService {
         return TimeOfDay(hour: hour, minute: minute);
       }
 
-      // Handle "19:00" format
-      final hourMinMatch = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(clean);
+      // Handle "19:00" or "19:00:00" format
+      final hourMinMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
       if (hourMinMatch != null) {
         return TimeOfDay(
           hour: int.parse(hourMinMatch.group(1)!),
@@ -958,6 +961,7 @@ class BulkImportService extends BaseService {
 
         // Get or create schedule
         String? scheduleId;
+        late final String validatedScheduleId;
         try {
           // Check if schedule exists
           final existingSchedules = await _gameService.getSchedules();
@@ -988,16 +992,19 @@ class BulkImportService extends BaseService {
         }
 
         // Group games by link group
+        debugPrint('🔗 BULK IMPORT: Processing ${scheduleGames.length} games in schedule "${scheduleName}" for linking');
         final linkGroups = <String, List<ParsedGame>>{};
         final unlinkedGames = <ParsedGame>[];
 
         for (final game in scheduleGames) {
+          debugPrint('🔗 BULK IMPORT: Game ${game.opponent} has linkGroup: "${game.linkGroup}"');
           if (game.linkGroup != null && game.linkGroup!.isNotEmpty) {
             linkGroups.putIfAbsent(game.linkGroup!, () => []).add(game);
           } else {
             unlinkedGames.add(game);
           }
         }
+        debugPrint('🔗 BULK IMPORT: Found ${linkGroups.length} link groups: ${linkGroups.keys.toList()}');
 
         // Validate link groups (max 5 games)
         for (final entry in linkGroups.entries) {
@@ -1009,8 +1016,27 @@ class BulkImportService extends BaseService {
           }
         }
 
+        // Validate scheduleId before creating games
+        if (scheduleId == null || scheduleId.isEmpty) {
+          debugPrint('❌ BULK IMPORT: No valid scheduleId for schedule "$scheduleName"');
+          for (final game in scheduleGames) {
+            errors.add('${game.sheetName} Row ${game.rowNumber}: Failed to create schedule - no scheduleId');
+            errorCount++;
+          }
+          continue;
+        }
+
+        // At this point scheduleId is guaranteed to be non-null and non-empty
+        assert(scheduleId != null && scheduleId.isNotEmpty);
+        validatedScheduleId = scheduleId;
+
         // Create games using batch write
         final batch = firestore.batch();
+
+        debugPrint('🔗 BULK IMPORT: About to create ${scheduleGames.length} games');
+        for (final game in scheduleGames) {
+          debugPrint('🔗 BULK IMPORT: Creating game ${game.opponent}: time=${game.time}, linkGroup=${game.linkGroup}');
+        }
 
         // Create unlinked games
         for (final game in unlinkedGames) {
@@ -1023,8 +1049,10 @@ class BulkImportService extends BaseService {
           }
 
           try {
+            final gameData = game.toGameData(currentUser.uid, validatedScheduleId);
+            debugPrint('🔗 BULK IMPORT: Saving game ${game.opponent}: time=${gameData['time']}, linkGroupId=${gameData['linkGroupId']}');
             final gameRef = firestore.collection(FirebaseCollections.games).doc();
-            batch.set(gameRef, game.toGameData(currentUser.uid, scheduleId));
+            batch.set(gameRef, gameData);
             successCount++;
           } catch (e) {
             errors.add('${game.sheetName} Row ${game.rowNumber}: $e');
@@ -1049,13 +1077,13 @@ class BulkImportService extends BaseService {
             continue;
           }
 
-          // Generate a unique link group ID
-          final linkGroupId = '${scheduleName}_${linkGroup}_${DateTime.now().millisecondsSinceEpoch}';
+          // Generate a link group ID based only on link group to allow cross-schedule linking
+          final linkGroupId = linkGroup;
 
           for (final game in linkedGames) {
             try {
               final gameRef = firestore.collection(FirebaseCollections.games).doc();
-              final gameData = game.toGameData(currentUser.uid, scheduleId);
+              final gameData = game.toGameData(currentUser.uid, validatedScheduleId);
               gameData['linkGroupId'] = linkGroupId;
               gameData['linkedGameCount'] = linkedGames.length;
               batch.set(gameRef, gameData);

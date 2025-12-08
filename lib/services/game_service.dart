@@ -620,11 +620,38 @@ class GameService extends BaseService {
         // Continue with default values
       }
 
-      // Get all games associated with this schedule
-      final gamesQuery = await firestore
+      // Get all games associated with this schedule (by ID and by name for robustness)
+      final gamesByIdQuery = await firestore
           .collection(FirebaseCollections.games)
           .where(FirebaseFields.scheduleId, isEqualTo: scheduleId)
           .get();
+
+      // Also get games that reference this schedule by name (fallback for orphaned games)
+      final gamesByNameQuery = await firestore
+          .collection(FirebaseCollections.games)
+          .where('scheduleName', isEqualTo: scheduleData!['name'])
+          .where('schedulerId', isEqualTo: currentUserId) // Only user's games
+          .get();
+
+      // Combine results and deduplicate
+      final allGameIds = <String>{};
+      final allGameDocs = <DocumentSnapshot>[];
+
+      for (var doc in gamesByIdQuery.docs) {
+        if (!allGameIds.contains(doc.id)) {
+          allGameIds.add(doc.id);
+          allGameDocs.add(doc);
+        }
+      }
+
+      for (var doc in gamesByNameQuery.docs) {
+        if (!allGameIds.contains(doc.id)) {
+          allGameIds.add(doc.id);
+          allGameDocs.add(doc);
+        }
+      }
+
+      final gamesQuery = gamesByIdQuery; // Keep original for compatibility, but use allGameDocs for deletion
 
       // Collect all affected officials and their game details
       final Map<String, List<Map<String, dynamic>>> officialGames = {};
@@ -741,8 +768,8 @@ class GameService extends BaseService {
         }
       }
 
-      // Delete all games
-      for (var gameDoc in gamesQuery.docs) {
+      // Delete all games (both by ID and by name association)
+      for (var gameDoc in allGameDocs) {
         batch.delete(gameDoc.reference);
       }
 
@@ -753,7 +780,7 @@ class GameService extends BaseService {
       await batch.commit();
 
       debugPrint(
-          '✅ GAME SERVICE: Schedule $scheduleId and ${gamesQuery.docs.length} games deleted successfully');
+          '✅ GAME SERVICE: Schedule $scheduleId and ${allGameDocs.length} games deleted successfully');
       debugPrint(
           '✅ GAME SERVICE: Created notifications for ${officialGames.length} affected officials');
     } catch (e) {
@@ -1101,6 +1128,30 @@ class GameService extends BaseService {
     }
   }
 
+  /// Validate that a schedule exists (by ID or name)
+  Future<bool> _validateScheduleExists(String scheduleId, String? scheduleName) async {
+    try {
+      // First try by scheduleId
+      if (scheduleId.isNotEmpty) {
+        final schedule = await getSchedule(scheduleId);
+        if (schedule != null) {
+          return true;
+        }
+      }
+
+      // Fallback: try by scheduleName
+      if (scheduleName != null && scheduleName.isNotEmpty) {
+        final schedules = await getSchedules();
+        return schedules.any((s) => s['name'] == scheduleName);
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error validating schedule: $e');
+      return false;
+    }
+  }
+
   Future<bool> saveUnpublishedGame(Map<String, dynamic> gameData) async {
     try {
       debugPrint('🔄 GAME SERVICE: Saving unpublished game');
@@ -1111,6 +1162,22 @@ class GameService extends BaseService {
       if (currentUser == null) {
         debugPrint('⚠️ GAME SERVICE: No authenticated user found');
         return false;
+      }
+
+      // VALIDATION: Ensure game has valid schedule association
+      final scheduleId = gameData['scheduleId'];
+      final scheduleName = gameData['scheduleName'];
+
+      if (scheduleId == null || scheduleId.toString().isEmpty) {
+        debugPrint('❌ GAME SERVICE: Cannot save game without scheduleId');
+        throw Exception('Games must be associated with a valid schedule');
+      }
+
+      // Validate that the schedule actually exists
+      final scheduleExists = await _validateScheduleExists(scheduleId.toString(), scheduleName);
+      if (!scheduleExists) {
+        debugPrint('❌ GAME SERVICE: Referenced schedule does not exist: $scheduleId');
+        throw Exception('The referenced schedule no longer exists. Please select a valid schedule.');
       }
 
       // Prepare game data for unpublished status
@@ -1128,7 +1195,7 @@ class GameService extends BaseService {
       // Save to games collection
       await firestore.collection('games').add(unpublishedGameData);
 
-      debugPrint('✅ GAME SERVICE: Successfully saved unpublished game');
+      debugPrint('✅ GAME SERVICE: Successfully saved unpublished game with validated schedule');
       return true;
     } catch (e) {
       debugPrint('❌ GAME SERVICE: Error saving unpublished game: $e');

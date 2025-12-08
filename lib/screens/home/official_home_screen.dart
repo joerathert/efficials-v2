@@ -1420,10 +1420,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ? _buildEmptyState('No available games', Icons.sports)
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _availableGames.length,
+                    itemCount: _getGroupedAvailableGames().length,
                     itemBuilder: (context, index) {
-                      final game = _availableGames[index];
-                      return _buildAvailableGameCard(game);
+                      final group = _getGroupedAvailableGames()[index];
+                      if (group.length == 1) {
+                        // Single game
+                        return _buildAvailableGameCard(group[0]);
+                      } else {
+                        // Linked games group
+                        return _buildLinkedAvailableGamesGroup(group);
+                      }
                     },
                   ),
           ),

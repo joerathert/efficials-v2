@@ -267,15 +267,29 @@ class _BulkImportPreviewScreenState extends State<BulkImportPreviewScreen>
   }
 
   Widget _buildGamesList(String scheduleName) {
-    final games = gamesBySchedule[scheduleName] ?? [];
+    final allGames = parsedGames; // Use all games for cross-schedule linking
 
-    // Group games by link group
+    // Group games by link group across ALL schedules for cross-schedule linking
+    final allLinkedGroups = <String, List<ParsedGame>>{};
+
+    for (final game in allGames) {
+      if (game.linkGroup != null && game.linkGroup!.isNotEmpty) {
+        allLinkedGroups.putIfAbsent(game.linkGroup!, () => []).add(game);
+      }
+    }
+
+    // Filter to show only link groups that have games in the current schedule
+    final scheduleGames = gamesBySchedule[scheduleName] ?? [];
     final linkedGroups = <String, List<ParsedGame>>{};
     final unlinkedGames = <ParsedGame>[];
 
-    for (final game in games) {
+    for (final game in scheduleGames) {
       if (game.linkGroup != null && game.linkGroup!.isNotEmpty) {
-        linkedGroups.putIfAbsent(game.linkGroup!, () => []).add(game);
+        // For linked groups, show all games in the link group (cross-schedule)
+        final linkGroup = game.linkGroup!;
+        if (!linkedGroups.containsKey(linkGroup)) {
+          linkedGroups[linkGroup] = allLinkedGroups[linkGroup] ?? [];
+        }
       } else {
         unlinkedGames.add(game);
       }
@@ -715,7 +729,7 @@ class _BulkImportPreviewScreenState extends State<BulkImportPreviewScreen>
             const SizedBox(height: 30),
             Text(
               success
-                  ? 'Your games have been added as unpublished. Review them in Manage Schedules before publishing.'
+                  ? 'Your games have been added as unpublished. Review them in the Unpublished Games screen before publishing.'
                   : 'Some games could not be imported. Please check the errors above.',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.7),
@@ -764,6 +778,30 @@ class _BulkImportPreviewScreenState extends State<BulkImportPreviewScreen>
                 ),
                 child: const Text(
                   'View Schedules',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/unpublished-games');
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.efficialsYellow,
+                  side: const BorderSide(color: AppColors.efficialsYellow),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Review Unpublished Games',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

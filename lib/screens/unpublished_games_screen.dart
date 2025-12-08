@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../app_colors.dart';
 import '../services/game_service.dart';
+import '../services/auth_service.dart';
 
 class UnpublishedGamesScreen extends StatefulWidget {
   const UnpublishedGamesScreen({super.key});
@@ -17,6 +18,7 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
   bool isLoading = true;
   bool selectAll = false;
   final GameService _gameService = GameService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -40,6 +42,17 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
     }
   }
 
+  Future<void> _navigateToHome() async {
+    try {
+      final homeRoute = await _authService.getHomeRoute();
+      Navigator.pushNamedAndRemoveUntil(context, homeRoute, (route) => false);
+    } catch (e) {
+      debugPrint('Error navigating to home: $e');
+      // Fallback to assigner home
+      Navigator.pushNamedAndRemoveUntil(context, '/assigner-home', (route) => false);
+    }
+  }
+
   Future<void> _deleteGame(String gameId) async {
     try {
       final success = await _gameService.deleteGame(gameId);
@@ -59,6 +72,67 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to delete game')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cleanupOrphanedGames() async {
+    try {
+      setState(() => isLoading = true);
+
+      // Get all published games for this user
+      final allGames = await _gameService.getPublishedGames();
+
+      // Get all schedules for this user
+      final allSchedules = await _gameService.getSchedules();
+      final scheduleNames = allSchedules.map((s) => s['name'] as String).toSet();
+
+      int deletedCount = 0;
+
+      for (final game in allGames) {
+        final scheduleId = game['scheduleId'];
+        final scheduleName = game['scheduleName'] as String?;
+
+        bool shouldDelete = false;
+
+        if (scheduleId != null && scheduleId.toString().isNotEmpty) {
+          // Check if schedule exists by ID
+          final schedule = await _gameService.getSchedule(scheduleId);
+          if (schedule == null) {
+            shouldDelete = true;
+          }
+        } else if (scheduleName != null && scheduleName.isNotEmpty) {
+          // Check if schedule exists by name
+          if (!scheduleNames.contains(scheduleName)) {
+            shouldDelete = true;
+          }
+        }
+
+        if (shouldDelete) {
+          debugPrint('🗑️ Deleting orphaned game: ${game['id']} (${game['opponent']})');
+          await _gameService.deleteGame(game['id']);
+          deletedCount++;
+        }
+      }
+
+      setState(() => isLoading = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cleaned up $deletedCount orphaned games')),
+        );
+      }
+
+      // Refresh the unpublished games list
+      await _fetchUnpublishedGames();
+
+    } catch (e) {
+      debugPrint('Error cleaning up orphaned games: $e');
+      setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to cleanup orphaned games')),
         );
       }
     }
@@ -160,20 +234,20 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
       backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
         backgroundColor: AppColors.efficialsBlack,
-        title: const Text(
-          'Draft Games',
-          style: TextStyle(
-            color: AppColors.efficialsYellow,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+        title: IconButton(
+          icon: const Icon(Icons.sports, color: AppColors.efficialsYellow, size: 28),
+          onPressed: _navigateToHome,
+          tooltip: 'Go to Home',
         ),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.efficialsWhite),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: null,
         actions: [
+          // Cleanup orphaned games button
+          IconButton(
+            icon: const Icon(Icons.cleaning_services, color: AppColors.efficialsYellow),
+            onPressed: _cleanupOrphanedGames,
+            tooltip: 'Cleanup Orphaned Games',
+          ),
           if (unpublishedGames.isNotEmpty)
             TextButton(
               onPressed: _toggleSelectAll,
@@ -188,7 +262,25 @@ class _UnpublishedGamesScreenState extends State<UnpublishedGamesScreen> {
           ? const Center(child: CircularProgressIndicator(color: AppColors.efficialsYellow))
           : unpublishedGames.isEmpty
               ? _buildEmptyState()
-              : _buildGamesList(groupedGames),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Page title
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(
+                        'Draft Games',
+                        style: TextStyle(
+                          color: AppColors.efficialsYellow,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // Games list
+                    Expanded(child: _buildGamesList(groupedGames)),
+                  ],
+                ),
       bottomNavigationBar: unpublishedGames.isNotEmpty
           ? Container(
               color: AppColors.efficialsBlack,

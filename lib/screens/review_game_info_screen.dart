@@ -546,9 +546,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           ? (args['time'] as TimeOfDay).format(context)
           : 'Not set',
       'Location': args['location'] is Map<String, dynamic>
-          ? (args['location']['address'] != null && args['location']['address'].toString().isNotEmpty
-              ? '${args['location']['name']}\n${args['location']['address']}'
-              : args['location']['name'])
+          ? args['location']['name'] as String? ?? 'Not set'
           : (args['location'] as String? ?? 'Not set'),
       'Opponent': args['opponent'] as String? ?? 'Not set',
     };

@@ -136,7 +136,12 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
       selectedLocation = _editingTemplate!.location;
       includeLocation = _editingTemplate!.includeLocation;
     } else if (args['location'] != null) {
-      selectedLocation = args['location'] as String;
+      // Handle both String (legacy) and Map (new) location formats
+      if (args['location'] is Map<String, dynamic>) {
+        selectedLocation = args['location']['name'] as String?;
+      } else {
+        selectedLocation = args['location'] as String;
+      }
       includeLocation = true;
     }
 
