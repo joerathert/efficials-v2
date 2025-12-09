@@ -101,6 +101,50 @@ class LinkedGamesList extends StatelessWidget {
       }
     }
 
+    // Sort games within each linked group by date/time
+    linkedGroups.forEach((key, games) {
+      games.sort((a, b) {
+        try {
+          // Parse date
+          final aDateValue = a['date'];
+          final bDateValue = b['date'];
+          final aDate = aDateValue is DateTime ? aDateValue : DateTime.parse(aDateValue.toString());
+          final bDate = bDateValue is DateTime ? bDateValue : DateTime.parse(bDateValue.toString());
+
+          // If dates are different, sort by date
+          if (aDate != bDate) {
+            return aDate.compareTo(bDate);
+          }
+
+          // If dates are the same, try to sort by time
+          final aTimeStr = a['time']?.toString();
+          final bTimeStr = b['time']?.toString();
+
+          if (aTimeStr != null && bTimeStr != null) {
+            // Parse time strings (format: "HH:MM")
+            final aParts = aTimeStr.split(':');
+            final bParts = bTimeStr.split(':');
+
+            if (aParts.length >= 2 && bParts.length >= 2) {
+              final aHour = int.tryParse(aParts[0]) ?? 0;
+              final aMinute = int.tryParse(aParts[1]) ?? 0;
+              final bHour = int.tryParse(bParts[0]) ?? 0;
+              final bMinute = int.tryParse(bParts[1]) ?? 0;
+
+              final aTime = TimeOfDay(hour: aHour, minute: aMinute);
+              final bTime = TimeOfDay(hour: bHour, minute: bMinute);
+
+              return aTime.hour * 60 + aTime.minute - (bTime.hour * 60 + bTime.minute);
+            }
+          }
+
+          return 0;
+        } catch (e) {
+          return 0;
+        }
+      });
+    });
+
     // Combine linked groups and unlinked games
     final result = <List<Map<String, dynamic>>>[];
     result.addAll(linkedGroups.values);
@@ -182,42 +226,6 @@ class LinkedGamesList extends StatelessWidget {
               ),
             ],
           ),
-          // Linked badge in top-right corner - make it more prominent
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.efficialsYellow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.efficialsBlack, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.link, color: AppColors.efficialsBlack, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${linkedGames.length} Linked',
-                    style: const TextStyle(
-                      color: AppColors.efficialsBlack,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -228,7 +236,7 @@ class LinkedGamesList extends StatelessWidget {
       onTap: () => onGameTap(game),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: _buildGameCardContent(game, isLinked: true, showButtons: false),
+        child: _buildGameCardContent(game, isLinked: true, showButtons: false, showLocation: false, showOfficialsStatus: false),
       ),
     );
   }
@@ -241,7 +249,7 @@ class LinkedGamesList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGameCardContent(game, isLinked: true, showButtons: false),
+            _buildGameCardContent(game, isLinked: true, showButtons: false, showLocation: true, showOfficialsStatus: true),
             const SizedBox(height: 12),
             // Total fee and any additional info
             if (totalFee > 0) ...[
@@ -267,7 +275,7 @@ class LinkedGamesList extends StatelessWidget {
   }
 
   // Extract game card content to reuse for linked games
-  Widget _buildGameCardContent(Map<String, dynamic> game, {bool isLinked = false, bool showButtons = true}) {
+  Widget _buildGameCardContent(Map<String, dynamic> game, {bool isLinked = false, bool showButtons = true, bool showLocation = true, bool showOfficialsStatus = true}) {
     // Parse date properly - it comes from Firestore as a string
     DateTime? date;
     if (game['date'] != null) {
@@ -403,7 +411,7 @@ class LinkedGamesList extends StatelessWidget {
             color: secondaryTextColor,
           ),
         ),
-        if (locationName != 'TBD') ...[
+        if (showLocation && locationName != 'TBD') ...[
           const SizedBox(height: 4),
           Text(
             locationName,
@@ -413,14 +421,16 @@ class LinkedGamesList extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 8),
-        Text(
-          '$officialsHired of $officialsRequired officials confirmed',
-          style: const TextStyle(
-            fontSize: 12,
-            color: secondaryTextColor,
+        if (showOfficialsStatus) ...[
+          const SizedBox(height: 8),
+          Text(
+            '$officialsHired of $officialsRequired officials confirmed',
+            style: const TextStyle(
+              fontSize: 12,
+              color: secondaryTextColor,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

@@ -8,6 +8,7 @@ class FirebaseCollections {
   static const String officialLists = 'official_lists';
   static const String schedules = 'schedules';
   static const String gameTemplates = 'game_templates';
+  static const String notifications = 'notifications';
 }
 
 /// Common field names used across collections

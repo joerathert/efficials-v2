@@ -330,10 +330,10 @@ class _BulkImportPreviewScreenState extends State<BulkImportPreviewScreen>
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildInfoChip('${games.length} games', Icons.sports),
+                    _buildInfoChip('${scheduleGames.length} games', Icons.sports),
                     const SizedBox(width: 8),
-                    if (games.first.teamName.isNotEmpty)
-                      _buildInfoChip(games.first.teamName, Icons.group),
+                    if (scheduleGames.isNotEmpty && scheduleGames.first.teamName.isNotEmpty)
+                      _buildInfoChip(scheduleGames.first.teamName, Icons.group),
                   ],
                 ),
               ],

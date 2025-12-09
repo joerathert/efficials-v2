@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,9 +8,18 @@ import '../../providers/theme_provider.dart';
 import '../../services/user_service.dart';
 import '../../services/game_service.dart';
 import '../../services/official_list_service.dart';
+import '../../services/notification_service.dart';
+import '../../models/notification_model.dart';
 import '../../models/user_model.dart';
 import '../../models/crew_model.dart';
 import '../../app_colors.dart';
+import '../../constants/firebase_constants.dart';
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1)}";
+  }
+}
 
 class OfficialHomeScreen extends StatefulWidget {
   const OfficialHomeScreen({super.key});
@@ -23,6 +33,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   final GameService _gameService = GameService();
   final OfficialListService _listService = OfficialListService();
   final CrewRepository _crewRepo = CrewRepository();
+  final NotificationService _notificationService = NotificationService();
 
   int _currentIndex = 0;
   UserModel? _currentUser;
@@ -44,6 +55,106 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   bool _showConfirmedGames = true;
   bool _showAvailableGames = true;
   bool _showPendingGames = true;
+
+  // Notification state
+  int _unreadNotificationsCount = 0;
+  StreamSubscription<List<NotificationModel>>? _notificationSubscription;
+
+  void _startNotificationListener() {
+    _stopNotificationListener(); // Clean up any existing listener
+
+    final userId = _currentUser?.id;
+    if (userId == null) return;
+
+    debugPrint('📡 NOTIFICATION LISTENER: Starting listener for user $userId');
+
+    _notificationSubscription = _getNotificationsStream().listen(
+      (notifications) {
+        final unreadCount = notifications.where((n) => !n.isRead).length;
+        if (unreadCount != _unreadNotificationsCount) {
+          setState(() {
+            _unreadNotificationsCount = unreadCount;
+          });
+          debugPrint('📡 NOTIFICATION LISTENER: Updated unread count to $unreadCount');
+        }
+      },
+      onError: (error) {
+        debugPrint('📡 NOTIFICATION LISTENER: Error: $error');
+      },
+    );
+  }
+
+  void _stopNotificationListener() {
+    _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+  }
+
+  Future<void> _markNotificationsAsRead() async {
+    final userId = _currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      debugPrint('📡 MARKING NOTIFICATIONS AS READ: For user $userId');
+      await _notificationService.markAllAsRead(userId);
+
+      // Update local count
+      setState(() {
+        _unreadNotificationsCount = 0;
+      });
+    } catch (e) {
+      debugPrint('❌ Error marking notifications as read: $e');
+    }
+  }
+
+  Future<void> _markSingleNotificationAsRead(String notificationId) async {
+    try {
+      debugPrint('📖 MARKING SINGLE NOTIFICATION AS READ: $notificationId');
+
+      // Mark the notification as read in Firestore
+      final success = await _notificationService.markAsRead(notificationId);
+
+      if (success) {
+        // Update the unread count (will be handled by the stream listener)
+        debugPrint('✅ Notification marked as read successfully');
+      } else {
+        debugPrint('❌ Failed to mark notification as read');
+      }
+    } catch (e) {
+      debugPrint('❌ Error marking notification as read: $e');
+    }
+  }
+
+  Future<void> _dismissNotification(String notificationId) async {
+    try {
+      debugPrint('🗑️ DISMISSING NOTIFICATION: $notificationId');
+
+      // Delete the notification from Firestore
+      final success = await _notificationService.deleteNotification(notificationId);
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to dismiss notification'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error dismissing notification: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to dismiss notification'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopNotificationListener();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -302,6 +413,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       // Get current user
       _currentUser = await _userService.getCurrentUser();
+
+      // Start listening to notifications for badge count
+      _startNotificationListener();
 
       // Reload persistent data to get latest confirmed game IDs
       await _loadPersistentData();
@@ -1144,7 +1258,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       case 3:
         return _buildCalendarTab();
       case 4:
-        return _buildProfileTab();
+        return _buildNotificationsTab();
       default:
         return _buildHomeTab();
     }
@@ -1365,10 +1479,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _confirmedGames.length,
+                      itemCount: _getGroupedConfirmedGames().length,
                       itemBuilder: (context, index) {
-                        final game = _confirmedGames[index];
-                        return _buildConfirmedGameCard(game);
+                        final group = _getGroupedConfirmedGames()[index];
+                        if (group.length == 1) {
+                          // Single game
+                          return _buildConfirmedGameCard(group[0]);
+                        } else {
+                          // Linked games group
+                          return _buildLinkedConfirmedGamesGroup(group);
+                        }
                       },
                     ),
             ),
@@ -1380,6 +1500,1041 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         ),
       ),
     );
+  }
+
+  List<List<Map<String, dynamic>>> _getGroupedAvailableGames() {
+    final linkedGroups = <String, List<Map<String, dynamic>>>{};
+    final unlinkedGames = <Map<String, dynamic>>[];
+
+    for (final game in _availableGames) {
+      final linkGroupId = game['linkGroupId'] as String?;
+      if (linkGroupId != null && linkGroupId.isNotEmpty) {
+        linkedGroups.putIfAbsent(linkGroupId, () => []).add(game);
+      } else {
+        unlinkedGames.add(game);
+      }
+    }
+
+    // Sort games within each linked group by date and time
+    linkedGroups.forEach((key, games) {
+      games.sort((a, b) {
+        DateTime? aDate;
+        DateTime? bDate;
+        TimeOfDay? aTime;
+        TimeOfDay? bTime;
+
+        // Parse dates
+        if (a['date'] != null) {
+          try {
+            final dateValue = a['date'];
+            aDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+          } catch (e) { /* handle error */ }
+        }
+        if (b['date'] != null) {
+          try {
+            final dateValue = b['date'];
+            bDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+          } catch (e) { /* handle error */ }
+        }
+
+        // Parse times
+        if (a['time'] != null) {
+          try {
+            final timeValue = a['time'];
+            if (timeValue is TimeOfDay) {
+              aTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                aTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) { /* handle error */ }
+        }
+        if (b['time'] != null) {
+          try {
+            final timeValue = b['time'];
+            if (timeValue is TimeOfDay) {
+              bTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                bTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) { /* handle error */ }
+        }
+
+        // Compare dates first
+        if (aDate != null && bDate != null) {
+          final dateComparison = aDate.compareTo(bDate);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+        } else if (aDate != null) {
+          return -1;
+        } else if (bDate != null) {
+          return 1;
+        }
+
+        // If dates are the same or one is null, compare times
+        if (aTime != null && bTime != null) {
+          return (aTime.hour * 60 + aTime.minute).compareTo(bTime.hour * 60 + bTime.minute);
+        } else if (aTime != null) {
+          return -1;
+        } else if (bTime != null) {
+          return 1;
+        }
+
+        return 0;
+      });
+    });
+
+    // Combine linked groups and unlinked games
+    final result = <List<Map<String, dynamic>>>[];
+    result.addAll(linkedGroups.values);
+    result.addAll(unlinkedGames.map((game) => [game]));
+
+    return result;
+  }
+
+  Widget _buildLinkedAvailableGamesGroup(List<Map<String, dynamic>> linkedGames) {
+    if (linkedGames.length < 2) {
+      return _buildAvailableGameCard(linkedGames.first);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // Top card - first game
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _buildTopLinkedGameContent(linkedGames[0]),
+              ),
+              // No gap - cards pressed together
+              // Bottom card - second game + shared info
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    topRight: Radius.circular(2),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _buildBottomLinkedGameContent(linkedGames[1], linkedGames),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopLinkedGameContent(Map<String, dynamic> game) {
+    return InkWell(
+      onTap: () => _navigateToGameDetails(game),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(12),
+        topRight: Radius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  game['sport'] ?? 'Sport',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.efficialsYellow.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'LINKED GAMES',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomLinkedGameContent(Map<String, dynamic> game, List<Map<String, dynamic>> linkedGames) {
+    // Check if this is a "Hire Automatically" game
+    final isHireAutomatically = game['hireAutomatically'] == true;
+
+    // Check if this is a crew-offered game
+    final selectedCrews = game['selectedCrews'] as List<dynamic>?;
+    final isCrewGame = selectedCrews != null && selectedCrews.isNotEmpty;
+
+    // Get crew information from game data (should be loaded in _loadAvailableGames)
+    final isUserCrewChief = game['isUserCrewChief'] as bool? ?? false;
+    final isUserCrewMember = game['isUserCrewMember'] as bool? ?? false;
+    final userCrewId = game['userCrewId'] as String?;
+    final userCrewName = game['userCrewName'] as String?;
+
+    return InkWell(
+      onTap: () => _navigateToGameDetails(game),
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(12),
+        bottomRight: Radius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _formatGameTitle(game),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${game['officialsHired'] ?? 0} of ${game['officialsRequired'] ?? 0} officials confirmed',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400],
+              ),
+            ),
+
+            // Show crew information for crew games
+            if (isCrewGame) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.efficialsYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isUserCrewChief ? Icons.star : Icons.group,
+                      size: 14,
+                      color: AppColors.efficialsYellow,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isUserCrewChief
+                                ? 'Your crew "${userCrewName ?? 'Unknown'}" can accept this game'
+                                : isUserCrewMember
+                                    ? 'Offered to your crew "${userCrewName ?? 'Unknown'}"'
+                                    : 'Crew game - contact your crew chief',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          // Show crew member preferences for crew chiefs
+                          if (isUserCrewChief && userCrewId != null) ...[
+                            const SizedBox(height: 4),
+                            StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('crew_member_game_preferences')
+                                  .where('game_id', isEqualTo: game['id'])
+                                  .where('crew_id', isEqualTo: userCrewId)
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData && snapshot.data != null) {
+                                  final docs = snapshot.data!.docs;
+                                  int thumbsUp = 0;
+                                  int thumbsDown = 0;
+
+                                  for (final doc in docs) {
+                                    final data = doc.data() as Map<String, dynamic>;
+                                    final preference = data['preference'] as String?;
+
+                                    if (preference == 'thumbs_up') thumbsUp++;
+                                    if (preference == 'thumbs_down') thumbsDown++;
+                                  }
+
+                                  final totalResponses = thumbsUp + thumbsDown;
+
+                                  if (totalResponses > 0) {
+                                    return GestureDetector(
+                                      onTap: () => _showCrewPreferenceDetails(context, game, docs),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.efficialsYellow.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.thumb_up,
+                                                size: 12, color: Colors.green[600]),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '$thumbsUp',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.green[600],
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Icon(Icons.thumb_down,
+                                                size: 12, color: Colors.red[600]),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '$thumbsDown',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.red[600],
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.info_outline,
+                                              size: 10,
+                                              color: AppColors.efficialsYellow,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // Shared information for linked games
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.2)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        game['location'] ?? 'TBD',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Fee: \$${game['gameFee'] ?? '0'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Dismiss button (always available)
+                    ElevatedButton(
+                      onPressed: () => _dismissGame(game),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: const Text(
+                        'Dismiss',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Action button - only for crew chiefs or non-crew games
+                    ElevatedButton(
+                      onPressed: () => _claimGame(game),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHireAutomatically
+                            ? Colors.green
+                            : Theme.of(context).colorScheme.primary,
+                        foregroundColor: isHireAutomatically
+                            ? Colors.white
+                            : Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        isHireAutomatically ? 'Claim' : 'Express Interest',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<List<Map<String, dynamic>>> _getGroupedConfirmedGames() {
+    final linkedGroups = <String, List<Map<String, dynamic>>>{};
+    final unlinkedGames = <Map<String, dynamic>>[];
+
+    for (final game in _confirmedGames) {
+      final linkGroupId = game['linkGroupId'] as String?;
+      if (linkGroupId != null && linkGroupId.isNotEmpty) {
+        linkedGroups.putIfAbsent(linkGroupId, () => []).add(game);
+      } else {
+        unlinkedGames.add(game);
+      }
+    }
+
+    // Sort games within each linked group by date and time
+    linkedGroups.forEach((key, games) {
+      games.sort((a, b) {
+        DateTime? aDate;
+        DateTime? bDate;
+        TimeOfDay? aTime;
+        TimeOfDay? bTime;
+
+        // Parse dates
+        if (a['date'] != null) {
+          try {
+            final dateValue = a['date'];
+            aDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+          } catch (e) { /* handle error */ }
+        }
+        if (b['date'] != null) {
+          try {
+            final dateValue = b['date'];
+            bDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+          } catch (e) { /* handle error */ }
+        }
+
+        // Parse times
+        if (a['time'] != null) {
+          try {
+            final timeValue = a['time'];
+            if (timeValue is TimeOfDay) {
+              aTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                aTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) { /* handle error */ }
+        }
+        if (b['time'] != null) {
+          try {
+            final timeValue = b['time'];
+            if (timeValue is TimeOfDay) {
+              bTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                bTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) { /* handle error */ }
+        }
+
+        // Compare dates first
+        if (aDate != null && bDate != null) {
+          final dateComparison = aDate.compareTo(bDate);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+        } else if (aDate != null) {
+          return -1;
+        } else if (bDate != null) {
+          return 1;
+        }
+
+        // If dates are the same or one is null, compare times
+        if (aTime != null && bTime != null) {
+          return (aTime.hour * 60 + aTime.minute).compareTo(bTime.hour * 60 + bTime.minute);
+        } else if (aTime != null) {
+          return -1;
+        } else if (bTime != null) {
+          return 1;
+        }
+
+        return 0;
+      });
+    });
+
+    // Combine linked groups and unlinked games
+    final result = <List<Map<String, dynamic>>>[];
+    result.addAll(linkedGroups.values);
+    result.addAll(unlinkedGames.map((game) => [game]));
+
+    return result;
+  }
+
+  Widget _buildLinkedConfirmedGamesGroup(List<Map<String, dynamic>> linkedGames) {
+    if (linkedGames.length < 2) {
+      return _buildConfirmedGameCard(linkedGames.first);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              // Top card - first game
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                  border: Border.all(color: Colors.green.withOpacity(0.6), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _buildTopLinkedConfirmedGameContent(linkedGames[0]),
+              ),
+              // No gap - cards pressed together
+              // Bottom card - second game + shared info
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    topRight: Radius.circular(2),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border.all(color: Colors.green.withOpacity(0.6), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _buildBottomLinkedConfirmedGameContent(linkedGames[1]),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopLinkedConfirmedGameContent(Map<String, dynamic> game) {
+    return InkWell(
+      onTap: () => _viewGameDetails(game),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(12),
+        topRight: Radius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  game['sport'] ?? 'Sport',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.efficialsYellow.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'LINKED GAMES',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomLinkedConfirmedGameContent(Map<String, dynamic> game) {
+    return InkWell(
+      onTap: () => _viewGameDetails(game),
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(12),
+        bottomRight: Radius.circular(12),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _formatGameTitle(game),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Shared information for linked games (Location and Fee)
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  game['location'] ?? 'TBD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  'Fee: \$${game['gameFee'] ?? '0'}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Confirmed: Ready to officiate',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Stream<List<NotificationModel>> _getNotificationsStream() {
+    final userId = _currentUser?.id;
+    if (userId == null) return Stream.value([]);
+
+    debugPrint('📡 NOTIFICATION STREAM: Setting up stream for user $userId');
+
+    // Listen to real-time changes in the notifications collection
+    // Note: Removed orderBy to avoid requiring a composite index for now
+    // We'll sort in memory instead
+    return FirebaseFirestore.instance
+        .collection(FirebaseCollections.notifications)
+        .where('userId', isEqualTo: userId)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+          debugPrint('📡 NOTIFICATION STREAM: Received ${snapshot.docs.length} notification documents for user $userId');
+          final notifications = snapshot.docs
+              .map((doc) {
+                try {
+                  final notification = NotificationModel.fromMap(doc.data());
+                  debugPrint('📡 NOTIFICATION STREAM: Parsed notification ${doc.id}: ${notification.title}');
+                  return notification;
+                } catch (e) {
+                  debugPrint('📡 NOTIFICATION STREAM: Error parsing notification ${doc.id}: $e');
+                  return null;
+                }
+              })
+              .where((n) => n != null)
+              .cast<NotificationModel>()
+              .toList();
+
+          // Sort by createdAt descending since we can't do it in the query without an index
+          notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          debugPrint('📡 NOTIFICATION STREAM: Returning ${notifications.length} parsed and sorted notifications');
+          return notifications;
+        });
+  }
+
+  Widget _buildNotificationCard(NotificationModel notification) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: notification.isRead
+            ? Theme.of(context).colorScheme.surface
+            : Theme.of(context).colorScheme.surface.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getNotificationBorderColor(notification.type),
+          width: notification.isRead ? 1 : 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                notification.title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              if (!notification.isRead)
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            notification.message,
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          // Show changes for game updates
+          if (notification.type == NotificationType.gameUpdated && notification.data?['changes'] != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Changes Made:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...(notification.data!['changes'] as List<dynamic>).map((change) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      '• ${change.toString().capitalize()}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange[700],
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ],
+
+          if (notification.contactInfo.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Contact Information:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.contactInfo,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatNotificationTime(notification.createdAt),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+              Row(
+                children: [
+                  if (!notification.isRead)
+                    TextButton(
+                      onPressed: () => _markSingleNotificationAsRead(notification.id),
+                      child: const Text(
+                        'Mark as Read',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: () => _dismissNotification(notification.id),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red[600],
+                    ),
+                    child: const Text(
+                      'Dismiss',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getNotificationBorderColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.gameCanceled:
+      case NotificationType.gameDeleted:
+        return Colors.red;
+      case NotificationType.gameUpdated:
+        return Colors.orange;
+      case NotificationType.gameAssigned:
+        return Colors.green;
+      case NotificationType.gameUnassigned:
+        return Colors.orange;
+      case NotificationType.crewInvitation:
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatNotificationTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Future<void> _markNotificationAsRead(String notificationId) async {
+    await _notificationService.markAsRead(notificationId);
+    setState(() {}); // Refresh the UI
   }
 
   Widget _buildAvailableTab() {
@@ -1833,6 +2988,78 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationsTab() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Notifications',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Stay updated with your assignments',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Notifications List
+          Expanded(
+            child: StreamBuilder<List<NotificationModel>>(
+              stream: _getNotificationsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  debugPrint('⏳ NOTIFICATION UI: Stream is waiting for data');
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  debugPrint('❌ NOTIFICATION UI: Stream error: ${snapshot.error}');
+                  return _buildEmptyState(
+                    'Error loading notifications',
+                    Icons.error_outline,
+                  );
+                }
+
+                final notifications = snapshot.data ?? [];
+
+                if (notifications.isEmpty) {
+                  return _buildEmptyState(
+                    'No notifications yet',
+                    Icons.notifications_none,
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    return _buildNotificationCard(notification);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2629,28 +3856,66 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         setState(() {
           _currentIndex = index;
         });
+
+        // Mark notifications as read when notifications tab is selected
+        if (index == 4) { // Notifications tab index
+          _markNotificationsAsRead();
+        }
       },
-      items: const [
-        BottomNavigationBarItem(
+      items: [
+        const BottomNavigationBarItem(
           icon: Icon(Icons.home),
           label: 'Home',
         ),
-        BottomNavigationBarItem(
+        const BottomNavigationBarItem(
           icon: Icon(Icons.sports),
           label: 'Available',
         ),
-        BottomNavigationBarItem(
+        const BottomNavigationBarItem(
           icon: Icon(Icons.hourglass_empty),
           label: 'Pending',
         ),
-        BottomNavigationBarItem(
+        const BottomNavigationBarItem(
           icon: Icon(Icons.calendar_today),
           label: 'Calendar',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Profile',
+          icon: _buildNotificationIcon(),
+          label: 'Notifications',
         ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationIcon() {
+    return Stack(
+      children: [
+        const Icon(Icons.notifications),
+        if (_unreadNotificationsCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
       ],
     );
   }

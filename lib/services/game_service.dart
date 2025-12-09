@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_service.dart';
 import '../constants/firebase_constants.dart';
 import 'base_service.dart';
+import 'notification_service.dart';
 
 // Add this typedef for clarity
 typedef ScheduleData = Map<String, dynamic>;
@@ -1073,6 +1074,11 @@ class GameService extends BaseService {
     try {
       debugPrint('🔄 GAME SERVICE: Deleting game $gameId');
 
+      // Before deleting, notify confirmed officials
+      debugPrint('🔔 GAME SERVICE: About to notify confirmed officials for deletion');
+      await _notifyConfirmedOfficials(gameId, isDeletion: true);
+      debugPrint('✅ GAME SERVICE: Finished notifying confirmed officials');
+
       await firestore.collection('games').doc(gameId).delete();
 
       debugPrint('✅ GAME SERVICE: Successfully deleted game $gameId');
@@ -1080,6 +1086,96 @@ class GameService extends BaseService {
     } catch (e) {
       debugPrint('❌ GAME SERVICE: Error deleting game: $e');
       return false;
+    }
+  }
+
+  /// Notify confirmed officials when a game is canceled or deleted
+  Future<void> _notifyConfirmedOfficials(String gameId, {required bool isDeletion}) async {
+    try {
+      debugPrint('🔔 GAME SERVICE: Notifying confirmed officials for game $gameId (${isDeletion ? 'deletion' : 'cancellation'})');
+
+      // Get the game document to find the scheduler
+      final gameDoc = await firestore.collection('games').doc(gameId).get();
+      if (!gameDoc.exists) {
+        debugPrint('⚠️ GAME SERVICE: Game $gameId not found for notification');
+        return;
+      }
+
+      final gameData = gameDoc.data()!;
+      final schedulerId = gameData['schedulerId'] as String?;
+      debugPrint('📋 GAME SERVICE: Found scheduler ID: $schedulerId');
+
+      if (schedulerId == null) {
+        debugPrint('⚠️ GAME SERVICE: No scheduler ID found for game $gameId');
+        return;
+      }
+
+      // Get confirmed officials for this game
+      final confirmedOfficials = await getConfirmedOfficialsForGame(gameId);
+      final officialIds = confirmedOfficials.map((official) => official['id'] as String).toList();
+      debugPrint('👥 GAME SERVICE: Found ${officialIds.length} confirmed officials: $officialIds');
+
+      if (officialIds.isEmpty) {
+        debugPrint('ℹ️ GAME SERVICE: No confirmed officials to notify for game $gameId');
+        return;
+      }
+
+      // Send notifications
+      debugPrint('📤 GAME SERVICE: Sending notifications to officials...');
+      final notificationService = NotificationService();
+      await notificationService.notifyGameCancellation(
+        gameId: gameId,
+        schedulerId: schedulerId,
+        officialIds: officialIds,
+        isDeletion: isDeletion,
+      );
+      debugPrint('✅ GAME SERVICE: Notifications sent successfully');
+
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error notifying confirmed officials: $e');
+    }
+  }
+
+  /// Notify confirmed officials about game updates
+  Future<void> _notifyGameUpdates(String gameId, List<String> changes) async {
+    try {
+      debugPrint('🔔 GAME SERVICE: Notifying confirmed officials about game updates for game $gameId: ${changes.join(', ')}');
+
+      // Get the game document to find the scheduler
+      final gameDoc = await firestore.collection('games').doc(gameId).get();
+      if (!gameDoc.exists) {
+        debugPrint('⚠️ GAME SERVICE: Game $gameId not found for update notification');
+        return;
+      }
+
+      final gameData = gameDoc.data()!;
+      final schedulerId = gameData['schedulerId'] as String?;
+
+      if (schedulerId == null) {
+        debugPrint('⚠️ GAME SERVICE: No scheduler ID found for game $gameId');
+        return;
+      }
+
+      // Get confirmed officials for this game
+      final confirmedOfficials = await getConfirmedOfficialsForGame(gameId);
+      final officialIds = confirmedOfficials.map((official) => official['id'] as String).toList();
+
+      if (officialIds.isEmpty) {
+        debugPrint('ℹ️ GAME SERVICE: No confirmed officials to notify about updates for game $gameId');
+        return;
+      }
+
+      // Send update notifications
+      final notificationService = NotificationService();
+      await notificationService.notifyGameUpdate(
+        gameId: gameId,
+        schedulerId: schedulerId,
+        officialIds: officialIds,
+        changes: changes,
+      );
+
+    } catch (e) {
+      debugPrint('❌ GAME SERVICE: Error notifying about game updates: $e');
     }
   }
 
@@ -1118,7 +1214,46 @@ class GameService extends BaseService {
             '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
       }
 
+      // Check if the game has confirmed officials
+      final confirmedOfficials = await getConfirmedOfficialsForGame(gameId);
+      final hasConfirmedOfficials = confirmedOfficials.isNotEmpty;
+
+      // Prevent fee changes if officials are already confirmed
+      if (hasConfirmedOfficials && dataToUpdate.containsKey('gameFee')) {
+        debugPrint('❌ GAME SERVICE: Cannot change game fee - officials are already confirmed for game $gameId');
+        throw Exception('Cannot change game fee after officials are confirmed');
+      }
+
+      // Check if the game is being canceled
+      final oldStatus = gameData?['status'] as String?;
+      final newStatus = dataToUpdate['status'] as String?;
+      final isBeingCanceled = oldStatus != 'Canceled' && newStatus == 'Canceled';
+
+      // Detect changes to date, time, or location that would affect confirmed officials
+      final changes = <String>[];
+      if (hasConfirmedOfficials) {
+        if (dataToUpdate.containsKey('date') && gameData?['date'] != dataToUpdate['date']) {
+          changes.add('date');
+        }
+        if (dataToUpdate.containsKey('time') && gameData?['time'] != dataToUpdate['time']) {
+          changes.add('time');
+        }
+        if (dataToUpdate.containsKey('location') && gameData?['location'] != dataToUpdate['location']) {
+          changes.add('location');
+        }
+      }
+
       await firestore.collection('games').doc(gameId).update(dataToUpdate);
+
+      // Notify confirmed officials if the game is being canceled
+      if (isBeingCanceled) {
+        await _notifyConfirmedOfficials(gameId, isDeletion: false);
+      }
+
+      // Notify confirmed officials about other changes
+      if (changes.isNotEmpty) {
+        await _notifyGameUpdates(gameId, changes);
+      }
 
       debugPrint('✅ GAME SERVICE: Successfully updated game $gameId');
       return true;
