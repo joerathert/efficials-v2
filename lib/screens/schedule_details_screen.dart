@@ -670,7 +670,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      Icons.link,
+                                      Icons.content_copy,
                                       size: 16,
                                       color: colorScheme.primary,
                                     ),
@@ -680,7 +680,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                         await _showTemplateDetails();
                                       },
                                       child: Text(
-                                        'Associated Template: $associatedTemplateName',
+                                        associatedTemplateName ?? 'Unknown Template',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,

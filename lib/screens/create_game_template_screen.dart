@@ -1641,28 +1641,30 @@ class _CreateGameTemplateScreenState extends State<CreateGameTemplateScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SizedBox(
-        height: 80,
-        child: Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: SizedBox(
-              width: 400,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saveTemplate,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.black,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+      bottomNavigationBar: SafeArea(
+        child: SizedBox(
+          height: 80,
+          child: Container(
+            color: Colors.black,
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: SizedBox(
+                width: 400,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _saveTemplate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: Colors.black,
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 15, horizontal: 32),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text((_isEditMode && _editingTemplate != null) ? 'Update Template' : 'Save Template',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
-                child: Text((_isEditMode && _editingTemplate != null) ? 'Update Template' : 'Save Template',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
           ),

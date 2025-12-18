@@ -38,16 +38,20 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
 
       // Load crews where user is chief
       final crewsAsChief = await _crewRepo.getCrewsWhereChief(_currentUserId!);
-      print('👥 CREW DASHBOARD: Found ${crewsAsChief.length} crews where user is chief');
+      print(
+          '👥 CREW DASHBOARD: Found ${crewsAsChief.length} crews where user is chief');
       for (final crew in crewsAsChief) {
         print('👥 CREW DASHBOARD: Chief crew: "${crew.name}" (ID: ${crew.id})');
       }
 
       // Load crews where user is member
-      final crewsAsMember = await _crewRepo.getCrewsForOfficial(_currentUserId!);
-      print('👥 CREW DASHBOARD: Found ${crewsAsMember.length} crews where user is member');
+      final crewsAsMember =
+          await _crewRepo.getCrewsForOfficial(_currentUserId!);
+      print(
+          '👥 CREW DASHBOARD: Found ${crewsAsMember.length} crews where user is member');
       for (final crew in crewsAsMember) {
-        print('👥 CREW DASHBOARD: Member crew: "${crew.name}" (ID: ${crew.id})');
+        print(
+            '👥 CREW DASHBOARD: Member crew: "${crew.name}" (ID: ${crew.id})');
       }
 
       // Combine and remove duplicates
@@ -60,10 +64,12 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         }
       }
 
-      print('👥 CREW DASHBOARD: Final crew count after deduplication: ${allCrews.length}');
+      print(
+          '👥 CREW DASHBOARD: Final crew count after deduplication: ${allCrews.length}');
 
       // Load pending invitations
-      final pendingInvitations = await _crewRepo.getPendingInvitations(_currentUserId!);
+      final pendingInvitations =
+          await _crewRepo.getPendingInvitations(_currentUserId!);
 
       if (mounted) {
         setState(() {
@@ -119,13 +125,14 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                 ],
               ),
             )
-          :             RefreshIndicator(
+          : RefreshIndicator(
               onRefresh: _loadCrews,
               color: AppColors.efficialsYellow,
               child: _buildCrewsList(),
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/create_crew').then((result) {
+        onPressed: () =>
+            Navigator.pushNamed(context, '/create_crew').then((result) {
           if (result == true) {
             _loadCrews(); // Refresh the crew list when returning from successful creation
           }
@@ -153,7 +160,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         if (hasInvitations) ...[
           _buildSectionHeader('Crew Invitations', _pendingInvitations.length),
           const SizedBox(height: 8),
-          ..._pendingInvitations.map((invitation) => _buildInvitationCard(invitation)),
+          ..._pendingInvitations
+              .map((invitation) => _buildInvitationCard(invitation)),
           if (hasCrews) const SizedBox(height: 24),
         ],
 
@@ -244,7 +252,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                   ),
                   if (isChief)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.efficialsYellow,
                         borderRadius: BorderRadius.circular(12),
@@ -372,7 +381,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -390,7 +400,9 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            if (invitation.sportName != null || invitation.levelOfCompetition != null)
+            if (invitation.sportName != null ||
+                (invitation.competitionLevels != null &&
+                    invitation.competitionLevels!.isNotEmpty))
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
@@ -403,13 +415,17 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     ],
-                    if (invitation.sportName != null && invitation.levelOfCompetition != null)
+                    if (invitation.sportName != null &&
+                        invitation.competitionLevels != null &&
+                        invitation.competitionLevels!.isNotEmpty)
                       Text(' • ', style: TextStyle(color: Colors.grey[400])),
-                    if (invitation.levelOfCompetition != null) ...[
-                      Icon(Icons.emoji_events, color: Colors.grey[400], size: 16),
+                    if (invitation.competitionLevels != null &&
+                        invitation.competitionLevels!.isNotEmpty) ...[
+                      Icon(Icons.emoji_events,
+                          color: Colors.grey[400], size: 16),
                       const SizedBox(width: 4),
                       Text(
-                        invitation.levelOfCompetition!,
+                        invitation.competitionLevels!.join(', '),
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     ],
@@ -420,7 +436,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'accepted'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -431,7 +448,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'declined'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'declined'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -483,7 +501,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
     );
   }
 
-  Future<void> _respondToInvitation(CrewInvitation invitation, String response) async {
+  Future<void> _respondToInvitation(
+      CrewInvitation invitation, String response) async {
     try {
       setState(() => _isLoading = true);
 
@@ -504,7 +523,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
               content: Text(
                 'You have ${response == 'accepted' ? 'accepted' : 'declined'} the invitation to join ${invitation.crewName}',
               ),
-              backgroundColor: response == 'accepted' ? Colors.green : Colors.orange,
+              backgroundColor:
+                  response == 'accepted' ? Colors.green : Colors.orange,
             ),
           );
         }
@@ -512,7 +532,8 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Failed to respond to invitation. Please try again.'),
+              content:
+                  Text('Failed to respond to invitation. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );

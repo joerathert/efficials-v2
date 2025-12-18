@@ -746,14 +746,32 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
   }
 
   Future<void> _showBackOutDialog() async {
-    final sportName = game['sport'] ?? 'Sport';
-    final gameDate = _formatGameDate(game);
-    final gameTime = _formatGameTime(game);
-    final locationName = game['location'] ?? 'TBD';
-    final gameTitle = _formatGameTitle(game);
+    // Check if this game is part of a linked games group
+    final gameId = game['id'] as String?;
+    List<Map<String, dynamic>> allGamesToBackOut = [game];
 
-    final gameSummary =
-        '$sportName: $gameTitle\n$gameDate at $gameTime\n$locationName';
+    if (gameId != null) {
+      final isLinked = await _gameService.isGameLinked(gameId);
+      if (isLinked) {
+        // Get all linked games - user must back out of ALL of them
+        final linkedGames = await _gameService.getLinkedGames(gameId);
+        allGamesToBackOut = linkedGames;
+      }
+    }
+
+    final isLinkedGroup = allGamesToBackOut.length > 1;
+
+    // Build summary for all games to back out of
+    final gameSummaries = allGamesToBackOut.map((g) {
+      final sportName = g['sport'] ?? 'Sport';
+      final gameDate = _formatGameDate(g);
+      final gameTime = _formatGameTime(g);
+      final locationName = g['location'] ?? 'TBD';
+      final gameTitle = _formatGameTitle(g);
+      return '$sportName: $gameTitle\n$gameDate at $gameTime\n$locationName';
+    }).toList();
+
+    final gameSummary = gameSummaries.join('\n\n---\n\n');
 
     final TextEditingController reasonController = TextEditingController();
 
@@ -768,8 +786,8 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
           children: [
             const Icon(Icons.warning, color: Colors.red, size: 24),
             const SizedBox(width: 8),
-            const Text(
-              'Back Out of Game',
+            Text(
+              isLinkedGroup ? 'Back Out of Linked Games' : 'Back Out of Game',
               style: TextStyle(
                 color: AppColors.efficialsYellow,
                 fontWeight: FontWeight.bold,
@@ -782,8 +800,10 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Are you sure you want to back out of this game?',
+              Text(
+                isLinkedGroup
+                    ? 'This game is part of a linked games group. You must back out of ALL ${allGamesToBackOut.length} linked games:'
+                    : 'Are you sure you want to back out of this game?',
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
               const SizedBox(height: 16),
@@ -837,7 +857,9 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Note: The scheduler will be notified of your withdrawal.',
+                isLinkedGroup
+                    ? 'Note: The scheduler will be notified of your withdrawal from all ${allGamesToBackOut.length} linked games.'
+                    : 'Note: The scheduler will be notified of your withdrawal.',
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 12,
@@ -871,7 +893,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Confirm Back Out'),
+            child: Text(isLinkedGroup ? 'Confirm Back Out of All Games' : 'Confirm Back Out'),
           ),
         ],
       ),
@@ -880,12 +902,14 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     // If user confirmed (result contains the reason), perform the backout
     if (result != null && result.isNotEmpty) {
       // Wait for the backout operation to complete before navigating
-      await _handleBackOut(result);
+      await _handleBackOut(result, allGamesToBackOut);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Successfully backed out of game'),
+          SnackBar(
+            content: Text(isLinkedGroup
+                ? 'Successfully backed out of all ${allGamesToBackOut.length} linked games'
+                : 'Successfully backed out of game'),
             backgroundColor: Colors.green,
           ),
         );
@@ -895,23 +919,26 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
     }
   }
 
-  Future<void> _handleBackOut(String reason) async {
+  Future<void> _handleBackOut(String reason, List<Map<String, dynamic>> gamesToBackOut) async {
     try {
       final currentUserId = _getCurrentUserId();
       if (currentUserId == null) {
         throw Exception('User not authenticated');
       }
 
-      final gameId = game['id'] as String?;
-      if (gameId == null) {
-        throw Exception('Game ID not found');
-      }
+      // Back out of all games in the list (could be just one game or multiple linked games)
+      for (final gameToBackOut in gamesToBackOut) {
+        final gameId = gameToBackOut['id'] as String?;
+        if (gameId == null) {
+          throw Exception('Game ID not found for one of the games');
+        }
 
-      final success =
-          await _gameService.backOutOfGame(gameId, currentUserId, reason);
+        final success =
+            await _gameService.backOutOfGame(gameId, currentUserId, reason);
 
-      if (!success) {
-        throw Exception('Failed to back out of game');
+        if (!success) {
+          throw Exception('Failed to back out of game: ${gameToBackOut['sport']} vs ${gameToBackOut['opponent']}');
+        }
       }
 
       // Add a small delay to ensure Firestore propagation
@@ -920,7 +947,7 @@ class _OfficialGameDetailsScreenState extends State<OfficialGameDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error backing out of game: $e'),
+            content: Text('Error backing out of game(s): $e'),
             backgroundColor: Colors.red,
           ),
         );

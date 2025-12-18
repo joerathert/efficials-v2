@@ -20,6 +20,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
   bool prepopulateTime = false;
   bool skipLocation = false;
   bool isEdit = false;
+  bool isCoachFlow = false;
   Map<String, dynamic>? originalArgs;
   bool _userHasSelectedDate = false;
   bool _userHasSelectedTime = false;
@@ -38,6 +39,7 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
         prepopulateTime = args['prepopulateTime'] as bool? ?? false;
         skipLocation = args['skipLocation'] as bool? ?? false;
         isEdit = args['isEdit'] as bool? ?? false;
+        isCoachFlow = args['isCoachFlow'] as bool? ?? false;
         originalArgs = Map<String, dynamic>.from(args);
 
         // Pre-populate time from template if available, or from edit arguments
@@ -280,7 +282,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                             width: 400,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: (selectedDate != null && selectedTime != null)
+                              onPressed: (selectedDate != null &&
+                                      selectedTime != null)
                                   ? () {
                                       // Use selectedTime if user chose it, otherwise use pre-populated time
                                       TimeOfDay? finalTime = selectedTime;
@@ -297,13 +300,34 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
 
                                       if (isEdit) {
                                         // When editing, return updated date/time data
-                                        debugPrint('🎯 DATE_TIME: Returning updated date/time for edit');
+                                        debugPrint(
+                                            '🎯 DATE_TIME: Returning updated date/time for edit');
                                         Navigator.pop(context, {
                                           ...?originalArgs,
                                           'date': selectedDate,
                                           'time': finalTime,
                                           'isEdit': true,
                                         });
+                                      } else if (isCoachFlow) {
+                                        // For coaches, skip directly to location selection (no gender/level selection needed)
+                                        debugPrint(
+                                            '🏆 DATE_TIME: Coach flow detected, going to location selection');
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/choose-location',
+                                          arguments: {
+                                            'scheduleName': scheduleName,
+                                            'scheduleId':
+                                                originalArgs?['scheduleId'],
+                                            'sport': sport,
+                                            'homeTeam':
+                                                originalArgs?['homeTeam'],
+                                            'template': template,
+                                            'date': selectedDate,
+                                            'time': finalTime,
+                                            'isCoachFlow': true,
+                                          },
+                                        );
                                       } else if (skipLocation) {
                                         // Location is already set in template, skip to additional game info
                                         debugPrint(
@@ -320,9 +344,11 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                               : '/additional-game-info',
                                           arguments: {
                                             'scheduleName': scheduleName,
-                                            'scheduleId': originalArgs?['scheduleId'],
+                                            'scheduleId':
+                                                originalArgs?['scheduleId'],
                                             'sport': sport,
-                                            'homeTeam': originalArgs?['homeTeam'],
+                                            'homeTeam':
+                                                originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': finalTime,
@@ -340,9 +366,11 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                           '/choose-location',
                                           arguments: {
                                             'scheduleName': scheduleName,
-                                            'scheduleId': originalArgs?['scheduleId'],
+                                            'scheduleId':
+                                                originalArgs?['scheduleId'],
                                             'sport': sport,
-                                            'homeTeam': originalArgs?['homeTeam'],
+                                            'homeTeam':
+                                                originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': finalTime,
@@ -352,10 +380,12 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: (selectedDate != null && selectedTime != null)
+                                backgroundColor: (selectedDate != null &&
+                                        selectedTime != null)
                                     ? colorScheme.primary
                                     : colorScheme.surfaceVariant,
-                                foregroundColor: (selectedDate != null && selectedTime != null)
+                                foregroundColor: (selectedDate != null &&
+                                        selectedTime != null)
                                     ? colorScheme.onPrimary
                                     : colorScheme.onSurfaceVariant,
                                 padding: const EdgeInsets.symmetric(
@@ -369,7 +399,8 @@ class _DateTimeScreenState extends State<DateTimeScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: (selectedDate != null && selectedTime != null)
+                                  color: (selectedDate != null &&
+                                          selectedTime != null)
                                       ? colorScheme.onPrimary
                                       : colorScheme.onSurfaceVariant,
                                 ),

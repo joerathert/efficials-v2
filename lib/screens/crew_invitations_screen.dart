@@ -33,7 +33,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
       _currentUserId = user.uid;
       if (_currentUserId == null) return;
 
-      final invitations = await _crewRepo.getPendingInvitations(_currentUserId!);
+      final invitations =
+          await _crewRepo.getPendingInvitations(_currentUserId!);
 
       if (mounted) {
         setState(() {
@@ -49,7 +50,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
     }
   }
 
-  Future<void> _respondToInvitation(CrewInvitation invitation, String response) async {
+  Future<void> _respondToInvitation(
+      CrewInvitation invitation, String response) async {
     try {
       setState(() => _isLoading = true);
 
@@ -73,7 +75,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
               content: Text(
                 'You have ${response == 'accepted' ? 'accepted' : 'declined'} the invitation to join ${invitation.crewName}',
               ),
-              backgroundColor: response == 'accepted' ? Colors.green : Colors.orange,
+              backgroundColor:
+                  response == 'accepted' ? Colors.green : Colors.orange,
             ),
           );
         }
@@ -82,7 +85,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Failed to respond to invitation. Please try again.'),
+              content:
+                  Text('Failed to respond to invitation. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -124,7 +128,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.efficialsYellow),
+              child:
+                  CircularProgressIndicator(color: AppColors.efficialsYellow),
             )
           : RefreshIndicator(
               onRefresh: _loadInvitations,
@@ -184,7 +189,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
         const SizedBox(height: 24),
 
         // Invitations List
-        ..._pendingInvitations.map((invitation) => _buildInvitationCard(invitation)),
+        ..._pendingInvitations
+            .map((invitation) => _buildInvitationCard(invitation)),
 
         const SizedBox(height: 100), // Space for bottom padding
       ],
@@ -250,7 +256,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -270,7 +277,9 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
             const SizedBox(height: 16),
 
             // Crew details
-            if (invitation.sportName != null || invitation.levelOfCompetition != null)
+            if (invitation.sportName != null ||
+                (invitation.competitionLevels != null &&
+                    invitation.competitionLevels!.isNotEmpty))
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -296,13 +305,15 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
                       ),
                       const SizedBox(height: 4),
                     ],
-                    if (invitation.levelOfCompetition != null) ...[
+                    if (invitation.competitionLevels != null &&
+                        invitation.competitionLevels!.isNotEmpty) ...[
                       Row(
                         children: [
-                          Icon(Icons.emoji_events, color: Colors.grey[400], size: 16),
+                          Icon(Icons.emoji_events,
+                              color: Colors.grey[400], size: 16),
                           const SizedBox(width: 8),
                           Text(
-                            'Level: ${invitation.levelOfCompetition}',
+                            'Levels: ${invitation.competitionLevels!.join(', ')}',
                             style: const TextStyle(
                               color: AppColors.efficialsWhite,
                               fontSize: 14,
@@ -322,7 +333,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'accepted'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'accepted'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -343,7 +355,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _respondToInvitation(invitation, 'declined'),
+                    onPressed: () =>
+                        _respondToInvitation(invitation, 'declined'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -407,7 +420,8 @@ class _CrewInvitationsScreenState extends State<CrewInvitationsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.efficialsYellow,
                 foregroundColor: AppColors.efficialsBlack,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
           ],

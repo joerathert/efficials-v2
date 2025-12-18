@@ -33,6 +33,8 @@ import 'screens/choose_location_screen.dart';
 import 'screens/add_new_location_screen.dart';
 import 'screens/additional_game_info_screen.dart';
 import 'screens/additional_game_info_condensed_screen.dart';
+import 'screens/additional_game_info_coach_screen.dart';
+import 'screens/coach_calendar_screen.dart';
 import 'screens/select_officials_screen.dart';
 import 'screens/lists_of_officials_screen.dart';
 import 'screens/multiple_lists_setup_screen.dart';
@@ -157,6 +159,9 @@ class MyApp extends StatelessWidget {
                 const AdditionalGameInfoScreen(),
             '/additional-game-info-condensed': (context) =>
                 const AdditionalGameInfoCondensedScreen(),
+            '/additional-game-info-coach': (context) =>
+                const AdditionalGameInfoCoachScreen(),
+            '/coach-calendar': (context) => const CoachCalendarScreen(),
             '/select-officials': (context) => const SelectOfficialsScreen(),
             '/lists-of-officials': (context) => const ListsOfOfficialsScreen(),
             '/multiple-lists-setup': (context) =>
@@ -191,9 +196,11 @@ class MyApp extends StatelessWidget {
             // Bulk Import routes
             '/bulk_import': (context) => const BulkImportPreflightScreen(),
             '/bulk_import_wizard': (context) => const BulkImportWizardScreen(),
-            '/bulk_import_generate': (context) => const BulkImportGenerateScreen(),
+            '/bulk_import_generate': (context) =>
+                const BulkImportGenerateScreen(),
             '/bulk_import_upload': (context) => const BulkImportUploadScreen(),
-            '/bulk_import_preview': (context) => const BulkImportPreviewScreen(),
+            '/bulk_import_preview': (context) =>
+                const BulkImportPreviewScreen(),
             '/select_crew_screen': (context) => const SelectCrewScreen(),
             '/filter_crews_settings': (context) => const FilterCrewsScreen(),
             // Crew routes
@@ -450,13 +457,13 @@ class _MyHomePageState extends State<MyHomePage> {
                             _QuickAccessButton(
                               title: 'Coach',
                               subtitle: 'Request officials for games',
-                              email: 'coach.test@efficials.com',
-                              password: 'test123456',
+                              email: 'jarrod.frey@efficials.com',
+                              password: 'test123',
                               color: Colors.green,
                               onTap: () => _quickSignIn(
                                   context,
-                                  'coach.test@efficials.com',
-                                  'test123456',
+                                  'jarrod.frey@efficials.com',
+                                  'test123',
                                   '/coach-home'),
                             ),
                             const SizedBox(height: 6),

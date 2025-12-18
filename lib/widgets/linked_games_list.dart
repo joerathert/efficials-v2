@@ -86,7 +86,8 @@ class LinkedGamesList extends StatelessWidget {
   }
 
   // Group linked games together based on linkGroupId
-  List<List<Map<String, dynamic>>> _groupLinkedGames(List<Map<String, dynamic>> games) {
+  List<List<Map<String, dynamic>>> _groupLinkedGames(
+      List<Map<String, dynamic>> games) {
     debugPrint('🔗 LinkedGamesList: Grouping ${games.length} games');
     final linkedGroups = <String, List<Map<String, dynamic>>>{};
     final unlinkedGames = <Map<String, dynamic>>[];
@@ -108,8 +109,12 @@ class LinkedGamesList extends StatelessWidget {
           // Parse date
           final aDateValue = a['date'];
           final bDateValue = b['date'];
-          final aDate = aDateValue is DateTime ? aDateValue : DateTime.parse(aDateValue.toString());
-          final bDate = bDateValue is DateTime ? bDateValue : DateTime.parse(bDateValue.toString());
+          final aDate = aDateValue is DateTime
+              ? aDateValue
+              : DateTime.parse(aDateValue.toString());
+          final bDate = bDateValue is DateTime
+              ? bDateValue
+              : DateTime.parse(bDateValue.toString());
 
           // If dates are different, sort by date
           if (aDate != bDate) {
@@ -134,7 +139,9 @@ class LinkedGamesList extends StatelessWidget {
               final aTime = TimeOfDay(hour: aHour, minute: aMinute);
               final bTime = TimeOfDay(hour: bHour, minute: bMinute);
 
-              return aTime.hour * 60 + aTime.minute - (bTime.hour * 60 + bTime.minute);
+              return aTime.hour * 60 +
+                  aTime.minute -
+                  (bTime.hour * 60 + bTime.minute);
             }
           }
 
@@ -150,7 +157,8 @@ class LinkedGamesList extends StatelessWidget {
     result.addAll(linkedGroups.values);
     result.addAll(unlinkedGames.map((game) => [game]));
 
-    debugPrint('🔗 LinkedGamesList: Created ${result.length} groups (${linkedGroups.length} linked, ${unlinkedGames.length} unlinked)');
+    debugPrint(
+        '🔗 LinkedGamesList: Created ${result.length} groups (${linkedGroups.length} linked, ${unlinkedGames.length} unlinked)');
     for (int i = 0; i < result.length; i++) {
       debugPrint('🔗 Group $i: ${result[i].length} games');
     }
@@ -169,7 +177,8 @@ class LinkedGamesList extends StatelessWidget {
     for (final game in linkedGames) {
       // Try different fee field names
       final fee = double.tryParse(game['game_fee']?.toString() ?? '0') ??
-                 double.tryParse(game['gameFee']?.toString() ?? '0') ?? 0.0;
+          double.tryParse(game['gameFee']?.toString() ?? '0') ??
+          0.0;
       totalFee += fee;
     }
 
@@ -189,7 +198,8 @@ class LinkedGamesList extends StatelessWidget {
                     bottomLeft: Radius.circular(2),
                     bottomRight: Radius.circular(2),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.blue.withOpacity(0.2),
@@ -212,7 +222,8 @@ class LinkedGamesList extends StatelessWidget {
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.blue.withOpacity(0.2),
@@ -222,7 +233,8 @@ class LinkedGamesList extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: _buildBottomLinkedGameContent(linkedGames[1], totalFee, linkedGames),
+                child: _buildBottomLinkedGameContent(
+                    linkedGames[1], totalFee, linkedGames),
               ),
             ],
           ),
@@ -236,12 +248,17 @@ class LinkedGamesList extends StatelessWidget {
       onTap: () => onGameTap(game),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: _buildGameCardContent(game, isLinked: true, showButtons: false, showLocation: false, showOfficialsStatus: false),
+        child: _buildGameCardContent(game,
+            isLinked: true,
+            showButtons: false,
+            showLocation: false,
+            showOfficialsStatus: false),
       ),
     );
   }
 
-  Widget _buildBottomLinkedGameContent(Map<String, dynamic> game, double totalFee, List<Map<String, dynamic>> linkedGames) {
+  Widget _buildBottomLinkedGameContent(Map<String, dynamic> game,
+      double totalFee, List<Map<String, dynamic>> linkedGames) {
     return GestureDetector(
       onTap: () => onGameTap(game),
       child: Padding(
@@ -249,7 +266,11 @@ class LinkedGamesList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGameCardContent(game, isLinked: true, showButtons: false, showLocation: true, showOfficialsStatus: true),
+            _buildGameCardContent(game,
+                isLinked: true,
+                showButtons: false,
+                showLocation: true,
+                showOfficialsStatus: true),
             const SizedBox(height: 12),
             // Total fee and any additional info
             if (totalFee > 0) ...[
@@ -275,13 +296,19 @@ class LinkedGamesList extends StatelessWidget {
   }
 
   // Extract game card content to reuse for linked games
-  Widget _buildGameCardContent(Map<String, dynamic> game, {bool isLinked = false, bool showButtons = true, bool showLocation = true, bool showOfficialsStatus = true}) {
+  Widget _buildGameCardContent(Map<String, dynamic> game,
+      {bool isLinked = false,
+      bool showButtons = true,
+      bool showLocation = true,
+      bool showOfficialsStatus = true}) {
     // Parse date properly - it comes from Firestore as a string
     DateTime? date;
     if (game['date'] != null) {
       try {
         final dateValue = game['date'];
-        date = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+        date = dateValue is DateTime
+            ? dateValue
+            : DateTime.parse(dateValue.toString());
       } catch (e) {
         debugPrint('LinkedGamesList: Error parsing date: $e');
         date = null;
@@ -293,7 +320,8 @@ class LinkedGamesList extends StatelessWidget {
     if (game['time'] != null) {
       try {
         final timeValue = game['time'];
-        debugPrint('LinkedGamesList: Parsing time for game ${game['id']}: $timeValue (type: ${timeValue.runtimeType})');
+        debugPrint(
+            'LinkedGamesList: Parsing time for game ${game['id']}: $timeValue (type: ${timeValue.runtimeType})');
         if (timeValue is TimeOfDay) {
           time = timeValue;
         } else {
@@ -305,12 +333,15 @@ class LinkedGamesList extends StatelessWidget {
             final minute = int.tryParse(parts[1]);
             if (hour != null && minute != null) {
               time = TimeOfDay(hour: hour, minute: minute);
-              debugPrint('LinkedGamesList: Successfully parsed time: $hour:$minute');
+              debugPrint(
+                  'LinkedGamesList: Successfully parsed time: $hour:$minute');
             } else {
-              debugPrint('LinkedGamesList: Failed to parse hour/minute from: $timeStr');
+              debugPrint(
+                  'LinkedGamesList: Failed to parse hour/minute from: $timeStr');
             }
           } else {
-            debugPrint('LinkedGamesList: Time string doesn\'t have 2 parts: $timeStr');
+            debugPrint(
+                'LinkedGamesList: Time string doesn\'t have 2 parts: $timeStr');
           }
         }
       } catch (e) {
@@ -321,20 +352,24 @@ class LinkedGamesList extends StatelessWidget {
       debugPrint('LinkedGamesList: No time field for game ${game['id']}');
     }
 
-    debugPrint('LinkedGamesList: Game ${game['id']} linkGroupId = ${game['linkGroupId']}');
+    debugPrint(
+        'LinkedGamesList: Game ${game['id']} linkGroupId = ${game['linkGroupId']}');
 
     // Handle different field name variations
     final officialsRequired = _getIntValue(game, 'officialsRequired') ??
-                             _getIntValue(game, 'officials_required') ?? 0;
+        _getIntValue(game, 'officials_required') ??
+        0;
     final officialsHired = _getIntValue(game, 'officialsHired') ??
-                          _getIntValue(game, 'officials_hired') ?? 0;
+        _getIntValue(game, 'officials_hired') ??
+        0;
     final officialsNeeded = officialsRequired - officialsHired;
 
     String dateText = 'TBD';
     if (date != null) {
       dateText = '${date.month}/${date.day}/${date.year}';
       if (time != null) {
-        final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+        final hour =
+            time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
         final minute = time.minute.toString().padLeft(2, '0');
         final period = time.hour >= 12 ? 'PM' : 'AM';
         final timeText = '$hour:$minute $period';
@@ -344,10 +379,21 @@ class LinkedGamesList extends StatelessWidget {
 
     // Get game details with flexible field names
     final opponent = game['opponent'] ?? 'TBD';
-    final homeTeam = game['homeTeam'] ?? 'Home Team';
     final scheduleName = game['scheduleName'] ?? 'Unknown Schedule';
+    // For coach games, home team is the schedule name if homeTeam is null
+    final homeTeam = game['homeTeam'] ?? scheduleName;
     final sportName = game['sport'] ?? 'Unknown';
-    final locationName = game['location'] ?? 'TBD';
+
+    // Handle location - it can be a string or a map with name/address
+    String locationName = 'TBD';
+    if (game['location'] != null) {
+      if (game['location'] is String) {
+        locationName = game['location'] as String;
+      } else if (game['location'] is Map && game['location']['name'] != null) {
+        locationName = game['location']['name'] as String;
+      }
+    }
+
     final isAway = game['isAway'] == true;
 
     return Column(

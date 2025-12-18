@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/user_model.dart';
 import '../services/game_service.dart';
 import '../services/auth_service.dart';
-import '../widgets/base_screen.dart';
-import '../widgets/standard_button.dart';
+import '../widgets/link_games_dialog.dart';
 
 class GameInformationScreen extends StatefulWidget {
   const GameInformationScreen({super.key});
@@ -41,6 +39,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   Map<String, dynamic> gameDetails = {};
   bool isGameLinked = false;
   List<Map<String, dynamic>> linkedGames = [];
+  bool _hasEligibleGames = false;
   Map<String, bool> selectedForHire = {};
   List<String> dismissedOfficials = [];
 
@@ -184,7 +183,18 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               }()
             : args['time'] as TimeOfDay)
         : const TimeOfDay(hour: 19, minute: 0);
-    location = args['location'] as String? ?? '';
+    // Handle location - it can be a string or a map with name/address
+    if (args['location'] != null) {
+      if (args['location'] is String) {
+        location = args['location'] as String;
+      } else if (args['location'] is Map && args['location']['name'] != null) {
+        location = args['location']['name'] as String;
+      } else {
+        location = '';
+      }
+    } else {
+      location = '';
+    }
     debugPrint('🎯 GAME_INFO: _initializeData set location to: $location');
     levelOfCompetition = args['levelOfCompetition'] as String? ?? '';
     gender = args['gender'] as String? ?? '';
@@ -220,6 +230,7 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
 
     _loadGameDetails();
     _loadInterestedOfficials();
+    _checkGameLinkStatus();
 
     // Trigger UI rebuild with updated data
     if (mounted) {
@@ -324,72 +335,85 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
                     color: colorScheme.surfaceContainerHighest,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Stack(
+                    child: Row(
                       children: [
-                        // Centered title
-                        Center(
-                          child: Text('Game Details',
+                        // Edit button on the left
+                        TextButton(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            '/edit_game_info',
+                            arguments: {
+                              ...args,
+                              'date': selectedDate,
+                              'time': selectedTime,
+                              'isEdit': true,
+                              'isFromGameInfo': true,
+                              'sourceScreen': args['sourceScreen'],
+                              'scheduleName': args['scheduleName'],
+                              'scheduleId': args['scheduleId'],
+                            },
+                          ).then((result) {
+                            debugPrint(
+                                '🎯 GAME_INFO: Received result from edit: $result');
+                            if (result != null && mounted) {
+                              final updatedArgs =
+                                  result as Map<String, dynamic>;
+                              debugPrint(
+                                  '🎯 GAME_INFO: Updated location: ${updatedArgs['location']}');
+                              // Update the screen with the edited data
+                              setState(() {
+                                args = updatedArgs;
+                                _hasUpdatedArgs = true;
+                              });
+                              _initializeData();
+
+                              // Save the updated game data to Firestore
+                              final gameId = args['id'] as String?;
+                              if (gameId != null) {
+                                _saveUpdatedGameData(gameId, updatedArgs);
+                              }
+                            } else {
+                              debugPrint(
+                                  '🎯 GAME_INFO: No result received or not mounted');
+                            }
+                          }),
+                          child: Text('Edit',
                               style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary)),
+                                  color: colorScheme.primary, fontSize: 14)),
+                        ),
+                        // Centered title
+                        Expanded(
+                          child: Center(
+                            child: Text('Game Details',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary)),
+                          ),
                         ),
                         // Action buttons on the right
-                        Positioned(
-                          right: 0,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => _createTemplateFromGame(),
+                              icon: Icon(Icons.content_copy,
+                                  color: colorScheme.primary),
+                              tooltip: 'Create Template from Game',
+                            ),
+                            if (_isDatabaseGame(args['id']) &&
+                                _hasEligibleGames)
                               IconButton(
-                                onPressed: () => _createTemplateFromGame(),
-                                icon: Icon(Icons.content_copy,
-                                    color: colorScheme.primary),
-                                tooltip: 'Create Template from Game',
+                                onPressed: () => _showLinkGamesDialog(),
+                                icon: Icon(
+                                  isGameLinked ? Icons.link_off : Icons.link,
+                                  color: colorScheme.primary,
+                                ),
+                                tooltip: isGameLinked
+                                    ? 'Manage Game Links'
+                                    : 'Link Games',
                               ),
-                              TextButton(
-                                onPressed: () => Navigator.pushNamed(
-                                  context,
-                                  '/edit_game_info',
-                                  arguments: {
-                                    ...args,
-                                    'isEdit': true,
-                                    'isFromGameInfo': true,
-                                    'sourceScreen': args['sourceScreen'],
-                                    'scheduleName': args['scheduleName'],
-                                    'scheduleId': args['scheduleId'],
-                                  },
-                                ).then((result) {
-                                  debugPrint(
-                                      '🎯 GAME_INFO: Received result from edit: $result');
-                                  if (result != null && mounted) {
-                                    final updatedArgs =
-                                        result as Map<String, dynamic>;
-                                    debugPrint(
-                                        '🎯 GAME_INFO: Updated location: ${updatedArgs['location']}');
-                                    // Update the screen with the edited data
-                                    setState(() {
-                                      args = updatedArgs;
-                                      _hasUpdatedArgs = true;
-                                    });
-                                    _initializeData();
-
-                                    // Save the updated game data to Firestore
-                                    final gameId = args['id'] as String?;
-                                    if (gameId != null) {
-                                      _saveUpdatedGameData(gameId, updatedArgs);
-                                    }
-                                  } else {
-                                    debugPrint(
-                                        '🎯 GAME_INFO: No result received or not mounted');
-                                  }
-                                }),
-                                child: Text('Edit',
-                                    style: TextStyle(
-                                        color: colorScheme.primary,
-                                        fontSize: 14)),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       ],
                     ),
@@ -524,9 +548,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               final officialName = official is Map
                   ? official['name'] as String? ?? 'Unknown Official'
                   : official.toString();
-              final officialId = official is Map
-                  ? official['id'] as String? ?? ''
-                  : '';
+              final officialId =
+                  official is Map ? official['id'] as String? ?? '' : '';
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -573,8 +596,8 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
               children: interestedOfficials.map((official) {
                 return CheckboxListTile(
                   title: GestureDetector(
-                    onTap: () =>
-                        _navigateToOfficialProfile(official['id'] as String? ?? ''),
+                    onTap: () => _navigateToOfficialProfile(
+                        official['id'] as String? ?? ''),
                     child: Text(
                       official['name'] as String,
                       style: TextStyle(
@@ -837,11 +860,12 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
   void _navigateToOfficialProfile(String officialId) {
     if (officialId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot view profile: Official ID not available')),
+        const SnackBar(
+            content: Text('Cannot view profile: Official ID not available')),
       );
       return;
     }
-    
+
     Navigator.pushNamed(
       context,
       '/view-official-profile',
@@ -979,6 +1003,51 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
     }
   }
 
+  Future<void> _showLinkGamesDialog() async {
+    final gameId = args['id'];
+    if (gameId == null || !_isDatabaseGame(gameId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Game linking is not available for legacy games'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final eligibleGames =
+          await _gameService.getEligibleGamesForLinking(gameId.toString());
+      final isCurrentlyLinked =
+          await _gameService.isGameLinked(gameId.toString());
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => LinkGamesDialog(
+            currentGameId: gameId.toString(),
+            eligibleGames: eligibleGames,
+            isCurrentlyLinked: isCurrentlyLinked,
+            gameService: _gameService,
+            onLinkCreated: () {
+              // Refresh the screen to show linked status and update eligible games
+              _checkGameLinkStatus();
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading linkable games: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _showRemoveOfficialDialog(String officialName) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1044,6 +1113,42 @@ class _GameInformationScreenState extends State<GameInformationScreen> {
           }
         }
       }
+    }
+  }
+
+  Future<void> _checkGameLinkStatus() async {
+    try {
+      final gameId = args['id'];
+      if (gameId != null && _isDatabaseGame(gameId)) {
+        isGameLinked = await _gameService.isGameLinked(gameId.toString());
+        if (isGameLinked) {
+          linkedGames = await _gameService.getLinkedGames(gameId.toString());
+        } else {
+          linkedGames = [];
+        }
+
+        // Check for eligible games
+        final eligibleGames =
+            await _gameService.getEligibleGamesForLinking(gameId.toString());
+        _hasEligibleGames = eligibleGames.isNotEmpty;
+
+        debugPrint(
+            '🔗 Game link status checked: isLinked=$isGameLinked, linkedGames=${linkedGames.length}, hasEligible=${_hasEligibleGames}');
+
+        // Trigger UI rebuild with updated link status
+        if (mounted) {
+          setState(() {});
+        }
+      } else {
+        isGameLinked = false;
+        linkedGames = [];
+        _hasEligibleGames = false;
+      }
+    } catch (e) {
+      debugPrint('🔴 Error checking game link status: $e');
+      isGameLinked = false;
+      linkedGames = [];
+      _hasEligibleGames = false;
     }
   }
 

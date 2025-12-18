@@ -13,7 +13,7 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final AuthService _authService = AuthService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
   String? _currentUserId;
@@ -55,7 +55,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _isLoading = false;
       });
 
-      debugPrint('✅ NOTIFICATIONS: Loaded ${notifications.length} notifications');
+      debugPrint(
+          '✅ NOTIFICATIONS: Loaded ${notifications.length} notifications');
     } catch (e) {
       debugPrint('🔴 NOTIFICATIONS: Error loading notifications: $e');
       // Try without orderBy in case index doesn't exist
@@ -106,12 +107,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _handleNotificationTap(Map<String, dynamic> notification) {
     final type = notification['type'] as String?;
-    
+
     // Mark as read
     if (notification['id'] != null) {
       _markAsRead(notification['id']);
     }
-    
+
     switch (type) {
       case 'official_backed_out':
         // Navigate to backout notifications screen
@@ -135,7 +136,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _showNotificationDetails(Map<String, dynamic> notification) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -158,6 +159,104 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Close', style: TextStyle(color: colorScheme.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> notification) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final title = notification['title'] ?? 'Notification';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Delete Notification',
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$title"? This action cannot be undone.',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              final notificationId = notification['id'];
+              if (notificationId != null) {
+                _deleteNotification(notificationId);
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAllReadConfirmation() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final readCount = _notifications
+        .where((notification) => notification['isRead'] == true)
+        .length;
+
+    if (readCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No read notifications to delete'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Delete All Read Notifications',
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete all $readCount read notification${readCount == 1 ? '' : 's'}? This action cannot be undone.',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: TextStyle(color: colorScheme.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAllReadNotifications();
+            },
+            child:
+                const Text('Delete All', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -188,11 +287,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         actions: [
           if (_notifications.isNotEmpty)
-            TextButton(
-              onPressed: _markAllAsRead,
-              child: Text(
-                'Mark all read',
-                style: TextStyle(color: colorScheme.primary),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                switch (value) {
+                  case 'mark_all_read':
+                    _markAllAsRead();
+                    break;
+                  case 'delete_all_read':
+                    _showDeleteAllReadConfirmation();
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'mark_all_read',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 20),
+                      SizedBox(width: 8),
+                      Text('Mark all as read'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete_all_read',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep_outlined, size: 20),
+                      SizedBox(width: 8),
+                      Text('Delete all read'),
+                    ],
+                  ),
+                ),
+              ],
+              icon: Icon(
+                Icons.more_vert,
+                color: colorScheme.onSurface,
               ),
             ),
         ],
@@ -248,19 +378,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationTile(Map<String, dynamic> notification, ColorScheme colorScheme) {
+  Widget _buildNotificationTile(
+      Map<String, dynamic> notification, ColorScheme colorScheme) {
     final type = notification['type'] as String?;
     final title = notification['title'] as String? ?? 'Notification';
     final isRead = notification['isRead'] as bool? ?? false;
     final data = notification['data'] as Map<String, dynamic>? ?? {};
-    
+
     // Format timestamp
     String timeAgo = '';
-    if (notification['timestamp'] != null && notification['timestamp'] is Timestamp) {
+    if (notification['timestamp'] != null &&
+        notification['timestamp'] is Timestamp) {
       final timestamp = (notification['timestamp'] as Timestamp).toDate();
       final now = DateTime.now();
       final difference = now.difference(timestamp);
-      
+
       if (difference.inDays > 0) {
         timeAgo = '${difference.inDays}d ago';
       } else if (difference.inHours > 0) {
@@ -271,12 +403,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         timeAgo = 'Just now';
       }
     }
-    
+
     // Get display info based on type
     IconData icon;
     Color iconColor;
     String displayMessage;
-    
+
     switch (type) {
       case 'official_backed_out':
         icon = Icons.person_remove;
@@ -306,8 +438,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       elevation: isRead ? 1 : 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isRead 
-            ? BorderSide.none 
+        side: isRead
+            ? BorderSide.none
             : BorderSide(color: iconColor.withOpacity(0.3)),
       ),
       child: InkWell(
@@ -344,20 +476,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             title,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                              fontWeight:
+                                  isRead ? FontWeight.w500 : FontWeight.bold,
                               color: colorScheme.onSurface,
                             ),
                           ),
                         ),
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: iconColor,
-                              shape: BoxShape.circle,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isRead)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: iconColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: colorScheme.onSurfaceVariant
+                                    .withOpacity(0.7),
+                              ),
+                              onPressed: () =>
+                                  _showDeleteConfirmation(notification),
+                              tooltip: 'Delete notification',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                             ),
-                          ),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -383,7 +538,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           timeAgo,
                           style: TextStyle(
                             fontSize: 12,
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color:
+                                colorScheme.onSurfaceVariant.withOpacity(0.7),
                           ),
                         ),
                         if (type == 'official_backed_out') ...[
@@ -418,17 +574,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markAllAsRead() async {
     try {
       final batch = _firestore.batch();
-      
+
       for (final notification in _notifications) {
         if (notification['isRead'] != true && notification['id'] != null) {
-          final docRef = _firestore.collection('notifications').doc(notification['id']);
+          final docRef =
+              _firestore.collection('notifications').doc(notification['id']);
           batch.update(docRef, {'isRead': true});
         }
       }
-      
+
       await batch.commit();
       await _loadNotifications();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -441,5 +598,84 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       debugPrint('🔴 NOTIFICATIONS: Error marking all as read: $e');
     }
   }
-}
 
+  Future<void> _deleteNotification(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).delete();
+      setState(() {
+        _notifications.removeWhere(
+            (notification) => notification['id'] == notificationId);
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification deleted'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('🔴 NOTIFICATIONS: Error deleting notification: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete notification'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAllReadNotifications() async {
+    try {
+      final readNotifications = _notifications
+          .where((notification) =>
+              notification['isRead'] == true && notification['id'] != null)
+          .toList();
+
+      if (readNotifications.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No read notifications to delete'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final batch = _firestore.batch();
+      for (final notification in readNotifications) {
+        final docRef =
+            _firestore.collection('notifications').doc(notification['id']);
+        batch.delete(docRef);
+      }
+
+      await batch.commit();
+      await _loadNotifications();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Deleted ${readNotifications.length} read notification${readNotifications.length == 1 ? '' : 's'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('🔴 NOTIFICATIONS: Error deleting all read notifications: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete notifications'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}

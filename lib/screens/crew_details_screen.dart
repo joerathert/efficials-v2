@@ -46,7 +46,10 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       _isCrewChief = crew.crewChiefId == _currentUserId;
 
       // Check if current user is a scheduler
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUserId).get();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUserId)
+          .get();
       if (userDoc.exists && userDoc.data() != null) {
         final userData = userDoc.data()!;
         _isScheduler = userData['role'] == 'scheduler';
@@ -54,7 +57,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
       // Check if scheduler has endorsed this crew
       if (_isScheduler && _crew!.id != null) {
-        _hasEndorsedThisCrew = await _endorsementService.hasUserEndorsedCrew(_crew!.id!);
+        _hasEndorsedThisCrew =
+            await _endorsementService.hasUserEndorsedCrew(_crew!.id!);
       }
 
       // Load fresh crew data
@@ -89,7 +93,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     try {
       if (_hasEndorsedThisCrew) {
         // Remove endorsement
-        await _endorsementService.removeCrewEndorsement(endorsedCrewId: _crew!.id!);
+        await _endorsementService.removeCrewEndorsement(
+            endorsedCrewId: _crew!.id!);
         setState(() => _hasEndorsedThisCrew = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -101,7 +106,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         }
       } else {
         // Add endorsement
-        await _endorsementService.addCrewEndorsement(endorsedCrewId: _crew!.id!);
+        await _endorsementService.addCrewEndorsement(
+            endorsedCrewId: _crew!.id!);
         setState(() => _hasEndorsedThisCrew = true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +125,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error ${ _hasEndorsedThisCrew ? 'removing' : 'adding' } endorsement: $e'),
+            content: Text(
+                'Error ${_hasEndorsedThisCrew ? 'removing' : 'adding'} endorsement: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -144,19 +151,23 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
     }
 
     // Ensure crew data is fully loaded
-    if (_crew!.sportName == null || _crew!.levelOfCompetition == null) {
+    if (_crew!.sportName == null || _crew!.requiredOfficials == null) {
       print('❌ Crew data not fully loaded, refreshing...');
       await _refreshCrewDetails();
-      if (_crew!.sportName == null || _crew!.levelOfCompetition == null) {
+      if (_crew!.sportName == null || _crew!.requiredOfficials == null) {
         print('❌ Crew data still not loaded after refresh');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Crew data is still loading. Please try again.')),
+          const SnackBar(
+              content: Text('Crew data is still loading. Please try again.')),
         );
         return;
       }
     }
 
-    print('✅ Opening AddCrewMembersScreen for crew: ${_crew!.sportName} at ${_crew!.levelOfCompetition} level');
+    final competitionLevelsText =
+        _crew!.competitionLevels?.join(', ') ?? 'No levels specified';
+    print(
+        '✅ Opening AddCrewMembersScreen for crew: ${_crew!.sportName} (${_crew!.requiredOfficials} officials) - Levels: $competitionLevelsText');
 
     // Navigate to full add members screen (like v1.0)
     Navigator.push(
@@ -212,7 +223,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Failed to delete crew. You may not be the crew chief or the crew has active assignments.'),
+              content: Text(
+                  'Failed to delete crew. You may not be the crew chief or the crew has active assignments.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -256,7 +268,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
 
     if (confirmed == true) {
       try {
-        final success = await _crewRepo.removeCrewMember(_crew!.id!, member.officialId);
+        final success =
+            await _crewRepo.removeCrewMember(_crew!.id!, member.officialId);
         if (success) {
           await _refreshCrewDetails();
           if (mounted) {
@@ -314,7 +327,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
         actions: [
           if (_isCrewChief) ...[
             IconButton(
-              icon: const Icon(Icons.person_add, color: AppColors.efficialsYellow),
+              icon: const Icon(Icons.person_add,
+                  color: AppColors.efficialsYellow),
               onPressed: _addMembers,
               tooltip: 'Add Members',
             ),
@@ -333,7 +347,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.efficialsYellow),
+              child:
+                  CircularProgressIndicator(color: AppColors.efficialsYellow),
             )
           : RefreshIndicator(
               onRefresh: _refreshCrewDetails,
@@ -373,7 +388,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     ),
                     if (_isCrewChief)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.efficialsYellow,
                           borderRadius: BorderRadius.circular(12),
@@ -398,8 +414,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                 const SizedBox(height: 8),
                 _buildInfoRow(
                   Icons.emoji_events,
-                  'Competition Level',
-                  _crew!.levelOfCompetition ?? 'Unknown Level',
+                  'Competition Levels',
+                  _crew!.competitionLevels?.join(', ') ?? 'No levels specified',
                 ),
                 const SizedBox(height: 8),
                 _buildInfoRow(
@@ -415,7 +431,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: isFullyStaffed
                         ? Colors.green.withOpacity(0.2)
@@ -455,7 +472,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                   children: [
                     if (_crew!.athleticDirectorEndorsements > 0) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.efficialsYellow.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -473,7 +491,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     ],
                     if (_crew!.coachEndorsements > 0) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -491,7 +510,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     ],
                     if (_crew!.assignerEndorsements > 0) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.green.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
@@ -523,7 +543,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isProcessingEndorsement ? null : _handleEndorsement,
+                      onPressed:
+                          _isProcessingEndorsement ? null : _handleEndorsement,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _hasEndorsedThisCrew
                             ? Colors.grey[700]
@@ -542,11 +563,14 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : Text(
-                              _hasEndorsedThisCrew ? 'Remove Endorsement' : 'Endorse This Crew',
+                              _hasEndorsedThisCrew
+                                  ? 'Remove Endorsement'
+                                  : 'Endorse This Crew',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -581,7 +605,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.efficialsYellow.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
@@ -634,7 +659,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ..._crewInvitations.map((invitation) => _buildInvitationCard(invitation)),
+                  ..._crewInvitations
+                      .map((invitation) => _buildInvitationCard(invitation)),
                 ],
               ),
             ),
@@ -708,7 +734,8 @@ class _CrewDetailsScreenState extends State<CrewDetailsScreen> {
                         if (isCrewChief) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.efficialsYellow,
                               borderRadius: BorderRadius.circular(8),
@@ -873,7 +900,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
       print('🔍 Loading available officials for crew:');
       print('   Crew ID: ${widget.crew.id}');
       print('   Sport: ${widget.crew.sportName}');
-      print('   Level: ${widget.crew.levelOfCompetition}');
+      print(
+          '   Competition Levels: ${widget.crew.competitionLevels?.join(', ')}');
       print('   Required officials: ${widget.crew.requiredOfficials}');
 
       // Get existing crew members to exclude them
@@ -918,7 +946,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
       for (final doc in officialsQuery.docs) {
         final userData = doc.data();
         final officialId = doc.id;
-        final officialProfile = userData['officialProfile'] as Map<String, dynamic>?;
+        final officialProfile =
+            userData['officialProfile'] as Map<String, dynamic>?;
 
         // Skip if not current user, already a member, or has pending invitation
         if (officialId == _currentUserId ||
@@ -929,29 +958,41 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
 
         // Check if official has the required sport and competition level
         if (officialProfile != null) {
-          final sportsData = officialProfile['sportsData'] as Map<String, dynamic>? ?? {};
+          final sportsData =
+              officialProfile['sportsData'] as Map<String, dynamic>? ?? {};
 
-          // Check if official does the sport and has the required competition level
+          // Check if official does the sport and has matching competition levels
           bool hasSportAndLevel = false;
 
-          if (widget.crew.sportName != null && widget.crew.levelOfCompetition != null) {
-            final sportData = sportsData[widget.crew.sportName!] as Map<String, dynamic>?;
+          if (widget.crew.sportName != null &&
+              widget.crew.competitionLevels != null &&
+              widget.crew.competitionLevels!.isNotEmpty) {
+            final sportData =
+                sportsData[widget.crew.sportName!] as Map<String, dynamic>?;
 
             if (sportData != null) {
-              final competitionLevels = sportData['competitionLevels'] as List<dynamic>? ?? [];
-              print('Checking official ${userData['fullName']}: sport=${widget.crew.sportName}, crew level=${widget.crew.levelOfCompetition}');
-              print('Official competition levels for ${widget.crew.sportName}: $competitionLevels');
+              final officialCompetitionLevels =
+                  sportData['competitionLevels'] as List<dynamic>? ?? [];
+              print(
+                  'Checking official ${userData['fullName']}: sport=${widget.crew.sportName}, crew levels=${widget.crew.competitionLevels}');
+              print(
+                  'Official competition levels for ${widget.crew.sportName}: $officialCompetitionLevels');
 
-              // Check if official does the competition level
-              hasSportAndLevel = competitionLevels.any((level) =>
-                  level.toString().toLowerCase().contains(widget.crew.levelOfCompetition!.toLowerCase()));
+              // Check if official has ANY of the crew's required competition levels
+              hasSportAndLevel = widget.crew.competitionLevels!.any(
+                  (crewLevel) => officialCompetitionLevels.any(
+                      (officialLevel) => officialLevel
+                          .toString()
+                          .toLowerCase()
+                          .contains(crewLevel.toLowerCase())));
 
               if (hasSportAndLevel) {
                 print('✅ Match found for ${userData['fullName']}');
               }
             }
           } else {
-            print('❌ Crew missing data: sportName=${widget.crew.sportName}, levelOfCompetition=${widget.crew.levelOfCompetition}');
+            print(
+                '❌ Crew missing data: sportName=${widget.crew.sportName}, competitionLevels=${widget.crew.competitionLevels}');
           }
 
           if (hasSportAndLevel) {
@@ -960,7 +1001,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
             final firstName = profile['firstName'] as String? ?? '';
             final lastName = profile['lastName'] as String? ?? '';
             final fullName = '$firstName $lastName'.trim();
-            final displayName = fullName.isNotEmpty ? fullName : 'Unknown Official';
+            final displayName =
+                fullName.isNotEmpty ? fullName : 'Unknown Official';
 
             matchingOfficials.add({
               'id': officialId,
@@ -968,17 +1010,21 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
               'email': userData['email'] ?? '',
               'city': officialProfile['city'] ?? '',
               'state': officialProfile['state'] ?? '',
-              'location': _formatLocation(officialProfile['city'], officialProfile['state']),
+              'location': _formatLocation(
+                  officialProfile['city'], officialProfile['state']),
             });
           }
         }
       }
 
       _availableOfficials = matchingOfficials;
-      print('Found ${matchingOfficials.length} available officials for ${crew.sportName} at ${crew.levelOfCompetition} level');
+      print(
+          'Found ${matchingOfficials.length} available officials for ${crew.sportName} (${crew.competitionLevels?.join(', ')})');
       print('Total officials checked: ${officialsQuery.docs.length}');
-      print('Crew sport: ${crew.sportName}, level: ${crew.levelOfCompetition}');
-      print('Matching officials: ${matchingOfficials.map((o) => o['name']).toList()}');
+      print(
+          'Crew sport: ${crew.sportName}, competition levels: ${crew.competitionLevels}');
+      print(
+          'Matching officials: ${matchingOfficials.map((o) => o['name']).toList()}');
     } catch (e) {
       print('Error querying officials by sport and level: $e');
       _availableOfficials = [];
@@ -1030,7 +1076,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
         } else if (successCount > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Sent $successCount invitation(s), $failCount failed'),
+              content:
+                  Text('Sent $successCount invitation(s), $failCount failed'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -1051,7 +1098,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('An unexpected error occurred while sending invitations'),
+            content:
+                Text('An unexpected error occurred while sending invitations'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1075,7 +1123,8 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: AppColors.efficialsYellow),
+              child:
+                  CircularProgressIndicator(color: AppColors.efficialsYellow),
             )
           : Column(
               children: [
@@ -1153,10 +1202,12 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
             decoration: InputDecoration(
               hintText: 'Type official\'s name to search...',
               hintStyle: TextStyle(color: Colors.grey[600]),
-              prefixIcon: const Icon(Icons.search, color: AppColors.efficialsYellow),
+              prefixIcon:
+                  const Icon(Icons.search, color: AppColors.efficialsYellow),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppColors.efficialsYellow),
+                      icon: const Icon(Icons.clear,
+                          color: AppColors.efficialsYellow),
                       onPressed: () {
                         setState(() {
                           _searchController.clear();
@@ -1198,13 +1249,21 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
         ),
         // Officials List
         Expanded(
-          child: (_searchController.text.isEmpty ? _availableOfficials : _filteredOfficials).isEmpty
+          child: (_searchController.text.isEmpty
+                      ? _availableOfficials
+                      : _filteredOfficials)
+                  .isEmpty
               ? _buildEmptyState()
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: (_searchController.text.isEmpty ? _availableOfficials : _filteredOfficials).length,
+                  itemCount: (_searchController.text.isEmpty
+                          ? _availableOfficials
+                          : _filteredOfficials)
+                      .length,
                   itemBuilder: (context, index) {
-                    final official = (_searchController.text.isEmpty ? _availableOfficials : _filteredOfficials)[index];
+                    final official = (_searchController.text.isEmpty
+                        ? _availableOfficials
+                        : _filteredOfficials)[index];
                     final isSelected = _selectedMembers.contains(official);
 
                     return Container(
@@ -1224,7 +1283,9 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
                         leading: IconButton(
                           icon: Icon(
                             isSelected ? Icons.check_circle : Icons.add_circle,
-                            color: isSelected ? Colors.green : AppColors.efficialsYellow,
+                            color: isSelected
+                                ? Colors.green
+                                : AppColors.efficialsYellow,
                             size: 36,
                           ),
                           onPressed: () {
@@ -1316,9 +1377,12 @@ class _AddCrewMembersScreenState extends State<AddCrewMembersScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: hasSelectedMembers && !_isInviting ? _sendInvitations : null,
+              onPressed:
+                  hasSelectedMembers && !_isInviting ? _sendInvitations : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: hasSelectedMembers ? AppColors.efficialsYellow : Colors.grey[700],
+                backgroundColor: hasSelectedMembers
+                    ? AppColors.efficialsYellow
+                    : Colors.grey[700],
                 foregroundColor: AppColors.efficialsBlack,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(

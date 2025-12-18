@@ -1,7 +1,9 @@
 // Simplified Crew model for v2.0 - adapted from crew app
+import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/crew_endorsement_service.dart';
+
 class Crew {
   final String? id;
   final String name;
@@ -53,9 +55,8 @@ class Crew {
     this.crewChiefState,
     this.members,
     this.competitionLevels,
-  }) :
-    createdAt = createdAt ?? DateTime.now(),
-    updatedAt = updatedAt ?? DateTime.now();
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   factory Crew.fromMap(Map<String, dynamic> map) {
     return Crew(
@@ -77,10 +78,17 @@ class Crew {
               ? (map['updated_at'] as Timestamp).toDate()
               : DateTime.parse(map['updated_at'] as String))
           : DateTime.now(),
-      athleticDirectorEndorsements: (map['athleticDirectorEndorsements'] ?? map['athletic_director_endorsements'] ?? 0).toInt(),
-      coachEndorsements: (map['coachEndorsements'] ?? map['coach_endorsements'] ?? 0).toInt(),
-      assignerEndorsements: (map['assignerEndorsements'] ?? map['assigner_endorsements'] ?? 0).toInt(),
-      totalEndorsements: (map['totalEndorsements'] ?? map['total_endorsements'] ?? 0).toInt(),
+      athleticDirectorEndorsements: (map['athleticDirectorEndorsements'] ??
+              map['athletic_director_endorsements'] ??
+              0)
+          .toInt(),
+      coachEndorsements:
+          (map['coachEndorsements'] ?? map['coach_endorsements'] ?? 0).toInt(),
+      assignerEndorsements:
+          (map['assignerEndorsements'] ?? map['assigner_endorsements'] ?? 0)
+              .toInt(),
+      totalEndorsements:
+          (map['totalEndorsements'] ?? map['total_endorsements'] ?? 0).toInt(),
       sportName: map['sport_name'] as String?,
       levelOfCompetition: map['level_of_competition'] as String?,
       requiredOfficials: map['required_officials'] as int?,
@@ -88,7 +96,9 @@ class Crew {
       crewChiefCity: map['crew_chief_city'] as String?,
       crewChiefState: map['crew_chief_state'] as String?,
       members: map['members'] != null
-          ? (map['members'] as List).map((m) => CrewMember.fromMap(m as Map<String, dynamic>)).toList()
+          ? (map['members'] as List)
+              .map((m) => CrewMember.fromMap(m as Map<String, dynamic>))
+              .toList()
           : null,
       competitionLevels: map['competition_levels'] != null
           ? (map['competition_levels'] is String
@@ -205,7 +215,7 @@ class CrewInvitation {
   final String? position;
   final String? gamePosition;
   final String? sportName;
-  final String? levelOfCompetition;
+  final List<String>? competitionLevels;
   final String status;
   final DateTime? invitedAt;
   final DateTime? respondedAt;
@@ -222,7 +232,7 @@ class CrewInvitation {
     this.position,
     this.gamePosition,
     this.sportName,
-    this.levelOfCompetition,
+    this.competitionLevels,
     required this.status,
     this.invitedAt,
     this.respondedAt,
@@ -241,7 +251,9 @@ class CrewInvitation {
       position: map['position'] as String?,
       gamePosition: map['game_position'] as String?,
       sportName: map['sport_name'] as String?,
-      levelOfCompetition: map['level_of_competition'] as String?,
+      competitionLevels: map['competition_levels'] != null
+          ? List<String>.from(jsonDecode(map['competition_levels'] ?? '[]'))
+          : null,
       status: map['status'] as String? ?? 'pending',
       invitedAt: map['invited_at'] != null
           ? (map['invited_at'] as Timestamp).toDate()
@@ -264,10 +276,11 @@ class CrewInvitation {
       'position': position,
       'game_position': gamePosition,
       'sport_name': sportName,
-      'level_of_competition': levelOfCompetition,
+      'competition_levels': competitionLevels,
       'status': status,
       'invited_at': invitedAt != null ? Timestamp.fromDate(invitedAt!) : null,
-      'responded_at': respondedAt != null ? Timestamp.fromDate(respondedAt!) : null,
+      'responded_at':
+          respondedAt != null ? Timestamp.fromDate(respondedAt!) : null,
       'response_notes': responseNotes,
     };
   }
@@ -278,7 +291,8 @@ class CrewRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Import the crew endorsement service
-  static final CrewEndorsementService _endorsementService = CrewEndorsementService();
+  static final CrewEndorsementService _endorsementService =
+      CrewEndorsementService();
 
   // Get all active crews
   Future<List<Crew>> getAllCrews() async {
@@ -292,7 +306,8 @@ class CrewRepository {
 
       print('✅ CREW REPO: Found ${querySnapshot.docs.length} active crews');
       if (querySnapshot.docs.isNotEmpty) {
-        print('📋 CREW REPO: Crew names: ${querySnapshot.docs.map((doc) => doc.data()['name']).toList()}');
+        print(
+            '📋 CREW REPO: Crew names: ${querySnapshot.docs.map((doc) => doc.data()['name']).toList()}');
       }
 
       final crews = <Crew>[];
@@ -307,19 +322,22 @@ class CrewRepository {
         final crewTypeData = await getCrewTypeById(crew.crewTypeId);
         if (crewTypeData != null) {
           crew.sportName = crewTypeData['sport_name'];
-          crew.levelOfCompetition = crewTypeData['level_of_competition'];
           crew.requiredOfficials = crewTypeData['required_officials'];
         }
 
         // Load endorsement data
-        final endorsementCounts = await _endorsementService.getCrewEndorsementCounts(crew.id!);
-        crew.athleticDirectorEndorsements = endorsementCounts['athleticDirectorEndorsements'] ?? 0;
+        final endorsementCounts =
+            await _endorsementService.getCrewEndorsementCounts(crew.id!);
+        crew.athleticDirectorEndorsements =
+            endorsementCounts['athleticDirectorEndorsements'] ?? 0;
         crew.coachEndorsements = endorsementCounts['coachEndorsements'] ?? 0;
-        crew.assignerEndorsements = endorsementCounts['assignerEndorsements'] ?? 0;
+        crew.assignerEndorsements =
+            endorsementCounts['assignerEndorsements'] ?? 0;
         crew.totalEndorsements = endorsementCounts['totalEndorsements'] ?? 0;
 
         // Get crew chief name
-        final chiefDoc = await _firestore.collection('users').doc(crew.crewChiefId).get();
+        final chiefDoc =
+            await _firestore.collection('users').doc(crew.crewChiefId).get();
         if (chiefDoc.exists && chiefDoc.data() != null) {
           final chiefData = chiefDoc.data()!;
           // Construct full name from profile data
@@ -335,7 +353,8 @@ class CrewRepository {
         crews.add(crew);
       }
 
-      print('📋 CREW REPO: Final crew list with members loaded: ${crews.map((c) => '${c.name} (${c.members?.length ?? 0} members)').toList()}');
+      print(
+          '📋 CREW REPO: Final crew list with members loaded: ${crews.map((c) => '${c.name} (${c.members?.length ?? 0} members)').toList()}');
       return crews;
     } catch (e) {
       print('❌ CREW REPO: Error getting all crews: $e');
@@ -361,36 +380,39 @@ class CrewRepository {
         // Load crew members
         crew.members = await getCrewMembers(crew.id!);
 
-          // Load crew type information
-          final crewTypeData = await getCrewTypeById(crew.crewTypeId);
-          if (crewTypeData != null) {
-            crew.sportName = crewTypeData['sport_name'];
-            crew.levelOfCompetition = crewTypeData['level_of_competition'];
-            crew.requiredOfficials = crewTypeData['required_officials'];
-          }
+        // Load crew type information
+        final crewTypeData = await getCrewTypeById(crew.crewTypeId);
+        if (crewTypeData != null) {
+          crew.sportName = crewTypeData['sport_name'];
+          crew.requiredOfficials = crewTypeData['required_officials'];
+        }
 
-          // Load endorsement data
-          final endorsementCounts = await _endorsementService.getCrewEndorsementCounts(crew.id!);
-          crew.athleticDirectorEndorsements = endorsementCounts['athleticDirectorEndorsements'] ?? 0;
-          crew.coachEndorsements = endorsementCounts['coachEndorsements'] ?? 0;
-          crew.assignerEndorsements = endorsementCounts['assignerEndorsements'] ?? 0;
-          crew.totalEndorsements = endorsementCounts['totalEndorsements'] ?? 0;
+        // Load endorsement data
+        final endorsementCounts =
+            await _endorsementService.getCrewEndorsementCounts(crew.id!);
+        crew.athleticDirectorEndorsements =
+            endorsementCounts['athleticDirectorEndorsements'] ?? 0;
+        crew.coachEndorsements = endorsementCounts['coachEndorsements'] ?? 0;
+        crew.assignerEndorsements =
+            endorsementCounts['assignerEndorsements'] ?? 0;
+        crew.totalEndorsements = endorsementCounts['totalEndorsements'] ?? 0;
 
-          // Get crew chief name
-          final chiefDoc = await _firestore.collection('users').doc(crew.crewChiefId).get();
-          if (chiefDoc.exists && chiefDoc.data() != null) {
-            final chiefData = chiefDoc.data()!;
-            // Construct full name from profile data
-            final profile = chiefData['profile'] as Map<String, dynamic>? ?? {};
-            final firstName = profile['firstName'] as String? ?? '';
-            final lastName = profile['lastName'] as String? ?? '';
-            final fullName = '$firstName $lastName'.trim();
-            crew.crewChiefName = fullName.isNotEmpty ? fullName : 'Unknown';
-          } else {
-            crew.crewChiefName = 'Unknown';
-          }
+        // Get crew chief name
+        final chiefDoc =
+            await _firestore.collection('users').doc(crew.crewChiefId).get();
+        if (chiefDoc.exists && chiefDoc.data() != null) {
+          final chiefData = chiefDoc.data()!;
+          // Construct full name from profile data
+          final profile = chiefData['profile'] as Map<String, dynamic>? ?? {};
+          final firstName = profile['firstName'] as String? ?? '';
+          final lastName = profile['lastName'] as String? ?? '';
+          final fullName = '$firstName $lastName'.trim();
+          crew.crewChiefName = fullName.isNotEmpty ? fullName : 'Unknown';
+        } else {
+          crew.crewChiefName = 'Unknown';
+        }
 
-          crews.add(crew);
+        crews.add(crew);
       }
 
       return crews;
@@ -432,19 +454,22 @@ class CrewRepository {
           final crewTypeData = await getCrewTypeById(crew.crewTypeId);
           if (crewTypeData != null) {
             crew.sportName = crewTypeData['sport_name'];
-            crew.levelOfCompetition = crewTypeData['level_of_competition'];
             crew.requiredOfficials = crewTypeData['required_officials'];
           }
 
           // Load endorsement data
-          final endorsementCounts = await _endorsementService.getCrewEndorsementCounts(crew.id!);
-          crew.athleticDirectorEndorsements = endorsementCounts['athleticDirectorEndorsements'] ?? 0;
+          final endorsementCounts =
+              await _endorsementService.getCrewEndorsementCounts(crew.id!);
+          crew.athleticDirectorEndorsements =
+              endorsementCounts['athleticDirectorEndorsements'] ?? 0;
           crew.coachEndorsements = endorsementCounts['coachEndorsements'] ?? 0;
-          crew.assignerEndorsements = endorsementCounts['assignerEndorsements'] ?? 0;
+          crew.assignerEndorsements =
+              endorsementCounts['assignerEndorsements'] ?? 0;
           crew.totalEndorsements = endorsementCounts['totalEndorsements'] ?? 0;
 
           // Get crew chief name
-          final chiefDoc = await _firestore.collection('users').doc(crew.crewChiefId).get();
+          final chiefDoc =
+              await _firestore.collection('users').doc(crew.crewChiefId).get();
           if (chiefDoc.exists && chiefDoc.data() != null) {
             final chiefData = chiefDoc.data()!;
             // Construct full name from profile data
@@ -475,14 +500,16 @@ class CrewRepository {
 
       // First, let's see if there are ANY documents in crew_members collection
       final allMembersQuery = await _firestore.collection('crew_members').get();
-      print('👥 CREW MEMBERS: Total crew member documents in collection: ${allMembersQuery.docs.length}');
+      print(
+          '👥 CREW MEMBERS: Total crew member documents in collection: ${allMembersQuery.docs.length}');
 
       // Log a few examples
       if (allMembersQuery.docs.isNotEmpty) {
         print('👥 CREW MEMBERS: Sample member docs:');
         for (var i = 0; i < min(3, allMembersQuery.docs.length); i++) {
           final doc = allMembersQuery.docs[i];
-          print('👥 CREW MEMBERS: Doc ${doc.id}: crew_id=${doc.data()['crew_id']}, official_id=${doc.data()['official_id']}, status=${doc.data()['status']}');
+          print(
+              '👥 CREW MEMBERS: Doc ${doc.id}: crew_id=${doc.data()['crew_id']}, official_id=${doc.data()['official_id']}, status=${doc.data()['status']}');
         }
       }
 
@@ -493,7 +520,8 @@ class CrewRepository {
           .orderBy('joined_at')
           .get();
 
-      print('👥 CREW MEMBERS: Found ${querySnapshot.docs.length} member documents for crew $crewId');
+      print(
+          '👥 CREW MEMBERS: Found ${querySnapshot.docs.length} member documents for crew $crewId');
 
       // Log each member document found
       for (final doc in querySnapshot.docs) {
@@ -506,15 +534,18 @@ class CrewRepository {
 
         // Get official details
         final officialId = memberData['official_id'] as String;
-        final officialDoc = await _firestore.collection('users').doc(officialId).get();
+        final officialDoc =
+            await _firestore.collection('users').doc(officialId).get();
         if (officialDoc.exists && officialDoc.data() != null) {
           final officialData = officialDoc.data()!;
           // Construct full name from profile data
-          final profile = officialData['profile'] as Map<String, dynamic>? ?? {};
+          final profile =
+              officialData['profile'] as Map<String, dynamic>? ?? {};
           final firstName = profile['firstName'] as String? ?? '';
           final lastName = profile['lastName'] as String? ?? '';
           final fullName = '$firstName $lastName'.trim();
-          memberData['official_name'] = fullName.isNotEmpty ? fullName : 'Unknown';
+          memberData['official_name'] =
+              fullName.isNotEmpty ? fullName : 'Unknown';
           memberData['email'] = officialData['email'] ?? '';
           memberData['phone'] = officialData['phone'] ?? '';
           memberData['city'] = profile['city'] as String?;
@@ -556,13 +587,15 @@ class CrewRepository {
           final crewTypeData = await getCrewTypeById(crewData['crew_type_id']);
           if (crewTypeData != null) {
             invitationData['sport_name'] = crewTypeData['sport_name'];
-            invitationData['level_of_competition'] = crewTypeData['level_of_competition'];
           }
+          // Get competition levels from crew data
+          invitationData['competition_levels'] = crewData['competition_levels'];
         }
 
         // Get inviter details
         final inviterId = invitationData['invited_by'] as String;
-        final inviterDoc = await _firestore.collection('users').doc(inviterId).get();
+        final inviterDoc =
+            await _firestore.collection('users').doc(inviterId).get();
         if (inviterDoc.exists && inviterDoc.data() != null) {
           final inviterData = inviterDoc.data()!;
           // Construct full name from profile data
@@ -570,7 +603,8 @@ class CrewRepository {
           final firstName = profile['firstName'] as String? ?? '';
           final lastName = profile['lastName'] as String? ?? '';
           final fullName = '$firstName $lastName'.trim();
-          invitationData['inviter_name'] = fullName.isNotEmpty ? fullName : 'Unknown';
+          invitationData['inviter_name'] =
+              fullName.isNotEmpty ? fullName : 'Unknown';
         }
 
         invitations.add(CrewInvitation.fromMap(invitationData));
@@ -599,20 +633,24 @@ class CrewRepository {
 
         // Get invited official details
         final officialId = invitationData['invited_official_id'] as String;
-        final officialDoc = await _firestore.collection('users').doc(officialId).get();
+        final officialDoc =
+            await _firestore.collection('users').doc(officialId).get();
         if (officialDoc.exists && officialDoc.data() != null) {
           final officialData = officialDoc.data()!;
           // Construct full name from profile data
-          final profile = officialData['profile'] as Map<String, dynamic>? ?? {};
+          final profile =
+              officialData['profile'] as Map<String, dynamic>? ?? {};
           final firstName = profile['firstName'] as String? ?? '';
           final lastName = profile['lastName'] as String? ?? '';
           final fullName = '$firstName $lastName'.trim();
-          invitationData['invited_official_name'] = fullName.isNotEmpty ? fullName : 'Unknown';
+          invitationData['invited_official_name'] =
+              fullName.isNotEmpty ? fullName : 'Unknown';
         }
 
         // Get inviter details
         final inviterId = invitationData['invited_by'] as String;
-        final inviterDoc = await _firestore.collection('users').doc(inviterId).get();
+        final inviterDoc =
+            await _firestore.collection('users').doc(inviterId).get();
         if (inviterDoc.exists && inviterDoc.data() != null) {
           final inviterData = inviterDoc.data()!;
           // Construct full name from profile data
@@ -620,7 +658,8 @@ class CrewRepository {
           final firstName = profile['firstName'] as String? ?? '';
           final lastName = profile['lastName'] as String? ?? '';
           final fullName = '$firstName $lastName'.trim();
-          invitationData['inviter_name'] = fullName.isNotEmpty ? fullName : 'Unknown';
+          invitationData['inviter_name'] =
+              fullName.isNotEmpty ? fullName : 'Unknown';
         }
 
         invitations.add(CrewInvitation.fromMap(invitationData));
@@ -656,7 +695,8 @@ class CrewRepository {
     required String crewChiefId,
   }) async {
     try {
-      print('🏗️ CREW CREATION: Creating crew "${crew.name}" with chief ID: $crewChiefId');
+      print(
+          '🏗️ CREW CREATION: Creating crew "${crew.name}" with chief ID: $crewChiefId');
       print('🏗️ CREW CREATION: Crew data: ${crew.toMap()}');
 
       final batch = _firestore.batch();
@@ -707,7 +747,8 @@ class CrewRepository {
   }
 
   // Add crew member
-  Future<bool> addCrewMember(String crewId, String officialId, String position, String? gamePosition) async {
+  Future<bool> addCrewMember(String crewId, String officialId, String position,
+      String? gamePosition) async {
     try {
       // Check if crew has space
       final crewDoc = await _firestore.collection('crews').doc(crewId).get();
@@ -722,7 +763,8 @@ class CrewRepository {
         final currentMembers = await getCrewMembers(crewId);
 
         if (currentMembers.length >= requiredOfficials) {
-          throw Exception('Crew is already at full capacity ($requiredOfficials members)');
+          throw Exception(
+              'Crew is already at full capacity ($requiredOfficials members)');
         }
       }
 
@@ -776,7 +818,8 @@ class CrewRepository {
           .get();
 
       if (existingQuery.docs.isNotEmpty) {
-        throw Exception('Official already has a pending invitation to this crew');
+        throw Exception(
+            'Official already has a pending invitation to this crew');
       }
 
       // Check if official is already a member
@@ -800,9 +843,13 @@ class CrewRepository {
   }
 
   // Respond to crew invitation
-  Future<bool> respondToInvitation(String invitationId, String status, String? notes, String respondingOfficialId) async {
+  Future<bool> respondToInvitation(String invitationId, String status,
+      String? notes, String respondingOfficialId) async {
     try {
-      final invitationDoc = await _firestore.collection('crew_invitations').doc(invitationId).get();
+      final invitationDoc = await _firestore
+          .collection('crew_invitations')
+          .doc(invitationId)
+          .get();
       if (!invitationDoc.exists) return false;
 
       final invitationData = invitationDoc.data();
@@ -825,7 +872,8 @@ class CrewRepository {
         final position = invitationData['position'] ?? 'member';
         final gamePosition = invitationData['game_position'];
 
-        print('👥 CREW MEMBERS: Adding member to crew $crewId - official: $respondingOfficialId, position: $position');
+        print(
+            '👥 CREW MEMBERS: Adding member to crew $crewId - official: $respondingOfficialId, position: $position');
 
         batch.set(_firestore.collection('crew_members').doc(), {
           'crew_id': crewId,
@@ -859,8 +907,8 @@ class CrewRepository {
   // ===== CREW MEMBER GAME PREFERENCES METHODS =====
 
   /// Set a crew member's preference for a game offered to their crew
-  Future<bool> setCrewMemberGamePreference(
-      String gameId, String crewId, String crewMemberId, String preference) async {
+  Future<bool> setCrewMemberGamePreference(String gameId, String crewId,
+      String crewMemberId, String preference) async {
     try {
       final preferenceData = {
         'game_id': gameId,
@@ -876,7 +924,8 @@ class CrewRepository {
           .doc('${gameId}_${crewId}_${crewMemberId}')
           .set(preferenceData);
 
-      print('✅ CREW PREFERENCE: Set preference $preference for member $crewMemberId on game $gameId');
+      print(
+          '✅ CREW PREFERENCE: Set preference $preference for member $crewMemberId on game $gameId');
       return true;
     } catch (e) {
       print('❌ CREW PREFERENCE: Error setting preference: $e');
@@ -900,7 +949,8 @@ class CrewRepository {
         final data = doc.data();
         // Get member name
         final memberId = data['crew_member_id'] as String;
-        final userDoc = await _firestore.collection('users').doc(memberId).get();
+        final userDoc =
+            await _firestore.collection('users').doc(memberId).get();
         if (userDoc.exists && userDoc.data() != null) {
           final userData = userDoc.data()!;
           final profile = userData['profile'] as Map<String, dynamic>? ?? {};
@@ -913,7 +963,8 @@ class CrewRepository {
         preferences.add(data);
       }
 
-      print('✅ CREW PREFERENCE: Found ${preferences.length} preferences for game $gameId, crew $crewId');
+      print(
+          '✅ CREW PREFERENCE: Found ${preferences.length} preferences for game $gameId, crew $crewId');
       return preferences;
     } catch (e) {
       print('❌ CREW PREFERENCE: Error getting preferences: $e');
@@ -941,7 +992,8 @@ class CrewRepository {
   }
 
   /// Get crew member preference summary for a game (counts of thumbs up/down)
-  Future<Map<String, int>> getCrewMemberPreferenceSummary(String gameId, String crewId) async {
+  Future<Map<String, int>> getCrewMemberPreferenceSummary(
+      String gameId, String crewId) async {
     try {
       final preferences = await getCrewMemberPreferencesForGame(gameId, crewId);
       final summary = <String, int>{
@@ -955,7 +1007,8 @@ class CrewRepository {
         summary[preference] = (summary[preference] ?? 0) + 1;
       }
 
-      print('✅ CREW PREFERENCE: Summary for game $gameId, crew $crewId: $summary');
+      print(
+          '✅ CREW PREFERENCE: Summary for game $gameId, crew $crewId: $summary');
       print('✅ CREW PREFERENCE: Preferences list: $preferences');
       return summary;
     } catch (e) {
@@ -979,13 +1032,14 @@ class CrewRepository {
       final crewTypeData = await getCrewTypeById(crew.crewTypeId);
       if (crewTypeData != null) {
         crew.sportName = crewTypeData['sport_name'];
-        crew.levelOfCompetition = crewTypeData['level_of_competition'];
         crew.requiredOfficials = crewTypeData['required_officials'];
       }
 
       // Get crew chief name
-      print('👤 CREW LOADING: Loading crew chief name for crew ${crew.id}, chief ID: ${crew.crewChiefId}');
-      final chiefDoc = await _firestore.collection('users').doc(crew.crewChiefId).get();
+      print(
+          '👤 CREW LOADING: Loading crew chief name for crew ${crew.id}, chief ID: ${crew.crewChiefId}');
+      final chiefDoc =
+          await _firestore.collection('users').doc(crew.crewChiefId).get();
       print('👤 CREW LOADING: Chief doc exists: ${chiefDoc.exists}');
 
       if (chiefDoc.exists && chiefDoc.data() != null) {
@@ -997,7 +1051,8 @@ class CrewRepository {
         final firstName = profile['firstName'] as String? ?? '';
         final lastName = profile['lastName'] as String? ?? '';
         final fullName = '$firstName $lastName'.trim();
-        print('👤 CREW LOADING: Chief name: first="$firstName", last="$lastName", full="$fullName"');
+        print(
+            '👤 CREW LOADING: Chief name: first="$firstName", last="$lastName", full="$fullName"');
 
         crew.crewChiefName = fullName.isNotEmpty ? fullName : 'Unknown';
       } else {
@@ -1006,10 +1061,13 @@ class CrewRepository {
       }
 
       // Load endorsement data
-      final endorsementCounts = await _endorsementService.getCrewEndorsementCounts(crewId);
-      crew.athleticDirectorEndorsements = endorsementCounts['athleticDirectorEndorsements'] ?? 0;
+      final endorsementCounts =
+          await _endorsementService.getCrewEndorsementCounts(crewId);
+      crew.athleticDirectorEndorsements =
+          endorsementCounts['athleticDirectorEndorsements'] ?? 0;
       crew.coachEndorsements = endorsementCounts['coachEndorsements'] ?? 0;
-      crew.assignerEndorsements = endorsementCounts['assignerEndorsements'] ?? 0;
+      crew.assignerEndorsements =
+          endorsementCounts['assignerEndorsements'] ?? 0;
       crew.totalEndorsements = endorsementCounts['totalEndorsements'] ?? 0;
 
       return crew;
@@ -1022,12 +1080,16 @@ class CrewRepository {
   // Get crew type by ID
   Future<Map<String, dynamic>?> getCrewTypeById(int crewTypeId) async {
     try {
-      final doc = await _firestore.collection('crew_types').doc(crewTypeId.toString()).get();
+      final doc = await _firestore
+          .collection('crew_types')
+          .doc(crewTypeId.toString())
+          .get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         // Get sport name
         final sportId = data['sport_id'];
-        final sportDoc = await _firestore.collection('sports').doc(sportId.toString()).get();
+        final sportDoc =
+            await _firestore.collection('sports').doc(sportId.toString()).get();
         if (sportDoc.exists && sportDoc.data() != null) {
           data['sport_name'] = sportDoc.data()!['name'] ?? 'Unknown Sport';
         }
@@ -1040,13 +1102,13 @@ class CrewRepository {
     }
   }
 
-
   // Get all crew types
   Future<List<Map<String, dynamic>>> getAllCrewTypes() async {
     try {
       print('🔍 CREW MODEL: Querying crew_types collection');
       final querySnapshot = await _firestore.collection('crew_types').get();
-      print('✅ CREW MODEL: Found ${querySnapshot.docs.length} documents in crew_types collection');
+      print(
+          '✅ CREW MODEL: Found ${querySnapshot.docs.length} documents in crew_types collection');
       final crewTypes = <Map<String, dynamic>>[];
 
       for (final doc in querySnapshot.docs) {
@@ -1054,7 +1116,8 @@ class CrewRepository {
 
         // Get sport name
         final sportId = data['sport_id'];
-        final sportDoc = await _firestore.collection('sports').doc(sportId.toString()).get();
+        final sportDoc =
+            await _firestore.collection('sports').doc(sportId.toString()).get();
         if (sportDoc.exists && sportDoc.data() != null) {
           data['sport_name'] = sportDoc.data()!['name'] ?? 'Unknown Sport';
         }
@@ -1070,7 +1133,8 @@ class CrewRepository {
   }
 
   // Save default crew types to database
-  Future<void> saveDefaultCrewTypes(List<Map<String, dynamic>> crewTypes) async {
+  Future<void> saveDefaultCrewTypes(
+      List<Map<String, dynamic>> crewTypes) async {
     try {
       final batch = _firestore.batch();
 
@@ -1078,14 +1142,45 @@ class CrewRepository {
         final docId = crewType['id'].toString();
         final data = Map<String, dynamic>.from(crewType);
         data.remove('id'); // Remove id from data since it's the document ID
+        // Ensure level_of_competition is not included in the data
+        data.remove('level_of_competition');
         batch.set(_firestore.collection('crew_types').doc(docId), data);
       }
 
       await batch.commit();
-      print('✅ CREW TYPES: Successfully saved ${crewTypes.length} crew types to database');
+      print(
+          '✅ CREW TYPES: Successfully saved ${crewTypes.length} crew types to database');
     } catch (e) {
       print('Error saving default crew types: $e');
       rethrow;
+    }
+  }
+
+  // Clean up existing crew_types documents to remove level_of_competition field
+  Future<void> cleanupCrewTypesLevelOfCompetition() async {
+    try {
+      final querySnapshot = await _firestore.collection('crew_types').get();
+      final batch = _firestore.batch();
+
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data();
+        if (data.containsKey('level_of_competition')) {
+          // Remove level_of_competition field from existing documents
+          final updatedData = Map<String, dynamic>.from(data);
+          updatedData.remove('level_of_competition');
+          batch.update(doc.reference, updatedData);
+          print(
+              '🧹 Removing level_of_competition from crew_type document ${doc.id}');
+        }
+      }
+
+      if (querySnapshot.docs.isNotEmpty) {
+        await batch.commit();
+        print(
+            '✅ CREW TYPES: Cleaned up level_of_competition field from existing documents');
+      }
+    } catch (e) {
+      print('Error cleaning up crew types: $e');
     }
   }
 
@@ -1104,7 +1199,8 @@ class CrewRepository {
         final data = {...doc.data(), 'id': int.parse(doc.id)};
 
         // Get sport name
-        final sportDoc = await _firestore.collection('sports').doc(sportId.toString()).get();
+        final sportDoc =
+            await _firestore.collection('sports').doc(sportId.toString()).get();
         if (sportDoc.exists && sportDoc.data() != null) {
           data['sport_name'] = sportDoc.data()!['name'] ?? 'Unknown Sport';
         }
@@ -1133,7 +1229,8 @@ class CrewRepository {
   }
 
   // Update crew competition levels
-  Future<bool> updateCrewCompetitionLevels(String crewId, List<String> competitionLevels) async {
+  Future<bool> updateCrewCompetitionLevels(
+      String crewId, List<String> competitionLevels) async {
     try {
       await _firestore.collection('crews').doc(crewId).update({
         'competition_levels': competitionLevels.join(','),
@@ -1149,7 +1246,8 @@ class CrewRepository {
   // Delete crew
   Future<bool> deleteCrew(String crewId, String crewChiefId) async {
     try {
-      print('🗑️ CREW DELETE: Attempting to delete crew $crewId by user $crewChiefId');
+      print(
+          '🗑️ CREW DELETE: Attempting to delete crew $crewId by user $crewChiefId');
 
       // Verify crew chief
       final isChief = await isCrewChief(crewChiefId, crewId);
@@ -1167,7 +1265,8 @@ class CrewRepository {
           .where('status', isEqualTo: 'accepted')
           .get();
 
-      print('🗑️ CREW DELETE: Found ${assignmentsQuery.docs.length} accepted assignments');
+      print(
+          '🗑️ CREW DELETE: Found ${assignmentsQuery.docs.length} accepted assignments');
 
       if (assignmentsQuery.docs.isNotEmpty) {
         print('🗑️ CREW DELETE: Cannot delete crew with active assignments');
@@ -1207,8 +1306,7 @@ class CrewRepository {
       final pendingAssignmentsQuery = await _firestore
           .collection('crew_assignments')
           .where('crew_id', isEqualTo: crewId)
-          .where('status', whereIn: ['pending', 'declined'])
-          .get();
+          .where('status', whereIn: ['pending', 'declined']).get();
       for (final doc in pendingAssignmentsQuery.docs) {
         batch.delete(doc.reference);
       }
@@ -1239,29 +1337,39 @@ class CrewRepository {
       List<Crew> filteredCrews = List.from(allCrews);
 
       print('🎯 CREW FILTERING: Starting with ${allCrews.length} crews');
-      print('🎯 CREW FILTERING: Filters - IHSA: $ihsaCertifications, Levels: $competitionLevels, Sizes: $crewSizes, Distance: $maxDistanceMiles');
+      print(
+          '🎯 CREW FILTERING: Filters - IHSA: $ihsaCertifications, Levels: $competitionLevels, Sizes: $crewSizes, Distance: $maxDistanceMiles');
 
       // Filter by IHSA certification level
       if (ihsaCertifications != null && ihsaCertifications.isNotEmpty) {
         print('🎯 CREW FILTERING: Applying IHSA certification filter');
-        filteredCrews = await _filterByCertification(filteredCrews, ihsaCertifications);
-        print('🎯 CREW FILTERING: After IHSA filter: ${filteredCrews.length} crews');
+        filteredCrews =
+            await _filterByCertification(filteredCrews, ihsaCertifications);
+        print(
+            '🎯 CREW FILTERING: After IHSA filter: ${filteredCrews.length} crews');
       }
 
       // Filter by competition levels
       if (competitionLevels != null && competitionLevels.isNotEmpty) {
-        print('🎯 CREW FILTERING: Applying competition level filter: $competitionLevels');
+        print(
+            '🎯 CREW FILTERING: Applying competition level filter: $competitionLevels');
         filteredCrews = filteredCrews.where((crew) {
-          print('🎯 CREW FILTERING: Checking crew ${crew.name} - levels: ${crew.competitionLevels}');
-          if (crew.competitionLevels == null || crew.competitionLevels!.isEmpty) {
-            print('🎯 CREW FILTERING: Crew ${crew.name} has no competition levels');
+          print(
+              '🎯 CREW FILTERING: Checking crew ${crew.name} - levels: ${crew.competitionLevels}');
+          if (crew.competitionLevels == null ||
+              crew.competitionLevels!.isEmpty) {
+            print(
+                '🎯 CREW FILTERING: Crew ${crew.name} has no competition levels');
             return false;
           }
-          final hasMatchingLevel = crew.competitionLevels!.any((level) => competitionLevels.contains(level));
-          print('🎯 CREW FILTERING: Crew ${crew.name} has matching level: $hasMatchingLevel');
+          final hasMatchingLevel = crew.competitionLevels!
+              .any((level) => competitionLevels.contains(level));
+          print(
+              '🎯 CREW FILTERING: Crew ${crew.name} has matching level: $hasMatchingLevel');
           return hasMatchingLevel;
         }).toList();
-        print('🎯 CREW FILTERING: After competition filter: ${filteredCrews.length} crews');
+        print(
+            '🎯 CREW FILTERING: After competition filter: ${filteredCrews.length} crews');
       }
 
       // Filter by crew size
@@ -1270,16 +1378,20 @@ class CrewRepository {
         filteredCrews = filteredCrews.where((crew) {
           final memberCount = crew.members?.length ?? 0;
           final requiredCount = crew.requiredOfficials ?? 0;
-          print('🎯 CREW FILTERING: Crew ${crew.name} - members: $memberCount, required: $requiredCount');
+          print(
+              '🎯 CREW FILTERING: Crew ${crew.name} - members: $memberCount, required: $requiredCount');
 
           // Check if the crew size matches any of the selected sizes
           for (final sizeFilter in crewSizes) {
             // Parse the size filter (e.g., "5-person crew" -> 5)
-            final sizeMatch = RegExp(r'(\d+)-person crew').firstMatch(sizeFilter);
+            final sizeMatch =
+                RegExp(r'(\d+)-person crew').firstMatch(sizeFilter);
             if (sizeMatch != null) {
               final targetSize = int.parse(sizeMatch.group(1)!);
-              final matches = memberCount == targetSize && memberCount == requiredCount;
-              print('🎯 CREW FILTERING: Crew ${crew.name} - checking size $targetSize, matches: $matches');
+              final matches =
+                  memberCount == targetSize && memberCount == requiredCount;
+              print(
+                  '🎯 CREW FILTERING: Crew ${crew.name} - checking size $targetSize, matches: $matches');
               if (matches) {
                 return true;
               }
@@ -1287,19 +1399,23 @@ class CrewRepository {
           }
           return false;
         }).toList();
-        print('🎯 CREW FILTERING: After crew size filter: ${filteredCrews.length} crews');
+        print(
+            '🎯 CREW FILTERING: After crew size filter: ${filteredCrews.length} crews');
       }
 
       // Filter by distance
       if (maxDistanceMiles != null && gameLocation != null) {
-        filteredCrews = await _filterByDistance(filteredCrews, maxDistanceMiles, gameLocation);
+        filteredCrews = await _filterByDistance(
+            filteredCrews, maxDistanceMiles, gameLocation);
       }
 
       // Only return crews that can be hired (fully staffed and active)
       final originalCount = filteredCrews.length;
       filteredCrews = filteredCrews.where((crew) => crew.canBeHired).toList();
-      print('🎯 CREW FILTERING: After canBeHired filter: ${filteredCrews.length}/${originalCount} crews');
-      print('🎯 CREW FILTERING: Final result: ${filteredCrews.map((c) => c.name).toList()}');
+      print(
+          '🎯 CREW FILTERING: After canBeHired filter: ${filteredCrews.length}/${originalCount} crews');
+      print(
+          '🎯 CREW FILTERING: Final result: ${filteredCrews.map((c) => c.name).toList()}');
 
       return filteredCrews;
     } catch (e) {
@@ -1309,12 +1425,15 @@ class CrewRepository {
   }
 
   // Helper method to filter crews by certification level
-  Future<List<Crew>> _filterByCertification(List<Crew> crews, List<String> requiredCertifications) async {
+  Future<List<Crew>> _filterByCertification(
+      List<Crew> crews, List<String> requiredCertifications) async {
     final filteredCrews = <Crew>[];
 
     // Get the minimum certification level required
-    String minRequiredLevel = _getMinRequiredCertificationLevel(requiredCertifications);
-    print('🎯 CREW FILTERING: Minimum required certification level: $minRequiredLevel');
+    String minRequiredLevel =
+        _getMinRequiredCertificationLevel(requiredCertifications);
+    print(
+        '🎯 CREW FILTERING: Minimum required certification level: $minRequiredLevel');
 
     for (final crew in crews) {
       if (crew.members == null || crew.members!.isEmpty) {
@@ -1322,15 +1441,19 @@ class CrewRepository {
         continue;
       }
 
-      print('🎯 CREW FILTERING: Checking crew ${crew.name} with ${crew.members!.length} members');
+      print(
+          '🎯 CREW FILTERING: Checking crew ${crew.name} with ${crew.members!.length} members');
 
       // Check if all crew members meet or exceed this certification level
       bool allMembersQualified = true;
 
       for (final member in crew.members!) {
-        final memberCertification = await _getOfficialCertificationLevel(member.officialId);
-        final meetsRequirement = _meetsCertificationRequirement(memberCertification, minRequiredLevel);
-        print('🎯 CREW FILTERING: Member ${member.officialName} - cert: $memberCertification, meets: $meetsRequirement');
+        final memberCertification =
+            await _getOfficialCertificationLevel(member.officialId);
+        final meetsRequirement = _meetsCertificationRequirement(
+            memberCertification, minRequiredLevel);
+        print(
+            '🎯 CREW FILTERING: Member ${member.officialName} - cert: $memberCertification, meets: $meetsRequirement');
 
         if (!meetsRequirement) {
           allMembersQualified = false;
@@ -1338,7 +1461,8 @@ class CrewRepository {
         }
       }
 
-      print('🎯 CREW FILTERING: Crew ${crew.name} - all members qualified: $allMembersQualified');
+      print(
+          '🎯 CREW FILTERING: Crew ${crew.name} - all members qualified: $allMembersQualified');
 
       if (allMembersQualified) {
         filteredCrews.add(crew);
@@ -1349,7 +1473,8 @@ class CrewRepository {
   }
 
   // Helper method to filter crews by distance
-  Future<List<Crew>> _filterByDistance(List<Crew> crews, int maxDistanceMiles, Map<String, dynamic> gameLocation) async {
+  Future<List<Crew>> _filterByDistance(List<Crew> crews, int maxDistanceMiles,
+      Map<String, dynamic> gameLocation) async {
     final filteredCrews = <Crew>[];
 
     for (final crew in crews) {
@@ -1358,7 +1483,8 @@ class CrewRepository {
 
       // Simple distance calculation (in a real app, you'd use geocoding and proper distance calculation)
       // For now, we'll do a basic approximation
-      final distance = _calculateApproximateDistance(crewChiefAddress, gameLocation);
+      final distance =
+          _calculateApproximateDistance(crewChiefAddress, gameLocation);
 
       if (distance <= maxDistanceMiles) {
         filteredCrews.add(crew);
@@ -1382,7 +1508,8 @@ class CrewRepository {
   }
 
   // Check if a certification level meets the requirement
-  bool _meetsCertificationRequirement(String? actualLevel, String requiredLevel) {
+  bool _meetsCertificationRequirement(
+      String? actualLevel, String requiredLevel) {
     if (actualLevel == null) return false;
 
     // Normalize the actual level by removing "IHSA " prefix if present
@@ -1404,7 +1531,8 @@ class CrewRepository {
       final doc = await _firestore.collection('users').doc(officialId).get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        final officialProfile = data['officialProfile'] as Map<String, dynamic>?;
+        final officialProfile =
+            data['officialProfile'] as Map<String, dynamic>?;
         return officialProfile?['certificationLevel'] as String?;
       }
     } catch (e) {
@@ -1420,10 +1548,12 @@ class CrewRepository {
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final profile = data['profile'] as Map<String, dynamic>?;
-        final schedulerProfile = data['schedulerProfile'] as Map<String, dynamic>?;
+        final schedulerProfile =
+            data['schedulerProfile'] as Map<String, dynamic>?;
 
         // Try to get address from scheduler profile first, then basic profile
-        if (schedulerProfile != null && schedulerProfile['homeAddress'] != null) {
+        if (schedulerProfile != null &&
+            schedulerProfile['homeAddress'] != null) {
           return schedulerProfile['homeAddress'] as Map<String, dynamic>;
         } else if (profile != null && profile['city'] != null) {
           return {
@@ -1440,7 +1570,8 @@ class CrewRepository {
   }
 
   // Simple distance calculation (approximation)
-  double _calculateApproximateDistance(Map<String, dynamic> address1, Map<String, dynamic> address2) {
+  double _calculateApproximateDistance(
+      Map<String, dynamic> address1, Map<String, dynamic> address2) {
     // This is a very basic approximation - in production, you'd use proper geocoding
     // For now, return a random distance between 0-100 miles for testing
     // Replace with actual distance calculation using lat/lng coordinates
@@ -1457,7 +1588,8 @@ class CrewRepository {
     final state1 = address1['state']?.toString().toLowerCase() ?? '';
     final state2 = address2['state']?.toString().toLowerCase() ?? '';
     if (state1 == state2 && state1.isNotEmpty) {
-      return 25.0 + (50.0 * (city1.hashCode % 100) / 100); // Pseudo-random distance
+      return 25.0 +
+          (50.0 * (city1.hashCode % 100) / 100); // Pseudo-random distance
     }
 
     // Different states, assume 50-150 miles

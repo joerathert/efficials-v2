@@ -63,61 +63,54 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
       // If no crew types exist, provide some defaults and save them to the database
       List<Map<String, dynamic>> finalCrewTypes;
       if (crewTypes.isEmpty) {
-        print('⚠️ CREATE CREW: No crew types found, using defaults and saving to database');
+        print(
+            '⚠️ CREATE CREW: No crew types found, using defaults and saving to database');
         finalCrewTypes = [
           {
             'id': 1,
             'sport_name': 'Basketball',
-            'level_of_competition': 'Varsity',
             'required_officials': 3,
             'sport_id': 1,
           },
           {
             'id': 2,
             'sport_name': 'Basketball',
-            'level_of_competition': 'Varsity',
             'required_officials': 2,
             'sport_id': 1,
           },
           {
             'id': 3,
             'sport_name': 'Football',
-            'level_of_competition': 'Varsity',
             'required_officials': 5,
             'sport_id': 2,
           },
           {
             'id': 4,
             'sport_name': 'Football',
-            'level_of_competition': 'Varsity',
             'required_officials': 4,
             'sport_id': 2,
           },
           {
             'id': 5,
             'sport_name': 'Baseball',
-            'level_of_competition': 'Varsity',
             'required_officials': 2,
             'sport_id': 4,
           },
           {
             'id': 6,
             'sport_name': 'Baseball',
-            'level_of_competition': 'Varsity',
             'required_officials': 3,
             'sport_id': 4,
           },
           {
             'id': 7,
             'sport_name': 'Softball',
-            'level_of_competition': 'Varsity',
             'required_officials': 2,
             'sport_id': 5,
           },
           {
             'id': 8,
             'sport_name': 'Volleyball',
-            'level_of_competition': 'Varsity',
             'required_officials': 2,
             'sport_id': 6,
           },
@@ -127,6 +120,12 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         print('🔄 CREW TYPES: Saving default crew types to database');
         await _crewRepo.saveDefaultCrewTypes(finalCrewTypes);
         print('✅ CREW TYPES: Default crew types saved to database');
+
+        // Clean up any existing crew_types documents that still have level_of_competition
+        print(
+            '🧹 CREW TYPES: Cleaning up level_of_competition field from existing documents');
+        await _crewRepo.cleanupCrewTypesLevelOfCompetition();
+        print('✅ CREW TYPES: Cleanup completed');
       } else {
         finalCrewTypes = crewTypes;
       }
@@ -156,7 +155,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
     }
     if (_selectedCompetitionLevels.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one competition level')),
+        const SnackBar(
+            content: Text('Please select at least one competition level')),
       );
       return;
     }
@@ -181,7 +181,6 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         paymentMethod: 'equal_split',
         competitionLevels: _selectedCompetitionLevels,
         sportName: _selectedCrewType!['sport_name'] as String?,
-        levelOfCompetition: _selectedCrewType!['level_of_competition'] as String?,
         requiredOfficials: _selectedCrewType!['required_officials'] as int?,
       );
 
@@ -202,7 +201,6 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
         );
 
         if (crewId != null && mounted) {
-
           if (crewId != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -216,7 +214,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Crew created but failed to add members. Please try again.'),
+                content: Text(
+                    'Crew created but failed to add members. Please try again.'),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -357,7 +356,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: AppColors.efficialsYellow),
+                      borderSide:
+                          const BorderSide(color: AppColors.efficialsYellow),
                     ),
                   ),
                   validator: (value) {
@@ -410,7 +410,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: AppColors.efficialsYellow),
+                            borderSide: const BorderSide(
+                                color: AppColors.efficialsYellow),
                           ),
                         ),
                         dropdownColor: AppColors.efficialsBlack,
@@ -420,14 +421,17 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                           style: TextStyle(color: Colors.grey),
                         ),
                         items: _crewTypes.map((crewType) {
-                          final sportName = crewType['sport_name'] ?? 'Unknown Sport';
-                          final requiredOfficials = crewType['required_officials'] ?? 0;
+                          final sportName =
+                              crewType['sport_name'] ?? 'Unknown Sport';
+                          final requiredOfficials =
+                              crewType['required_officials'] ?? 0;
 
                           return DropdownMenuItem(
                             value: crewType,
                             child: Text(
                               '$sportName - $requiredOfficials officials',
-                              style: const TextStyle(color: AppColors.efficialsWhite),
+                              style: const TextStyle(
+                                  color: AppColors.efficialsWhite),
                             ),
                           );
                         }).toList(),
@@ -477,7 +481,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: _competitionLevels.map((level) {
-                          final isSelected = _selectedCompetitionLevels.contains(level);
+                          final isSelected =
+                              _selectedCompetitionLevels.contains(level);
                           return FilterChip(
                             label: Text(level),
                             selected: isSelected,
@@ -491,10 +496,13 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                               });
                             },
                             backgroundColor: AppColors.efficialsBlack,
-                            selectedColor: AppColors.efficialsYellow.withOpacity(0.3),
+                            selectedColor:
+                                AppColors.efficialsYellow.withOpacity(0.3),
                             checkmarkColor: AppColors.efficialsYellow,
                             labelStyle: TextStyle(
-                              color: isSelected ? AppColors.efficialsYellow : Colors.grey,
+                              color: isSelected
+                                  ? AppColors.efficialsYellow
+                                  : Colors.grey,
                             ),
                           );
                         }).toList(),
@@ -523,7 +531,8 @@ class _CreateCrewScreenState extends State<CreateCrewScreen> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
                         : const Text(

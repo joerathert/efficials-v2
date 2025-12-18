@@ -42,6 +42,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   List<Map<String, dynamic>> _confirmedGames = []; // Track confirmed games
   List<String> _dismissedGameIds = []; // Track dismissed game IDs
   List<String> _confirmedGameIds = []; // Track confirmed game IDs
+
+  // Undo dismiss functionality
+  Map<String, Map<String, dynamic>> _recentlyDismissedGames = {}; // Track recently dismissed games with full game data
+  Timer? _undoTimer;
+  Timer? _countdownTimer; // Timer to update countdown display
   bool _isLoading = true;
   int _pendingInvitationsCount = 0;
   int _preferenceRefreshCounter = 0; // Counter to force FutureBuilder refresh
@@ -75,7 +80,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           setState(() {
             _unreadNotificationsCount = unreadCount;
           });
-          debugPrint('📡 NOTIFICATION LISTENER: Updated unread count to $unreadCount');
+          debugPrint(
+              '📡 NOTIFICATION LISTENER: Updated unread count to $unreadCount');
         }
       },
       onError: (error) {
@@ -129,7 +135,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       debugPrint('🗑️ DISMISSING NOTIFICATION: $notificationId');
 
       // Delete the notification from Firestore
-      final success = await _notificationService.deleteNotification(notificationId);
+      final success =
+          await _notificationService.deleteNotification(notificationId);
 
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -185,13 +192,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         // Load dismissed game IDs
         final dismissedIds =
             List<String>.from(userData['dismissedGameIds'] ?? []);
-        
+
         // Load confirmed game IDs
         final confirmedIds =
             List<String>.from(userData['confirmedGameIds'] ?? []);
-        
-        print('🔍 OFFICIAL HOME: Loaded confirmedGameIds from Firestore: $confirmedIds');
-        
+
+        print(
+            '🔍 OFFICIAL HOME: Loaded confirmedGameIds from Firestore: $confirmedIds');
+
         setState(() {
           _dismissedGameIds = dismissedIds;
           _confirmedGameIds = confirmedIds;
@@ -247,17 +255,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Add home team and determine pending status for games
       final pendingGames = <Map<String, dynamic>>[];
       for (final game in pendingGamesRaw) {
-        final gameWithHomeTeam = game['homeTeam'] == null
-            ? await _addHomeTeamToGame(game)
-            : game;
+        final gameWithHomeTeam =
+            game['homeTeam'] == null ? await _addHomeTeamToGame(game) : game;
 
         // Load crew information for crew games
         Map<String, dynamic> gameWithCrewInfo = gameWithHomeTeam;
-        final selectedCrews = gameWithHomeTeam['selectedCrews'] as List<dynamic>?;
+        final selectedCrews =
+            gameWithHomeTeam['selectedCrews'] as List<dynamic>?;
         final isCrewGame = selectedCrews != null && selectedCrews.isNotEmpty;
 
         if (isCrewGame && _currentUser?.id != null) {
-          final crewInfo = await _loadCrewInfoForGame(gameWithHomeTeam, _currentUser!.id);
+          final crewInfo =
+              await _loadCrewInfoForGame(gameWithHomeTeam, _currentUser!.id);
           gameWithCrewInfo = {...gameWithHomeTeam, ...crewInfo};
         }
 
@@ -267,9 +276,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
         if (isCrewGame && _currentUser?.id != null) {
           // Check if crew chief has expressed interest
-          final interestedOfficials = await _gameService.getInterestedOfficialsForGame(game['id'] as String);
-          final hasCrewChiefInterest = interestedOfficials.any((official) =>
-              official['id'] == _currentUser!.id);
+          final interestedOfficials = await _gameService
+              .getInterestedOfficialsForGame(game['id'] as String);
+          final hasCrewChiefInterest = interestedOfficials
+              .any((official) => official['id'] == _currentUser!.id);
 
           if (hasCrewChiefInterest) {
             pendingStatus = 'waiting_for_scheduler';
@@ -306,10 +316,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Future<void> _loadConfirmedGamesFromIds(List<String> confirmedIds) async {
     print('🔍 OFFICIAL HOME: Loading confirmed games from IDs: $confirmedIds');
-    
+
     // Always clear the confirmed games list first, even if confirmedIds is empty
     if (confirmedIds.isEmpty) {
-      print('✅ OFFICIAL HOME: Confirmed IDs empty, clearing confirmed games list');
+      print(
+          '✅ OFFICIAL HOME: Confirmed IDs empty, clearing confirmed games list');
       setState(() {
         _confirmedGames = [];
       });
@@ -349,7 +360,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         return true;
       }).toList();
 
-      print('🔍 OFFICIAL HOME: Filtered to ${confirmedGamesRaw.length} confirmed games');
+      print(
+          '🔍 OFFICIAL HOME: Filtered to ${confirmedGamesRaw.length} confirmed games');
 
       // Add home team to games that don't have it
       final confirmedGames = <Map<String, dynamic>>[];
@@ -362,7 +374,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         }
       }
 
-      print('✅ OFFICIAL HOME: Setting ${confirmedGames.length} confirmed games in state');
+      print(
+          '✅ OFFICIAL HOME: Setting ${confirmedGames.length} confirmed games in state');
       setState(() {
         _confirmedGames = confirmedGames;
       });
@@ -446,7 +459,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     try {
       if (_currentUser?.id == null) return;
 
-      final invitations = await _crewRepo.getPendingInvitations(_currentUser!.id);
+      final invitations =
+          await _crewRepo.getPendingInvitations(_currentUser!.id);
       if (mounted) {
         setState(() {
           _pendingInvitationsCount = invitations.length;
@@ -568,18 +582,19 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             if (gameId != null &&
                 !_dismissedGameIds.contains(gameId) &&
                 !pendingGameIds.contains(gameId)) {
-
               // Load crew information for crew games
               Map<String, dynamic> gameWithCrewInfo = game;
               final selectedCrews = game['selectedCrews'] as List<dynamic>?;
               if (selectedCrews != null && selectedCrews.isNotEmpty) {
-                final crewInfo = await _loadCrewInfoForGame(game, currentOfficialId);
+                final crewInfo =
+                    await _loadCrewInfoForGame(game, currentOfficialId);
                 gameWithCrewInfo = {...game, ...crewInfo};
               }
 
               // For games that don't have homeTeam set, try to derive it from the scheduler's profile
               if (gameWithCrewInfo['homeTeam'] == null) {
-                final gameWithHomeTeam = await _addHomeTeamToGame(gameWithCrewInfo);
+                final gameWithHomeTeam =
+                    await _addHomeTeamToGame(gameWithCrewInfo);
                 filteredGames.add(gameWithHomeTeam);
               } else {
                 filteredGames.add(gameWithCrewInfo);
@@ -599,13 +614,107 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _loadDismissedAvailableGames() async {
+    try {
+      // Get all games from Firestore
+      final allGames = await _gameService.getGames();
+
+      // Get current official's ID
+      final currentOfficialId = _currentUser?.id;
+      if (currentOfficialId == null) {
+        return [];
+      }
+
+      // Get today's date for filtering past games
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // Filter for published games that are dismissed by this official but still available
+      final filteredGames = <Map<String, dynamic>>[];
+
+      for (final game in allGames) {
+        final status = game['status'] as String?;
+        final officialsHired = game['officialsHired'] as int? ?? 0;
+        final officialsRequired = game['officialsRequired'] as int? ?? 1;
+        final gameId = game['id'] as String?;
+
+        // Game must be published, have available spots, and be dismissed by this official
+        if (status != 'Published' ||
+            officialsHired >= officialsRequired ||
+            gameId == null ||
+            !_dismissedGameIds.contains(gameId)) {
+          continue;
+        }
+
+        // Skip past games
+        final gameDate = game['date'];
+        if (gameDate != null) {
+          try {
+            final parsedDate = DateTime.parse(gameDate);
+            final gameDay =
+                DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+            if (gameDay.isBefore(today)) {
+              continue; // Skip past games
+            }
+          } catch (e) {
+            print('Error parsing game date: $e');
+            // Continue processing if date parsing fails
+          }
+        }
+
+        // Check if this official is included in the game's selection criteria
+        if (await _isOfficialIncludedInGameAsync(game, currentOfficialId)) {
+          // Check if official is already confirmed for this game
+          final confirmedOfficials = await _gameService
+              .getConfirmedOfficialsForGame(gameId);
+          final isAlreadyConfirmed = confirmedOfficials
+              .any((official) => official['id'] == currentOfficialId);
+
+          if (!isAlreadyConfirmed) {
+            // Check if game is already pending (though dismissed games shouldn't be pending)
+            final pendingGameIds =
+                _pendingGames.map((g) => g['id'] as String).toList();
+
+            if (!pendingGameIds.contains(gameId)) {
+              // Load crew information for crew games
+              Map<String, dynamic> gameWithCrewInfo = game;
+              final selectedCrews = game['selectedCrews'] as List<dynamic>?;
+              if (selectedCrews != null && selectedCrews.isNotEmpty) {
+                final crewInfo =
+                    await _loadCrewInfoForGame(game, currentOfficialId);
+                gameWithCrewInfo = {...game, ...crewInfo};
+              }
+
+              // For games that don't have homeTeam set, try to derive it from the scheduler's profile
+              if (gameWithCrewInfo['homeTeam'] == null) {
+                final gameWithHomeTeam =
+                    await _addHomeTeamToGame(gameWithCrewInfo);
+                filteredGames.add(gameWithHomeTeam);
+              } else {
+                filteredGames.add(gameWithCrewInfo);
+              }
+            }
+          }
+        }
+      }
+
+      print(
+          'Loaded ${filteredGames.length} dismissed but available games for official $currentOfficialId');
+      return filteredGames;
+    } catch (e) {
+      print('Error loading dismissed available games: $e');
+      return [];
+    }
+  }
+
   Future<void> _updatePersistentPendingGames() async {
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
       // Extract game IDs from pending games
-      final pendingGameIds = _pendingGames.map((game) => game['id'] as String).toList();
+      final pendingGameIds =
+          _pendingGames.map((game) => game['id'] as String).toList();
 
       // Update Firestore
       await FirebaseFirestore.instance.collection('users').doc(userId).update({
@@ -620,30 +729,34 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   Widget _buildPendingGamesList() {
     // Separate games by status
-    final waitingForCrewChief = _pendingGames.where(
-      (game) => game['pending_status'] == 'waiting_for_crew_chief'
-    ).toList();
+    final waitingForCrewChief = _pendingGames
+        .where((game) => game['pending_status'] == 'waiting_for_crew_chief')
+        .toList();
 
-    final waitingForScheduler = _pendingGames.where(
-      (game) => game['pending_status'] != 'waiting_for_crew_chief'
-    ).toList();
+    final waitingForScheduler = _pendingGames
+        .where((game) => game['pending_status'] != 'waiting_for_crew_chief')
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
         // Waiting for Crew Chief Decision section
         if (waitingForCrewChief.isNotEmpty) ...[
-          _buildSectionHeader('Waiting for Crew Chief Decision', waitingForCrewChief.length),
+          _buildSectionHeader(
+              'Waiting for Crew Chief Decision', waitingForCrewChief.length),
           const SizedBox(height: 8),
-          ...waitingForCrewChief.map((game) => _buildPendingGameCard(game, isWaitingForCrewChief: true)),
+          ...waitingForCrewChief.map((game) =>
+              _buildPendingGameCard(game, isWaitingForCrewChief: true)),
           if (waitingForScheduler.isNotEmpty) const SizedBox(height: 24),
         ],
 
         // Waiting for Scheduler Response section
         if (waitingForScheduler.isNotEmpty) ...[
-          _buildSectionHeader('Waiting for Scheduler Response', waitingForScheduler.length),
+          _buildSectionHeader(
+              'Waiting for Scheduler Response', waitingForScheduler.length),
           const SizedBox(height: 8),
-          ...waitingForScheduler.map((game) => _buildPendingGameCard(game, isWaitingForCrewChief: false)),
+          ...waitingForScheduler.map((game) =>
+              _buildPendingGameCard(game, isWaitingForCrewChief: false)),
         ],
       ],
     );
@@ -683,7 +796,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  Future<Map<String, int>> _getCrewMemberPreferenceSummary(String gameId, String crewId, int refreshCounter) async {
+  Future<Map<String, int>> _getCrewMemberPreferenceSummary(
+      String gameId, String crewId, int refreshCounter) async {
     // The refreshCounter parameter forces the FutureBuilder to refresh when it changes
     return await _crewRepo.getCrewMemberPreferenceSummary(gameId, crewId);
   }
@@ -696,7 +810,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  void _showCrewPreferenceDetails(BuildContext context, Map<String, dynamic> game, List<QueryDocumentSnapshot> preferenceDocs) async {
+  void _showCrewPreferenceDetails(
+      BuildContext context,
+      Map<String, dynamic> game,
+      List<QueryDocumentSnapshot> preferenceDocs) async {
     // Fetch member names
     List<Map<String, dynamic>> preferencesWithNames = [];
 
@@ -941,7 +1058,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  Future<void> _setCrewMemberPreference(Map<String, dynamic> game, String preference) async {
+  Future<void> _setCrewMemberPreference(
+      Map<String, dynamic> game, String preference) async {
     try {
       if (_currentUser?.id == null || game['userCrewId'] == null) return;
 
@@ -956,9 +1074,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         // Add game to pending games list (waiting for crew chief decision)
         final crewInfo = await _loadCrewInfoForGame(game, memberId);
         final gameWithStatus = {
-          ...game,  // Preserve all original game data
-          ...crewInfo,  // Add crew-specific info
-          'pending_status': 'waiting_for_crew_chief', // New field to track status
+          ...game, // Preserve all original game data
+          ...crewInfo, // Add crew-specific info
+          'pending_status':
+              'waiting_for_crew_chief', // New field to track status
           'member_preference': preference,
         };
 
@@ -983,7 +1102,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ? 'You indicated you like this game - waiting for crew chief decision'
                   : 'You indicated you don\'t like this game - waiting for crew chief decision',
             ),
-            backgroundColor: preference == 'thumbs_up' ? Colors.green : Colors.orange,
+            backgroundColor:
+                preference == 'thumbs_up' ? Colors.green : Colors.orange,
           ),
         );
       } else {
@@ -1055,7 +1175,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Check if official is in a single selected list (e.g., from bulk import)
       final selectedListName = game['selectedListName'] as String?;
       if (selectedListName != null && selectedListName.isNotEmpty) {
-        print('🔍 Checking selectedListName: $selectedListName for official $officialId');
+        print(
+            '🔍 Checking selectedListName: $selectedListName for official $officialId');
         if (await _isOfficialInListByNameAsync(officialId, selectedListName)) {
           print('✅ Official $officialId IS in list $selectedListName');
           return true;
@@ -1215,6 +1336,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 _handleLogout();
               } else if (value == 'profile') {
                 Navigator.pushNamed(context, '/official-profile-view');
+              } else if (value == 'dismissed_games') {
+                _showDismissedGames();
               }
             },
             itemBuilder: (BuildContext context) => [
@@ -1225,6 +1348,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     Icon(Icons.person, color: Colors.white),
                     SizedBox(width: 8),
                     Text('Profile', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'dismissed_games',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility_off, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('View Dismissed Games', style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -1340,7 +1473,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         // Crew Management Button (like v1.0)
                         GestureDetector(
                           onTap: () {
-                            Navigator.pushNamed(context, '/crew_dashboard').then((_) {
+                            Navigator.pushNamed(context, '/crew_dashboard')
+                                .then((_) {
                               // Refresh invitation count when returning from crew dashboard
                               _loadPendingInvitationsCount();
                             });
@@ -1351,7 +1485,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                               color: AppColors.efficialsYellow.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppColors.efficialsYellow.withOpacity(0.3),
+                                color:
+                                    AppColors.efficialsYellow.withOpacity(0.3),
                                 width: 1,
                               ),
                             ),
@@ -1527,14 +1662,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         if (a['date'] != null) {
           try {
             final dateValue = a['date'];
-            aDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
-          } catch (e) { /* handle error */ }
+            aDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
         }
         if (b['date'] != null) {
           try {
             final dateValue = b['date'];
-            bDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
-          } catch (e) { /* handle error */ }
+            bDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
         }
 
         // Parse times
@@ -1546,10 +1685,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             } else {
               final parts = timeValue.toString().split(':');
               if (parts.length == 2) {
-                aTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                aTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
               }
             }
-          } catch (e) { /* handle error */ }
+          } catch (e) {/* handle error */}
         }
         if (b['time'] != null) {
           try {
@@ -1559,10 +1699,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             } else {
               final parts = timeValue.toString().split(':');
               if (parts.length == 2) {
-                bTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                bTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
               }
             }
-          } catch (e) { /* handle error */ }
+          } catch (e) {/* handle error */}
         }
 
         // Compare dates first
@@ -1579,7 +1720,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
         // If dates are the same or one is null, compare times
         if (aTime != null && bTime != null) {
-          return (aTime.hour * 60 + aTime.minute).compareTo(bTime.hour * 60 + bTime.minute);
+          return (aTime.hour * 60 + aTime.minute)
+              .compareTo(bTime.hour * 60 + bTime.minute);
         } else if (aTime != null) {
           return -1;
         } else if (bTime != null) {
@@ -1598,7 +1740,111 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     return result;
   }
 
-  Widget _buildLinkedAvailableGamesGroup(List<Map<String, dynamic>> linkedGames) {
+  List<List<Map<String, dynamic>>> _getGroupedGames(List<Map<String, dynamic>> games) {
+    final linkedGroups = <String, List<Map<String, dynamic>>>{};
+    final unlinkedGames = <Map<String, dynamic>>[];
+
+    for (final game in games) {
+      final linkGroupId = game['linkGroupId'] as String?;
+      if (linkGroupId != null && linkGroupId.isNotEmpty) {
+        linkedGroups.putIfAbsent(linkGroupId, () => []).add(game);
+      } else {
+        unlinkedGames.add(game);
+      }
+    }
+
+    // Sort games within each linked group by date and time
+    linkedGroups.forEach((key, groupGames) {
+      groupGames.sort((a, b) {
+        DateTime? aDate;
+        DateTime? bDate;
+        TimeOfDay? aTime;
+        TimeOfDay? bTime;
+
+        // Parse dates
+        if (a['date'] != null) {
+          try {
+            final dateValue = a['date'];
+            aDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
+        }
+        if (b['date'] != null) {
+          try {
+            final dateValue = b['date'];
+            bDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
+        }
+
+        // Parse times
+        if (a['time'] != null) {
+          try {
+            final timeValue = a['time'];
+            if (timeValue is TimeOfDay) {
+              aTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                aTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) {/* handle error */}
+        }
+        if (b['time'] != null) {
+          try {
+            final timeValue = b['time'];
+            if (timeValue is TimeOfDay) {
+              bTime = timeValue;
+            } else {
+              final parts = timeValue.toString().split(':');
+              if (parts.length == 2) {
+                bTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+              }
+            }
+          } catch (e) {/* handle error */}
+        }
+
+        // Compare dates first
+        if (aDate != null && bDate != null) {
+          final dateComparison = aDate.compareTo(bDate);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+        } else if (aDate != null) {
+          return -1;
+        } else if (bDate != null) {
+          return 1;
+        }
+
+        // If dates are the same or one is null, compare times
+        if (aTime != null && bTime != null) {
+          return (aTime.hour * 60 + aTime.minute)
+              .compareTo(bTime.hour * 60 + bTime.minute);
+        } else if (aTime != null) {
+          return -1;
+        } else if (bTime != null) {
+          return 1;
+        }
+
+        return 0;
+      });
+    });
+
+    // Combine linked groups and unlinked games
+    final result = <List<Map<String, dynamic>>>[];
+    result.addAll(linkedGroups.values);
+    result.addAll(unlinkedGames.map((game) => [game]));
+
+    return result;
+  }
+
+  Widget _buildLinkedAvailableGamesGroup(
+      List<Map<String, dynamic>> linkedGames) {
     if (linkedGames.length < 2) {
       return _buildAvailableGameCard(linkedGames.first);
     }
@@ -1619,7 +1865,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(2),
                     bottomRight: Radius.circular(2),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.blue.withOpacity(0.3),
@@ -1642,7 +1889,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
                   ),
-                  border: Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
+                  border:
+                      Border.all(color: Colors.blue.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.blue.withOpacity(0.3),
@@ -1652,7 +1900,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ],
                 ),
-                child: _buildBottomLinkedGameContent(linkedGames[1], linkedGames),
+                child:
+                    _buildBottomLinkedGameContent(linkedGames[1], linkedGames),
               ),
             ],
           ),
@@ -1685,7 +1934,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.efficialsYellow.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -1711,6 +1961,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ),
             const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
@@ -1730,7 +1989,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  Widget _buildBottomLinkedGameContent(Map<String, dynamic> game, List<Map<String, dynamic>> linkedGames) {
+  Widget _buildBottomLinkedGameContent(
+      Map<String, dynamic> game, List<Map<String, dynamic>> linkedGames) {
     // Check if this is a "Hire Automatically" game
     final isHireAutomatically = game['hireAutomatically'] == true;
 
@@ -1764,6 +2024,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ),
             const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
@@ -1794,7 +2063,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.efficialsYellow.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+                  border: Border.all(
+                      color: AppColors.efficialsYellow.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
@@ -1836,29 +2106,39 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                   int thumbsDown = 0;
 
                                   for (final doc in docs) {
-                                    final data = doc.data() as Map<String, dynamic>;
-                                    final preference = data['preference'] as String?;
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+                                    final preference =
+                                        data['preference'] as String?;
 
                                     if (preference == 'thumbs_up') thumbsUp++;
-                                    if (preference == 'thumbs_down') thumbsDown++;
+                                    if (preference == 'thumbs_down')
+                                      thumbsDown++;
                                   }
 
                                   final totalResponses = thumbsUp + thumbsDown;
 
                                   if (totalResponses > 0) {
                                     return GestureDetector(
-                                      onTap: () => _showCrewPreferenceDetails(context, game, docs),
+                                      onTap: () => _showCrewPreferenceDetails(
+                                          context, game, docs),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppColors.efficialsYellow.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
+                                          color: AppColors.efficialsYellow
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: AppColors.efficialsYellow
+                                                  .withOpacity(0.3)),
                                         ),
                                         child: Row(
                                           children: [
                                             Icon(Icons.thumb_up,
-                                                size: 12, color: Colors.green[600]),
+                                                size: 12,
+                                                color: Colors.green[600]),
                                             const SizedBox(width: 2),
                                             Text(
                                               '$thumbsUp',
@@ -1870,7 +2150,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                             ),
                                             const SizedBox(width: 6),
                                             Icon(Icons.thumb_down,
-                                                size: 12, color: Colors.red[600]),
+                                                size: 12,
+                                                color: Colors.red[600]),
                                             const SizedBox(width: 2),
                                             Text(
                                               '$thumbsDown',
@@ -1904,45 +2185,27 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ],
             const SizedBox(height: 12),
-            // Shared information for linked games
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.2)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.blue[700]),
-                      const SizedBox(width: 8),
-                      Text(
-                        game['location'] ?? 'TBD',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blue[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+            // Shared information for linked games (no longer in blue container)
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  game['location'] ?? 'TBD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Fee: \$${game['gameFee'] ?? '0'}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Fee: \$${game['gameFee'] ?? '0'}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
               ),
             ),
             const SizedBox(height: 12),
@@ -1970,20 +2233,21 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     const SizedBox(width: 8),
                     // Action button - only for crew chiefs or non-crew games
                     ElevatedButton(
-                      onPressed: () => _claimGame(game),
+                      onPressed: () => isHireAutomatically
+                          ? _showClaimLinkedGamesDialog(linkedGames)
+                          : _showExpressInterestDialog(game),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isHireAutomatically
                             ? Colors.green
                             : Theme.of(context).colorScheme.primary,
-                        foregroundColor: isHireAutomatically
-                            ? Colors.white
-                            : Colors.black,
+                        foregroundColor:
+                            isHireAutomatically ? Colors.white : Colors.black,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         minimumSize: Size.zero,
                       ),
                       child: Text(
-                        isHireAutomatically ? 'Claim' : 'Express Interest',
+                        isHireAutomatically ? 'Claim All' : 'Express Interest',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
@@ -2022,14 +2286,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         if (a['date'] != null) {
           try {
             final dateValue = a['date'];
-            aDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
-          } catch (e) { /* handle error */ }
+            aDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
         }
         if (b['date'] != null) {
           try {
             final dateValue = b['date'];
-            bDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
-          } catch (e) { /* handle error */ }
+            bDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
+          } catch (e) {/* handle error */}
         }
 
         // Parse times
@@ -2041,10 +2309,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             } else {
               final parts = timeValue.toString().split(':');
               if (parts.length == 2) {
-                aTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                aTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
               }
             }
-          } catch (e) { /* handle error */ }
+          } catch (e) {/* handle error */}
         }
         if (b['time'] != null) {
           try {
@@ -2054,10 +2323,11 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             } else {
               final parts = timeValue.toString().split(':');
               if (parts.length == 2) {
-                bTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+                bTime = TimeOfDay(
+                    hour: int.parse(parts[0]), minute: int.parse(parts[1]));
               }
             }
-          } catch (e) { /* handle error */ }
+          } catch (e) {/* handle error */}
         }
 
         // Compare dates first
@@ -2074,7 +2344,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
         // If dates are the same or one is null, compare times
         if (aTime != null && bTime != null) {
-          return (aTime.hour * 60 + aTime.minute).compareTo(bTime.hour * 60 + bTime.minute);
+          return (aTime.hour * 60 + aTime.minute)
+              .compareTo(bTime.hour * 60 + bTime.minute);
         } else if (aTime != null) {
           return -1;
         } else if (bTime != null) {
@@ -2093,7 +2364,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     return result;
   }
 
-  Widget _buildLinkedConfirmedGamesGroup(List<Map<String, dynamic>> linkedGames) {
+  Widget _buildLinkedConfirmedGamesGroup(
+      List<Map<String, dynamic>> linkedGames) {
     if (linkedGames.length < 2) {
       return _buildConfirmedGameCard(linkedGames.first);
     }
@@ -2114,7 +2386,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(2),
                     bottomRight: Radius.circular(2),
                   ),
-                  border: Border.all(color: Colors.green.withOpacity(0.6), width: 2),
+                  border: Border.all(
+                      color: Colors.green.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.green.withOpacity(0.3),
@@ -2137,7 +2410,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     bottomLeft: Radius.circular(12),
                     bottomRight: Radius.circular(12),
                   ),
-                  border: Border.all(color: Colors.green.withOpacity(0.6), width: 2),
+                  border: Border.all(
+                      color: Colors.green.withOpacity(0.6), width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.green.withOpacity(0.3),
@@ -2180,7 +2454,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.efficialsYellow.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -2203,6 +2478,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(height: 4),
@@ -2243,6 +2527,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(height: 4),
@@ -2321,28 +2614,32 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         .limit(50)
         .snapshots()
         .map((snapshot) {
-          debugPrint('📡 NOTIFICATION STREAM: Received ${snapshot.docs.length} notification documents for user $userId');
-          final notifications = snapshot.docs
-              .map((doc) {
-                try {
-                  final notification = NotificationModel.fromMap(doc.data());
-                  debugPrint('📡 NOTIFICATION STREAM: Parsed notification ${doc.id}: ${notification.title}');
-                  return notification;
-                } catch (e) {
-                  debugPrint('📡 NOTIFICATION STREAM: Error parsing notification ${doc.id}: $e');
-                  return null;
-                }
-              })
-              .where((n) => n != null)
-              .cast<NotificationModel>()
-              .toList();
+      debugPrint(
+          '📡 NOTIFICATION STREAM: Received ${snapshot.docs.length} notification documents for user $userId');
+      final notifications = snapshot.docs
+          .map((doc) {
+            try {
+              final notification = NotificationModel.fromMap(doc.data());
+              debugPrint(
+                  '📡 NOTIFICATION STREAM: Parsed notification ${doc.id}: ${notification.title}');
+              return notification;
+            } catch (e) {
+              debugPrint(
+                  '📡 NOTIFICATION STREAM: Error parsing notification ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((n) => n != null)
+          .cast<NotificationModel>()
+          .toList();
 
-          // Sort by createdAt descending since we can't do it in the query without an index
-          notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      // Sort by createdAt descending since we can't do it in the query without an index
+      notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-          debugPrint('📡 NOTIFICATION STREAM: Returning ${notifications.length} parsed and sorted notifications');
-          return notifications;
-        });
+      debugPrint(
+          '📡 NOTIFICATION STREAM: Returning ${notifications.length} parsed and sorted notifications');
+      return notifications;
+    });
   }
 
   Widget _buildNotificationCard(NotificationModel notification) {
@@ -2362,8 +2659,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Stack(
             children: [
               Text(
                 notification.title,
@@ -2374,12 +2670,16 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ),
               ),
               if (!notification.isRead)
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
             ],
@@ -2393,7 +2693,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             ),
           ),
           // Show changes for game updates
-          if (notification.type == NotificationType.gameUpdated && notification.data?['changes'] != null) ...[
+          if (notification.type == NotificationType.gameUpdated &&
+              notification.data?['changes'] != null) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -2413,16 +2714,17 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  ...(notification.data!['changes'] as List<dynamic>).map((change) => Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      '• ${change.toString().capitalize()}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange[700],
-                      ),
-                    ),
-                  )),
+                  ...(notification.data!['changes'] as List<dynamic>)
+                      .map((change) => Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              '• ${change.toString().capitalize()}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                          )),
                 ],
               ),
             ),
@@ -2474,7 +2776,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 children: [
                   if (!notification.isRead)
                     TextButton(
-                      onPressed: () => _markSingleNotificationAsRead(notification.id),
+                      onPressed: () =>
+                          _markSingleNotificationAsRead(notification.id),
                       child: const Text(
                         'Mark as Read',
                         style: TextStyle(fontSize: 12),
@@ -2494,6 +2797,378 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showDismissedGames() async {
+    final dismissedAvailableGames = await _loadDismissedAvailableGames();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          child: Container(
+            width: double.maxFinite,
+            height: MediaQuery.of(context).size.height * 0.8,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Dismissed Games',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${dismissedAvailableGames.length} dismissed ${dismissedAvailableGames.length == 1 ? 'game' : 'games'} still available',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Games List
+                Expanded(
+                  child: dismissedAvailableGames.isEmpty
+                      ? _buildEmptyState('No dismissed games available', Icons.visibility_off)
+                      : ListView.builder(
+                          itemCount: _getGroupedGames(dismissedAvailableGames).length,
+                          itemBuilder: (context, index) {
+                            final group = _getGroupedGames(dismissedAvailableGames)[index];
+                            if (group.length == 1) {
+                              // Single game
+                              return _buildDismissedGameCard(group[0]);
+                            } else {
+                              // Linked games group
+                              return _buildLinkedDismissedGamesGroup(group);
+                            }
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDismissedGameCard(Map<String, dynamic> game) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: colorScheme.surface,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: colorScheme.outline.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _viewGameDetails(game),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Game title and sport
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      game['title'] ?? 'Untitled Game',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      game['sport'] ?? 'Unknown Sport',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Date, time, location
+              Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 16, color: colorScheme.onSurface.withOpacity(0.7)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      _formatGameDate(game),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 4),
+
+              Row(
+                children: [
+                  Icon(Icons.access_time,
+                      size: 16, color: colorScheme.onSurface.withOpacity(0.7)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatGameTime(game),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.location_on,
+                      size: 16, color: colorScheme.onSurface.withOpacity(0.7)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      game['location'] ?? 'Location TBD',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+                      // Officials needed and action buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${game['officialsHired'] ?? 0} of ${game['officialsRequired'] ?? 0} officials confirmed',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _reshowGame(game),
+                                icon: const Icon(Icons.visibility, size: 16),
+                                label: const Text('Re-show'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.green,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedDismissedGamesGroup(List<Map<String, dynamic>> games) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: colorScheme.surface,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: colorScheme.outline.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Group header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.link, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Linked Games',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${games.length} games',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Individual games in group
+          ...games.map((game) => InkWell(
+                onTap: () => _viewGameDetails(game),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: colorScheme.outline.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Game title
+                      Text(
+                        game['title'] ?? 'Untitled Game',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Date, time, location
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _formatGameDate(game),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurface.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      Row(
+                        children: [
+                          Icon(Icons.access_time,
+                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatGameTime(game),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurface.withOpacity(0.8),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.location_on,
+                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              game['location'] ?? 'Location TBD',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurface.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Officials needed and action buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${game['officialsHired'] ?? 0} of ${game['officialsRequired'] ?? 0} officials confirmed',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _reshowGame(game),
+                            icon: const Icon(Icons.visibility, size: 14),
+                            label: const Text('Re-show'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.green,
+                              textStyle: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              )),
         ],
       ),
     );
@@ -2569,6 +3244,66 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ],
             ),
           ),
+          // Undo Dismiss Section
+          if (_recentlyDismissedGames.isNotEmpty) ...[
+            Builder(
+              builder: (context) {
+                // Find the most recently dismissed game
+                final mostRecentEntry = _recentlyDismissedGames.entries
+                    .reduce((a, b) {
+                  final aTime = a.value['_dismissedAt'] as DateTime;
+                  final bTime = b.value['_dismissedAt'] as DateTime;
+                  return aTime.isAfter(bTime) ? a : b;
+                });
+                final gameId = mostRecentEntry.key;
+                final dismissedGame = mostRecentEntry.value;
+                final dismissedTime = dismissedGame['_dismissedAt'] as DateTime;
+                final secondsLeft = 4 - DateTime.now().difference(dismissedTime).inSeconds;
+                final canUndo = secondsLeft > 0;
+
+                return GestureDetector(
+                  onTap: canUndo ? () => _undoDismiss(gameId) : null,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: canUndo ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: canUndo ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.undo,
+                          color: canUndo ? Colors.red : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Game dismissed',
+                            style: TextStyle(
+                              color: canUndo ? Colors.red : Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          secondsLeft > 0 ? 'Undo (${secondsLeft}s)' : 'Expired',
+                          style: TextStyle(
+                            color: canUndo ? Colors.red : Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
           // Available Games List
           Expanded(
             child: _availableGames.isEmpty
@@ -2948,6 +3683,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
+                  Text(
+                    game['scheduleName'] ?? 'Unnamed Schedule',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       Icon(Icons.schedule, size: 12, color: Colors.grey[400]),
@@ -3032,7 +3776,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  debugPrint('❌ NOTIFICATION UI: Stream error: ${snapshot.error}');
+                  debugPrint(
+                      '❌ NOTIFICATION UI: Stream error: ${snapshot.error}');
                   return _buildEmptyState(
                     'Error loading notifications',
                     Icons.error_outline,
@@ -3069,7 +3814,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final followThroughRate = officialProfile?.followThroughRate ?? 100.0;
     final totalAcceptedGames = officialProfile?.totalAcceptedGames ?? 0;
     final totalBackedOutGames = officialProfile?.totalBackedOutGames ?? 0;
-    
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -3110,7 +3855,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Performance Stats Section
             Text(
               'Performance',
@@ -3121,7 +3866,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Stats Cards
             GridView.count(
               shrinkWrap: true,
@@ -3161,9 +3906,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Info Card
             Container(
               padding: const EdgeInsets.all(16),
@@ -3206,9 +3951,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Edit Profile Button
             Center(
               child: ElevatedButton.icon(
@@ -3289,7 +4034,7 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     final isUserCrewMember = game['isUserCrewMember'] as bool? ?? false;
     final userCrewId = game['userCrewId'] as String?;
     final userCrewName = game['userCrewName'] as String?;
-    
+
     return InkWell(
       onTap: () => _navigateToGameDetails(game),
       borderRadius: BorderRadius.circular(12),
@@ -3304,290 +4049,317 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                game['sport'] ?? 'Sport',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  game['sport'] ?? 'Sport',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isCrewGame
+                        ? AppColors.efficialsYellow.withOpacity(0.2)
+                        : Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isCrewGame ? 'CREW GAME' : 'AVAILABLE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isCrewGame ? Colors.white : Colors.blue[300],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatGameTitle(game),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  game['location'] ?? 'TBD',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+            // Show crew information for crew games
+            if (isCrewGame) ...[
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isCrewGame
-                      ? AppColors.efficialsYellow.withOpacity(0.2)
-                      : Colors.blue.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.efficialsYellow.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: AppColors.efficialsYellow.withOpacity(0.3)),
                 ),
-                child: Text(
-                  isCrewGame ? 'CREW GAME' : 'AVAILABLE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isCrewGame
-                        ? Colors.white
-                        : Colors.blue[300],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _formatGameTitle(game),
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                '${_formatGameDate(game)} at ${_formatGameTime(game)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.location_on, size: 14, color: Colors.grey[400]),
-              const SizedBox(width: 4),
-              Text(
-                game['location'] ?? 'TBD',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          // Show crew information for crew games
-          if (isCrewGame) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.efficialsYellow.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isUserCrewChief ? Icons.star : Icons.group,
-                    size: 14,
-                    color: AppColors.efficialsYellow,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isUserCrewChief
-                              ? 'Your crew "${userCrewName ?? 'Unknown'}" can accept this game'
-                              : isUserCrewMember
-                                  ? 'Offered to your crew "${userCrewName ?? 'Unknown'}"'
-                                  : 'Crew game - contact your crew chief',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
+                child: Row(
+                  children: [
+                    Icon(
+                      isUserCrewChief ? Icons.star : Icons.group,
+                      size: 14,
+                      color: AppColors.efficialsYellow,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isUserCrewChief
+                                ? 'Your crew "${userCrewName ?? 'Unknown'}" can accept this game'
+                                : isUserCrewMember
+                                    ? 'Offered to your crew "${userCrewName ?? 'Unknown'}"'
+                                    : 'Crew game - contact your crew chief',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        // Show crew member preferences for crew chiefs
-                        if (isUserCrewChief && userCrewId != null) ...[
-                          const SizedBox(height: 4),
-                          StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('crew_member_game_preferences')
-                                .where('game_id', isEqualTo: game['id'])
-                                .where('crew_id', isEqualTo: userCrewId)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.hasData && snapshot.data != null) {
-                                final docs = snapshot.data!.docs;
-                                int thumbsUp = 0;
-                                int thumbsDown = 0;
-                                List<Map<String, dynamic>> preferences = [];
+                          // Show crew member preferences for crew chiefs
+                          if (isUserCrewChief && userCrewId != null) ...[
+                            const SizedBox(height: 4),
+                            StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('crew_member_game_preferences')
+                                  .where('game_id', isEqualTo: game['id'])
+                                  .where('crew_id', isEqualTo: userCrewId)
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData && snapshot.data != null) {
+                                  final docs = snapshot.data!.docs;
+                                  int thumbsUp = 0;
+                                  int thumbsDown = 0;
+                                  List<Map<String, dynamic>> preferences = [];
 
-                                // Collect preference data
-                                List<String> memberIds = [];
-                                for (final doc in docs) {
-                                  final data = doc.data() as Map<String, dynamic>;
-                                  final preference = data['preference'] as String?;
-                                  final crewMemberId = data['crew_member_id'] as String?;
+                                  // Collect preference data
+                                  List<String> memberIds = [];
+                                  for (final doc in docs) {
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+                                    final preference =
+                                        data['preference'] as String?;
+                                    final crewMemberId =
+                                        data['crew_member_id'] as String?;
 
-                                  if (crewMemberId != null) {
-                                    memberIds.add(crewMemberId);
-                                    preferences.add({
-                                      'member_id': crewMemberId,
-                                      'preference': preference,
-                                    });
+                                    if (crewMemberId != null) {
+                                      memberIds.add(crewMemberId);
+                                      preferences.add({
+                                        'member_id': crewMemberId,
+                                        'preference': preference,
+                                      });
+                                    }
+
+                                    if (preference == 'thumbs_up') thumbsUp++;
+                                    if (preference == 'thumbs_down')
+                                      thumbsDown++;
                                   }
 
-                                  if (preference == 'thumbs_up') thumbsUp++;
-                                  if (preference == 'thumbs_down') thumbsDown++;
-                                }
+                                  final totalResponses = thumbsUp + thumbsDown;
+                                  print(
+                                      '🔍 PREFERENCE STREAM: Game ${game['id']}, Crew $userCrewId - Up: $thumbsUp, Down: $thumbsDown, Total: $totalResponses');
 
-                                final totalResponses = thumbsUp + thumbsDown;
-                                print('🔍 PREFERENCE STREAM: Game ${game['id']}, Crew $userCrewId - Up: $thumbsUp, Down: $thumbsDown, Total: $totalResponses');
-
-                                if (totalResponses > 0) {
-                                  return GestureDetector(
-                                    onTap: () => _showCrewPreferenceDetails(context, game, docs),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.efficialsYellow.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: AppColors.efficialsYellow.withOpacity(0.3)),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.thumb_up,
-                                              size: 12, color: Colors.green[600]),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            '$thumbsUp',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.green[600],
-                                              fontWeight: FontWeight.bold,
+                                  if (totalResponses > 0) {
+                                    return GestureDetector(
+                                      onTap: () => _showCrewPreferenceDetails(
+                                          context, game, docs),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.efficialsYellow
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: AppColors.efficialsYellow
+                                                  .withOpacity(0.3)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.thumb_up,
+                                                size: 12,
+                                                color: Colors.green[600]),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '$thumbsUp',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.green[600],
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Icon(Icons.thumb_down,
-                                              size: 12, color: Colors.red[600]),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            '$thumbsDown',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.red[600],
-                                              fontWeight: FontWeight.bold,
+                                            const SizedBox(width: 6),
+                                            Icon(Icons.thumb_down,
+                                                size: 12,
+                                                color: Colors.red[600]),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '$thumbsDown',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.red[600],
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.info_outline,
-                                            size: 10,
-                                            color: AppColors.efficialsYellow,
-                                          ),
-                                        ],
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.info_outline,
+                                              size: 10,
+                                              color: AppColors.efficialsYellow,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Fee: \$${game['gameFee'] ?? '0'}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  ],
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Dismiss button (always available)
-                  ElevatedButton(
-                    onPressed: () => _dismissGame(game),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                    ),
-                    child: const Text(
-                      'Dismiss',
-                      style: TextStyle(fontSize: 12),
-                    ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Fee: \$${game['gameFee'] ?? '0'}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
                   ),
-                  const SizedBox(width: 8),
-                  // Action button - only for crew chiefs or non-crew games
-                  if (isCrewGame ? isUserCrewChief : true) ...[
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Dismiss button (always available)
                     ElevatedButton(
-                      onPressed: () => isHireAutomatically
-                          ? _claimGame(game)
-                          : _showExpressInterestDialog(game),
+                      onPressed: () => _dismissGame(game),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isHireAutomatically
-                            ? Colors.green
-                            : Theme.of(context).colorScheme.primary,
-                        foregroundColor: isHireAutomatically
-                            ? Colors.white
-                            : Colors.black,
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         minimumSize: Size.zero,
                       ),
-                      child: Text(
-                        isHireAutomatically ? 'Claim' : 'Express Interest',
-                        style: const TextStyle(fontSize: 12),
+                      child: const Text(
+                        'Dismiss',
+                        style: TextStyle(fontSize: 12),
                       ),
                     ),
-                  ] else if (isCrewGame && isUserCrewMember) ...[
-                    // Thumbs up/down buttons for crew members
-                    ElevatedButton.icon(
-                      onPressed: () => _setCrewMemberPreference(game, 'thumbs_up'),
-                      icon: const Icon(Icons.thumb_up, size: 16),
-                      label: const Text('Like', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        minimumSize: Size.zero,
+                    const SizedBox(width: 8),
+                    // Action button - only for crew chiefs or non-crew games
+                    if (isCrewGame ? isUserCrewChief : true) ...[
+                      ElevatedButton(
+                        onPressed: () => isHireAutomatically
+                            ? _claimGame(game)
+                            : _showExpressInterestDialog(game),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isHireAutomatically
+                              ? Colors.green
+                              : Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              isHireAutomatically ? Colors.white : Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          minimumSize: Size.zero,
+                        ),
+                        child: Text(
+                          isHireAutomatically ? 'Claim' : 'Express Interest',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    ElevatedButton.icon(
-                      onPressed: () => _setCrewMemberPreference(game, 'thumbs_down'),
-                      icon: const Icon(Icons.thumb_down, size: 16),
-                      label: const Text('Dislike', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        minimumSize: Size.zero,
+                    ] else if (isCrewGame && isUserCrewMember) ...[
+                      // Thumbs up/down buttons for crew members
+                      ElevatedButton.icon(
+                        onPressed: () =>
+                            _setCrewMemberPreference(game, 'thumbs_up'),
+                        icon: const Icon(Icons.thumb_up, size: 16),
+                        label:
+                            const Text('Like', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          minimumSize: Size.zero,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      ElevatedButton.icon(
+                        onPressed: () =>
+                            _setCrewMemberPreference(game, 'thumbs_down'),
+                        icon: const Icon(Icons.thumb_down, size: 16),
+                        label: const Text('Dislike',
+                            style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          minimumSize: Size.zero,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3618,7 +4390,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.green.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
@@ -3641,6 +4414,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              game['scheduleName'] ?? 'Unnamed Schedule',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(height: 4),
@@ -3698,7 +4480,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     );
   }
 
-  Widget _buildPendingGameCard(Map<String, dynamic> game, {bool isWaitingForCrewChief = false}) {
+  Widget _buildPendingGameCard(Map<String, dynamic> game,
+      {bool isWaitingForCrewChief = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -3749,6 +4532,15 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
               fontSize: 14,
               color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            game['scheduleName'] ?? 'Unnamed Schedule',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w400,
             ),
           ),
           const SizedBox(height: 4),
@@ -3858,7 +4650,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         });
 
         // Mark notifications as read when notifications tab is selected
-        if (index == 4) { // Notifications tab index
+        if (index == 4) {
+          // Notifications tab index
           _markNotificationsAsRead();
         }
       },
@@ -3906,7 +4699,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 minHeight: 16,
               ),
               child: Text(
-                _unreadNotificationsCount > 99 ? '99+' : _unreadNotificationsCount.toString(),
+                _unreadNotificationsCount > 99
+                    ? '99+'
+                    : _unreadNotificationsCount.toString(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
@@ -4004,21 +4799,80 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   void _dismissGame(Map<String, dynamic> game) {
     final gameId = game['id'] as String?;
+
     setState(() {
       _availableGames.removeWhere((g) => g['id'] == game['id']);
       if (gameId != null && !_dismissedGameIds.contains(gameId)) {
         _dismissedGameIds.add(gameId);
+        // Track recently dismissed game with full game data and timestamp
+        final gameWithTimestamp = Map<String, dynamic>.from(game);
+        gameWithTimestamp['_dismissedAt'] = DateTime.now();
+        _recentlyDismissedGames[gameId] = gameWithTimestamp;
       }
     });
 
     // Save persistent data
     _savePersistentData();
 
+    // Start undo timer - show undo option for 3 seconds
+    _startUndoTimer(gameId);
+  }
+
+  void _startUndoTimer(String? gameId) {
+    if (gameId == null) return;
+
+    // Cancel any existing timers
+    _undoTimer?.cancel();
+    _countdownTimer?.cancel();
+
+    // Start countdown timer to update UI every second
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          // Force rebuild to update countdown display
+        });
+      }
+    });
+
+    // Start main timer for 4 seconds
+    _undoTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) {
+        setState(() {
+          _recentlyDismissedGames.remove(gameId);
+        });
+        _countdownTimer?.cancel();
+      }
+    });
+  }
+
+  void _undoDismiss(String gameId) {
+    // Cancel both timers since user clicked undo
+    _undoTimer?.cancel();
+    _countdownTimer?.cancel();
+
+    // Check if game was recently dismissed
+    final dismissedGame = _recentlyDismissedGames[gameId];
+    if (dismissedGame == null) return;
+
+    // Remove from dismissed list and add back to available (without timestamp)
+    final gameToRestore = Map<String, dynamic>.from(dismissedGame);
+    gameToRestore.remove('_dismissedAt'); // Remove our internal timestamp
+
+    setState(() {
+      _dismissedGameIds.remove(gameId);
+      _availableGames.add(gameToRestore);
+      _recentlyDismissedGames.remove(gameId);
+    });
+
+    // Save persistent data
+    _savePersistentData();
+
+    // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Game dismissed from Available list'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 2),
+      const SnackBar(
+        content: Text('Game restored to Available list'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -4039,6 +4893,33 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
   void _withdrawInterest(Map<String, dynamic> game) {
     _showWithdrawConfirmationDialog(game);
+  }
+
+  void _reshowGame(Map<String, dynamic> game) {
+    final gameId = game['id'] as String?;
+    if (gameId != null) {
+      setState(() {
+        _dismissedGameIds.remove(gameId);
+        // Add the game back to available games if it's not already there
+        if (!_availableGames.any((g) => g['id'] == gameId)) {
+          _availableGames.add(game);
+        }
+      });
+
+      // Save persistent data
+      _savePersistentData();
+
+      // Close the dialog since the game will no longer be in the dismissed list
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Game restored to Available list'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showWithdrawConfirmationDialog(Map<String, dynamic> game) {
@@ -4364,21 +5245,25 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
     if (success) {
       // Handle crew games differently
-      final isCrewGame = game['selectedCrews'] != null && (game['selectedCrews'] as List).isNotEmpty;
+      final isCrewGame = game['selectedCrews'] != null &&
+          (game['selectedCrews'] as List).isNotEmpty;
 
       setState(() {
         _availableGames.removeWhere((g) => g['id'] == game['id']);
 
         if (isCrewGame) {
           // For crew games, update any existing pending entries or add new one
-          final existingIndices = _pendingGames.asMap().entries
+          final existingIndices = _pendingGames
+              .asMap()
+              .entries
               .where((entry) => entry.value['id'] == game['id'])
               .map((entry) => entry.key)
               .toList();
 
           final gameWithStatus = {
             ...game,
-            'pending_status': 'waiting_for_scheduler', // Now waiting for scheduler
+            'pending_status':
+                'waiting_for_scheduler', // Now waiting for scheduler
           };
 
           if (existingIndices.isNotEmpty) {
@@ -4443,6 +5328,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         await _gameService.addConfirmedOfficial(gameId, officialData);
 
     if (success) {
+      // Store the current state for undo functionality
+      final wasInAvailable = _availableGames.contains(game);
+
       // Move game from available to confirmed
       setState(() {
         _availableGames.removeWhere((g) => g['id'] == game['id']);
@@ -4453,7 +5341,10 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       if (!_confirmedGameIds.contains(gameId)) {
         _confirmedGameIds.add(gameId);
         // Update Firestore directly
-        await FirebaseFirestore.instance.collection('users').doc(currentUser.id).update({
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.id)
+            .update({
           'confirmedGameIds': _confirmedGameIds,
           'updatedAt': Timestamp.now(),
         });
@@ -4462,11 +5353,18 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       // Save persistent data
       _savePersistentData();
 
+      // Show undo snackbar
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Successfully claimed ${game['sport']} game!'),
           backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.white,
+            onPressed: () => _undoClaimGame(game, wasInAvailable, currentUser.id),
+          ),
         ),
       );
     } else {
@@ -4478,6 +5376,275 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         ),
       );
     }
+  }
+
+  void _undoClaimGame(Map<String, dynamic> game, bool wasInAvailable, String userId) async {
+    final gameId = game['id'] as String?;
+    if (gameId == null) return;
+
+    // Remove official from game's confirmed officials list
+    final removeSuccess = await _gameService.removeConfirmedOfficial(gameId, userId);
+
+    if (removeSuccess) {
+      // Remove from confirmed games in UI
+      setState(() {
+        _confirmedGames.removeWhere((g) => g['id'] == game['id']);
+      });
+
+      // Remove the game ID from the user's confirmed games list
+      if (_confirmedGameIds.contains(gameId)) {
+        _confirmedGameIds.remove(gameId);
+        // Update Firestore directly
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .update({
+          'confirmedGameIds': _confirmedGameIds,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+
+      // Add back to available games if it was there before
+      if (wasInAvailable && !_availableGames.contains(game)) {
+        setState(() {
+          _availableGames.add(game);
+        });
+      }
+
+      // Save persistent data after undo
+      _savePersistentData();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Claim undone - ${game['sport']} game returned to Available'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to undo claim. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _claimLinkedGames(List<Map<String, dynamic>> linkedGames) async {
+    if (linkedGames.isEmpty) return;
+
+    // Get current user data
+    final currentUser = await _userService.getCurrentUser();
+    if (currentUser == null) return;
+
+    // Get additional user profile data
+    final userDoc = await _userService.getUserById(currentUser.id);
+    if (userDoc == null) return;
+
+    // Prepare official data to add to game's confirmed officials
+    final officialData = {
+      'id': currentUser.id,
+      'name': currentUser.fullName,
+      'email': currentUser.email,
+      'city': userDoc.officialProfile?.city ?? '',
+      'state': userDoc.officialProfile?.state ?? '',
+    };
+
+    bool allSuccess = true;
+    final List<String> failedGames = [];
+
+    // Claim all games in the linked group
+    for (final game in linkedGames) {
+      final gameId = game['id'] as String?;
+      if (gameId == null) continue;
+
+      final success = await _gameService.addConfirmedOfficial(gameId, officialData);
+      if (success) {
+        // Move game from available to confirmed
+        setState(() {
+          _availableGames.removeWhere((g) => g['id'] == game['id']);
+          _confirmedGames.add(game);
+        });
+
+        // Add the game ID to the user's confirmed games list in Firestore
+        if (!_confirmedGameIds.contains(gameId)) {
+          _confirmedGameIds.add(gameId);
+        }
+      } else {
+        allSuccess = false;
+        failedGames.add(game['sport'] ?? 'Unknown game');
+      }
+    }
+
+    if (allSuccess) {
+      // Update Firestore with all confirmed game IDs
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.id)
+          .update({
+        'confirmedGameIds': _confirmedGameIds,
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Save persistent data
+      _savePersistentData();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully claimed all ${linkedGames.length} linked games!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to claim some games: ${failedGames.join(', ')}. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showClaimLinkedGamesDialog(List<Map<String, dynamic>> linkedGames) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  Row(
+                    children: [
+                      Icon(Icons.link,
+                          color: Theme.of(context).colorScheme.primary, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Claim Linked Games',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Content
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'You are about to claim ${linkedGames.length} linked games:',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: linkedGames.length > 3 ? 200 : linkedGames.length * 100.0,
+                        child: ListView.builder(
+                          itemCount: linkedGames.length,
+                          itemBuilder: (context, index) {
+                            final game = linkedGames[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _formatGameTitle(game),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    game['scheduleName'] ?? 'Unknown Schedule',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_formatGameDate(game)} at ${_formatGameTime(game)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                  Text(
+                                    game['location'] ?? 'TBD',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Close dialog
+                          _claimLinkedGames(linkedGames);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Claim All Games'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _handleLogout() {
@@ -4521,6 +5688,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       },
     );
   }
+
+
 
   // Calendar helper methods
   Map<DateTime, List<Map<String, dynamic>>> _getGamesByDate() {

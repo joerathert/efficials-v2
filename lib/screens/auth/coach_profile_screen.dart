@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/game_service.dart';
 import '../../providers/theme_provider.dart';
 
 class CoachProfileScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class CoachProfileScreen extends StatefulWidget {
 class _CoachProfileScreenState extends State<CoachProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _teamNameController = TextEditingController();
+  final _locationNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
@@ -22,6 +24,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
   Map<String, dynamic>? profileData;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
+  final GameService _gameService = GameService();
 
   String? _selectedSport;
   String? _selectedGrade;
@@ -85,6 +88,7 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
   @override
   void dispose() {
     _teamNameController.dispose();
+    _locationNameController.dispose();
     _addressController.dispose();
     _cityController.dispose();
     _stateController.dispose();
@@ -194,14 +198,19 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
       final fullAddress =
           '${_addressController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim().toUpperCase()} ${_zipController.text.trim()}';
 
+      // Create location identifier with name and address
+      final locationName = _locationNameController.text.trim();
+      final defaultLocationId = locationName.isNotEmpty
+          ? '$locationName - $fullAddress'
+          : fullAddress;
+
       // Create coach profile
       final coachProfile = SchedulerProfile.coach(
         teamName: _teamNameController.text.trim(),
         sport: _selectedSport!,
         levelOfCompetition: _selectedGrade!,
         gender: _selectedGender!,
-        defaultLocationId:
-            fullAddress, // Store full address as location ID for now
+        defaultLocationId: defaultLocationId,
       );
       print('DEBUG: Coach profile created successfully');
 
@@ -218,6 +227,21 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
           'DEBUG: SignUp result - success: ${result.success}, error: ${result.error}');
 
       if (result.success && result.user != null) {
+        try {
+          // Create a schedule for the coach using their team name
+          debugPrint(
+              '📅 COACH SIGNUP: Creating schedule for team: ${_teamNameController.text.trim()}');
+          await _gameService.createSchedule(
+            _teamNameController.text.trim(),
+            _selectedSport!,
+            homeTeamName: _teamNameController.text.trim(),
+          );
+          debugPrint('✅ COACH SIGNUP: Schedule created successfully');
+        } catch (e) {
+          debugPrint('❌ COACH SIGNUP: Error creating schedule: $e');
+          // Don't block account creation if schedule creation fails
+        }
+
         // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -513,6 +537,21 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
                           color: Colors.grey[400],
                           fontSize: 14,
                         ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Location Name Field
+                      TextFormField(
+                        controller: _locationNameController,
+                        decoration: InputDecoration(
+                          labelText: 'Location Name',
+                          hintText: 'Ex. Maryville Sports Complex',
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) =>
+                            _validateRequired(value, 'Location Name'),
                       ),
                       const SizedBox(height: 20),
 

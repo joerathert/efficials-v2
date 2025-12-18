@@ -23,6 +23,7 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   bool isEdit = false;
+  bool isCoachFlow = false;
   Map<String, dynamic>? originalArgs;
   bool _userHasSelectedLocation = false;
   final UserService _userService = UserService();
@@ -52,8 +53,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
         selectedDate = args['date'] as DateTime?;
         selectedTime = args['time'] as TimeOfDay?;
         isEdit = args['isEdit'] as bool? ?? false;
+        isCoachFlow = args['isCoachFlow'] as bool? ?? false;
         // Pre-select the location if it exists in the arguments and user hasn't selected one yet
-        if (!_userHasSelectedLocation && args.containsKey('location') && args['location'] != null) {
+        if (!_userHasSelectedLocation &&
+            args.containsKey('location') &&
+            args['location'] != null) {
           // Handle both string (legacy) and map (new) location data
           if (args['location'] is Map<String, dynamic>) {
             selectedLocationData = args['location'] as Map<String, dynamic>;
@@ -79,9 +83,38 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
       print('ChooseLocationScreen: Fetching locations...');
       final savedLocations = await locationService.getLocations();
 
+      // For coach flow, get the coach's default location
+      Map<String, dynamic>? coachDefaultLocation;
+      if (isCoachFlow) {
+        try {
+          final authService = AuthService();
+          final userProfile = await authService.getCurrentUserProfile();
+          final userData = userProfile?.toMap();
+          if (userData != null && userData['schedulerProfile'] != null) {
+            final profile =
+                userData['schedulerProfile'] as Map<String, dynamic>;
+            final defaultLocationId = profile['defaultLocationId'] as String?;
+            if (defaultLocationId != null && defaultLocationId.isNotEmpty) {
+              coachDefaultLocation = {
+                'name': defaultLocationId.split(' - ').first,
+                'address': defaultLocationId.split(' - ').last,
+                'id': 'coach_default',
+              };
+              debugPrint(
+                  '🏆 CHOOSE_LOCATION: Coach default location: $coachDefaultLocation');
+            }
+          }
+        } catch (e) {
+          debugPrint(
+              '❌ CHOOSE_LOCATION: Error fetching coach default location: $e');
+        }
+      }
+
       setState(() {
         locations = [
           {'name': 'Away Game', 'id': 2},
+          // Add coach's default location first if it exists
+          if (coachDefaultLocation != null) coachDefaultLocation,
           // Add saved locations from Firebase
           ...savedLocations.map((location) => {
                 'name': location['name'] as String,
@@ -94,6 +127,15 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           {'name': '+ Create new location', 'id': 0},
         ];
         isLoading = false;
+
+        // Pre-select coach's default location if it exists and user hasn't selected one yet
+        if (isCoachFlow &&
+            coachDefaultLocation != null &&
+            !_userHasSelectedLocation) {
+          selectedLocationData = coachDefaultLocation;
+          debugPrint(
+              '🏆 CHOOSE_LOCATION: Pre-selected coach default location: ${selectedLocationData?['name']}');
+        }
       });
 
       print(
@@ -135,13 +177,16 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
             return IconButton(
               icon: Icon(
                 Icons.sports,
-                color: themeProvider.isDarkMode ? colorScheme.primary : Colors.black,
+                color: themeProvider.isDarkMode
+                    ? colorScheme.primary
+                    : Colors.black,
                 size: 32,
               ),
               onPressed: () async {
                 final authService = AuthService();
                 final homeRoute = await authService.getHomeRoute();
-                Navigator.pushNamedAndRemoveUntil(context, homeRoute, (route) => false);
+                Navigator.pushNamedAndRemoveUntil(
+                    context, homeRoute, (route) => false);
               },
             );
           },
@@ -298,7 +343,8 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                         fontSize: 16,
                                       ),
                                       onChanged: (newValue) {
-                                        debugPrint('🎯 CHOOSE_LOCATION: Dropdown onChanged - newValue: $newValue');
+                                        debugPrint(
+                                            '🎯 CHOOSE_LOCATION: Dropdown onChanged - newValue: $newValue');
                                         if (newValue ==
                                             '+ Create new location') {
                                           Navigator.pushNamed(
@@ -306,9 +352,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                             '/add-new-location',
                                             arguments: {
                                               'scheduleName': scheduleName,
-                                              'scheduleId': originalArgs?['scheduleId'],
+                                              'scheduleId':
+                                                  originalArgs?['scheduleId'],
                                               'sport': sport,
-                                              'homeTeam': originalArgs?['homeTeam'],
+                                              'homeTeam':
+                                                  originalArgs?['homeTeam'],
                                               'template': template,
                                               'date': selectedDate,
                                               'time': selectedTime,
@@ -336,20 +384,25 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                                   'id': newLoc['id'],
                                                 };
                                               });
-                                              debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to new location: ${selectedLocationData?['name']}');
+                                              debugPrint(
+                                                  '🎯 CHOOSE_LOCATION: Set selectedLocation to new location: ${selectedLocationData?['name']}');
                                             }
                                           });
                                         } else {
                                           setState(() {
                                             // Find the full location data for the selected location name
-                                            selectedLocationData = locations.firstWhere(
+                                            selectedLocationData =
+                                                locations.firstWhere(
                                               (loc) => loc['name'] == newValue,
-                                              orElse: () => {'name': newValue as String},
+                                              orElse: () =>
+                                                  {'name': newValue as String},
                                             );
                                             _userHasSelectedLocation = true;
                                           });
-                                          debugPrint('🎯 CHOOSE_LOCATION: Set selectedLocation to: ${selectedLocationData?['name']}');
-                                          debugPrint('🎯 CHOOSE_LOCATION: _userHasSelectedLocation set to: $_userHasSelectedLocation');
+                                          debugPrint(
+                                              '🎯 CHOOSE_LOCATION: Set selectedLocation to: ${selectedLocationData?['name']}');
+                                          debugPrint(
+                                              '🎯 CHOOSE_LOCATION: _userHasSelectedLocation set to: $_userHasSelectedLocation');
                                         }
                                       },
                                       items: locations.map((location) {
@@ -376,8 +429,10 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                       if (isEdit) {
                                         // When editing, return all original args merged with updated location data
                                         final isAwayGame =
-                                            selectedLocationData?['name'] == 'Away Game';
-                                        debugPrint('🎯 CHOOSE_LOCATION: Popping with selected location: ${selectedLocationData?['name']}');
+                                            selectedLocationData?['name'] ==
+                                                'Away Game';
+                                        debugPrint(
+                                            '🎯 CHOOSE_LOCATION: Popping with selected location: ${selectedLocationData?['name']}');
                                         Navigator.pop(context, {
                                           ...?originalArgs,
                                           'location': selectedLocationData,
@@ -386,10 +441,38 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                           'isEdit': true,
                                           'isFromGameInfo': true,
                                         });
+                                      } else if (isCoachFlow) {
+                                        // Coach flow: skip additional-game-info and go directly to simplified game creation
+                                        debugPrint(
+                                            '🏆 CHOOSE_LOCATION: Coach flow detected, skipping to direct game creation');
+                                        final isAwayGame =
+                                            selectedLocationData?['name'] ==
+                                                'Away Game';
+
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/additional-game-info-coach', // New route for coach-specific game creation
+                                          arguments: {
+                                            'scheduleName': scheduleName,
+                                            'scheduleId':
+                                                originalArgs?['scheduleId'],
+                                            'sport': sport,
+                                            'homeTeam':
+                                                originalArgs?['homeTeam'],
+                                            'template': template,
+                                            'date': selectedDate,
+                                            'time': selectedTime,
+                                            'location': selectedLocationData,
+                                            'isAwayGame': isAwayGame,
+                                            'isAway': isAwayGame,
+                                            'isCoachFlow': true,
+                                          },
+                                        );
                                       } else {
                                         // Normal game creation flow
                                         final isAwayGame =
-                                            selectedLocationData?['name'] == 'Away Game';
+                                            selectedLocationData?['name'] ==
+                                                'Away Game';
                                         Navigator.pushNamed(
                                           context,
                                           isAwayGame
@@ -397,9 +480,11 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
                                               : '/additional-game-info',
                                           arguments: {
                                             'scheduleName': scheduleName,
-                                            'scheduleId': originalArgs?['scheduleId'],
+                                            'scheduleId':
+                                                originalArgs?['scheduleId'],
                                             'sport': sport,
-                                            'homeTeam': originalArgs?['homeTeam'],
+                                            'homeTeam':
+                                                originalArgs?['homeTeam'],
                                             'template': template,
                                             'date': selectedDate,
                                             'time': selectedTime,

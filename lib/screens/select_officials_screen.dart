@@ -39,7 +39,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           template!.method == 'hire_crew' &&
           template!.selectedCrews != null &&
           template!.selectedCrews!.isNotEmpty &&
-          !_isFromEdit) { // Only auto-navigate if not in edit mode
+          !_isFromEdit) {
+        // Only auto-navigate if not in edit mode
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (mounted) {
             Navigator.pushReplacementNamed(
@@ -61,7 +62,8 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           template!.includeSelectedOfficials &&
           template!.selectedOfficials != null &&
           template!.selectedOfficials!.isNotEmpty &&
-          !_isFromEdit) { // Only auto-navigate if not in edit mode
+          !_isFromEdit) {
+        // Only auto-navigate if not in edit mode
         setState(() {
           _selectedOfficials = template!.selectedOfficials!;
         });
@@ -86,8 +88,10 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           template!.method == 'use_list' &&
           template!.officialsListName != null &&
           template!.officialsListName!.isNotEmpty &&
-          !_isFromEdit) { // Only auto-navigate if not in edit mode
-        debugPrint('🎯 SELECT_OFFICIALS: Single list template routing triggered!');
+          !_isFromEdit) {
+        // Only auto-navigate if not in edit mode
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Single list template routing triggered!');
         debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
         debugPrint(
             '🎯 SELECT_OFFICIALS: Template officialsListName: ${template!.officialsListName}');
@@ -111,8 +115,10 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
           template!.method == 'advanced' &&
           template!.selectedLists != null &&
           template!.selectedLists!.isNotEmpty &&
-          !_isFromEdit) { // Only auto-navigate if not in edit mode
-        debugPrint('🎯 SELECT_OFFICIALS: Multiple lists template with pre-configured lists - routing to review!');
+          !_isFromEdit) {
+        // Only auto-navigate if not in edit mode
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Multiple lists template with pre-configured lists - routing to review!');
         debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
         debugPrint(
             '🎯 SELECT_OFFICIALS: Template selectedLists: ${template!.selectedLists}');
@@ -132,8 +138,12 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
         });
       }
       // If the template uses multiple lists method but no pre-configured lists, go to setup
-      else if (template != null && template!.method == 'advanced' && !_isFromEdit) { // Only auto-navigate if not in edit mode
-        debugPrint('🎯 SELECT_OFFICIALS: Multiple lists template without pre-configured lists - routing to setup!');
+      else if (template != null &&
+          template!.method == 'advanced' &&
+          !_isFromEdit) {
+        // Only auto-navigate if not in edit mode
+        debugPrint(
+            '🎯 SELECT_OFFICIALS: Multiple lists template without pre-configured lists - routing to setup!');
         debugPrint('🎯 SELECT_OFFICIALS: Template method: ${template!.method}');
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (mounted) {
@@ -283,9 +293,15 @@ class _SelectOfficialsScreenState extends State<SelectOfficialsScreen> {
                 size: 32,
               ),
               onPressed: () {
-                // Navigate to Athletic Director home screen
+                // Navigate to appropriate home screen based on user type
+                final args = ModalRoute.of(context)?.settings.arguments
+                    as Map<String, dynamic>?;
+                final sourceScreen = args?['sourceScreen'] as String?;
+                final homeRoute =
+                    sourceScreen == 'coach_home' ? '/coach-home' : '/ad-home';
+
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/ad-home',
+                  homeRoute,
                   (route) => false, // Remove all routes
                 );
               },
