@@ -225,6 +225,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool _isSigningIn = false;
   bool _hasResetNavigation = false;
+  bool _showQuickAccess = false;
 
   @override
   void didChangeDependencies() {
@@ -358,7 +359,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    'Welcome to Efficials v2.0',
+                    'Welcome to Efficials',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -407,12 +408,100 @@ class _MyHomePageState extends State<MyHomePage> {
 
                   const SizedBox(height: 16),
 
-                  // Quick Access for Development/Testing
+                  const SizedBox(height: 16),
+
+                  // Sign In Button (placeholder)
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
+                    constraints: const BoxConstraints(maxWidth: 400),
                     child: SizedBox(
                       width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/sign-in');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Quick Access Toggle (only in debug mode)
+                  if (kDebugMode)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showQuickAccess = !_showQuickAccess;
+                        });
+                      },
                       child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: theme.brightness == Brightness.light
+                              ? colorScheme
+                                  .primary // Yellow background in light mode
+                              : colorScheme.surfaceVariant
+                                  .withOpacity(0.7), // Original in dark mode
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: colorScheme.primary.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _showQuickAccess
+                                  ? 'Hide Quick Access'
+                                  : 'Quick Access',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.brightness == Brightness.light
+                                    ? colorScheme
+                                        .onPrimary // Black text in light mode
+                                    : colorScheme
+                                        .primary, // Yellow text in dark mode
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              _showQuickAccess
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: theme.brightness == Brightness.light
+                                  ? colorScheme
+                                      .onPrimary // Black icon in light mode
+                                  : colorScheme
+                                      .primary, // Yellow icon in dark mode
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Expanded Quick Access Menu
+                  if (kDebugMode && _showQuickAccess)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceVariant.withOpacity(0.5),
@@ -420,6 +509,13 @@ class _MyHomePageState extends State<MyHomePage> {
                           border: Border.all(
                             color: colorScheme.outline.withOpacity(0.3),
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,46 +605,6 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Sign In Button (placeholder)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/sign-in');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Sign In',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  Text(
-                    'Firebase Initialized & Ready!',
-                    style: TextStyle(
-                      color: colorScheme
-                          .onBackground, // Proper contrast instead of yellow
-                      fontSize: 14,
-                    ),
-                  ),
                 ],
               ),
             ),

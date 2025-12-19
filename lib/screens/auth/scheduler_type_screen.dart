@@ -112,113 +112,104 @@ class _SchedulerTypeScreenState extends State<SchedulerTypeScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 600),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(text: 'What Type of Scheduler\n'),
-                    TextSpan(text: 'Are You?'),
-                  ],
-                ),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: theme.brightness == Brightness.dark
-                      ? colorScheme.primary // Yellow in dark mode
-                      : colorScheme.onBackground, // Dark in light mode
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Choose the option that best describes your role',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-
-              // Athletic Director Card
-              _SchedulerTypeCard(
-                title: 'Athletic Director',
-                description: 'Manage all sports and teams for a school',
-                icon: Icons.location_city,
-                details: [
-                  '• Create games for multiple sports',
-                  '• Manage school-wide schedules',
-                  '• Coordinate with all teams',
-                ],
-                isSelected: selectedType == 'Athletic Director',
-                onTap: () => _handleTypeSelection('Athletic Director'),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Coach Card
-              _SchedulerTypeCard(
-                title: 'Coach',
-                description: 'Manage games for a specific team',
-                icon: Icons.assignment,
-                details: [
-                  '• Create games for your team only',
-                  '• Single sport focus',
-                  '• Streamlined game creation',
-                ],
-                isSelected: selectedType == 'Coach',
-                onTap: () => _handleTypeSelection('Coach'),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Assigner Card
-              _SchedulerTypeCard(
-                title: 'Assigner',
-                description: 'Assign officials across multiple schools',
-                icon: Icons.assignment_ind,
-                details: [
-                  '• Coordinate league/association games',
-                  '• Assign officials to multiple schools',
-                  '• Manage broader region',
-                ],
-                isSelected: selectedType == 'Assigner',
-                onTap: () => _handleTypeSelection('Assigner'),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Continue Button
-              SizedBox(
-                width: 400,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _handleContinue,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: 'What Type of Scheduler\n'),
+                        TextSpan(text: 'Are You?'),
+                      ],
                     ),
-                  ),
-                  child: const Text(
-                    'Continue',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
+                      color: theme.brightness == Brightness.dark
+                          ? colorScheme.primary // Yellow in dark mode
+                          : colorScheme.onBackground, // Dark in light mode
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Athletic Director Card
+                  _SchedulerTypeCard(
+                    title: 'Athletic Director',
+                    description: 'Manage all sports and teams for a school',
+                    icon: Icons.location_city,
+                    details: [
+                      '• Create games for multiple sports',
+                      '• Manage school-wide schedules',
+                      '• Coordinate with all teams',
+                    ],
+                    isSelected: selectedType == 'Athletic Director',
+                    onTap: () => _handleTypeSelection('Athletic Director'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Coach Card
+                  _SchedulerTypeCard(
+                    title: 'Coach',
+                    description: 'Manage games for a specific team',
+                    icon: Icons.assignment,
+                    details: [
+                      '• Create games for your team only',
+                      '• Single sport focus',
+                      '• Streamlined game creation',
+                    ],
+                    isSelected: selectedType == 'Coach',
+                    onTap: () => _handleTypeSelection('Coach'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Assigner Card
+                  _SchedulerTypeCard(
+                    title: 'Assigner',
+                    description: 'Assign officials across multiple schools',
+                    icon: Icons.assignment_ind,
+                    details: [
+                      '• Coordinate league/association games',
+                      '• Assign officials to multiple schools',
+                      '• Manage broader region',
+                    ],
+                    isSelected: selectedType == 'Assigner',
+                    onTap: () => _handleTypeSelection('Assigner'),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Continue Button
+                  SizedBox(
+                    width: 400,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _handleContinue,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ),
         ),
       ),

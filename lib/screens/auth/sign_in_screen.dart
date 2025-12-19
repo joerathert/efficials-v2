@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
@@ -322,6 +323,59 @@ class _SignInScreenState extends State<SignInScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Don\'t have an account? ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Sign up here!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.of(context).pushNamed(
+                                  '/role-selection',
+                                );
+                              },
+                          ),
+                          const TextSpan(
+                            text: '\n\n',
+                          ),
+                          TextSpan(
+                            text: 'Forgot Password?',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                // TODO: Implement password reset
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Password reset coming soon. Please contact support.'),
+                                  ),
+                                );
+                              },
+                          ),
+                        ],
                       ),
                     ),
 

@@ -238,16 +238,7 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Set up your organization information to get started',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[400],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
 
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -318,14 +309,6 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                           color: Colors.grey[300],
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Use your league office, school, home address, or primary location where games are typically held.',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -411,6 +394,14 @@ class _AssignerProfileScreenState extends State<AssignerProfileScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'This address will be used as the center point for finding officials within your search radius. For example, a 10-mile radius means every official within 10 miles of this address will appear in the search results.',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),

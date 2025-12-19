@@ -80,7 +80,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 600),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -97,23 +97,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Select how you\'ll be using Efficials',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
                   const SizedBox(height: 40),
 
                   // Scheduler Role Card
                   _RoleCard(
                     title: 'Scheduler',
-                    subtitle: 'Athletic Director, Coach, or Assigner',
-                    description:
-                        'Create games, manage schedules, and assign officials',
+                    subtitle: '',
+                    description: '',
                     icon: Icons.event_note,
                     isSelected: selectedRole == 'scheduler',
                     onTap: () => _handleRoleSelection('scheduler'),
@@ -124,14 +114,14 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                   // Official Role Card
                   _RoleCard(
                     title: 'Official',
-                    subtitle: 'Referee, Umpire, or Judge',
-                    description: 'View and claim available game assignments',
+                    subtitle: '',
+                    description: '',
                     icon: Icons.sports,
                     isSelected: selectedRole == 'official',
                     onTap: () => _handleRoleSelection('official'),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(height: 40),
 
                   // Continue Button
                   SizedBox(
@@ -246,31 +236,19 @@ class _RoleCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? theme.brightness == Brightness.light
-                                  ? colorScheme
-                                      .onSurface // Black text when selected in light mode
-                                  : colorScheme
-                                      .primary // Yellow text when selected in dark mode
-                              : colorScheme.onSurface,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? theme.brightness == Brightness.light
+                              ? colorScheme
+                                  .onSurface // Black text when selected in light mode
+                              : colorScheme
+                                  .primary // Yellow text when selected in dark mode
+                          : colorScheme.onSurface,
+                    ),
                   ),
                 ),
                 if (isSelected)
@@ -282,14 +260,6 @@ class _RoleCard extends StatelessWidget {
                     size: 24,
                   ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
             ),
           ],
         ),

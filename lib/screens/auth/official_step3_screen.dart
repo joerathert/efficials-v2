@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/theme_provider.dart';
 
+class SportExperienceNotifier extends ValueNotifier<int?> {
+  SportExperienceNotifier(int? value) : super(value);
+}
+
 class OfficialStep3Screen extends StatefulWidget {
   const OfficialStep3Screen({super.key});
 
@@ -42,6 +46,12 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
   // Maintain order of sports (most recently added first)
   List<String> sportsOrder = [];
 
+  // Experience notifiers for reactive updates
+  final Map<String, SportExperienceNotifier> _experienceNotifiers = {};
+
+  // Controllers for experience fields
+  final Map<String, TextEditingController> _experienceControllers = {};
+
   late Map<String, dynamic> previousData;
 
   ScrollController _scrollController = ScrollController();
@@ -55,6 +65,12 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    for (final notifier in _experienceNotifiers.values) {
+      notifier.dispose();
+    }
+    for (final controller in _experienceControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -66,8 +82,8 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
 
     // Initialize selectedSports from previous data if it exists
     if (previousData.containsKey('selectedSports')) {
-      final previousSports = previousData['selectedSports']
-          as Map<String, Map<String, dynamic>>;
+      final previousSports =
+          previousData['selectedSports'] as Map<String, Map<String, dynamic>>;
       setState(() {
         selectedSports = Map<String, Map<String, dynamic>>.from(previousSports);
         // Initialize order with existing sports (most recently added first)
@@ -91,9 +107,11 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
       setState(() {
         selectedSports[sport] = {
           'certification': null,
-          'experience': null, // Changed from 0 to null for proper empty field handling
+          'experience':
+              null, // Changed from 0 to null for proper empty field handling
           'competitionLevels': <String>[],
         };
+        _experienceNotifiers[sport] = SportExperienceNotifier(null);
         // Add to the beginning of the order list so it appears at the top
         sportsOrder.insert(0, sport);
       });
@@ -114,6 +132,10 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
     setState(() {
       selectedSports.remove(sport);
       sportsOrder.remove(sport);
+      _experienceNotifiers[sport]?.dispose();
+      _experienceNotifiers.remove(sport);
+      _experienceControllers[sport]?.dispose();
+      _experienceControllers.remove(sport);
     });
   }
 
@@ -394,7 +416,8 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
                             Column(
                               children: [
                                 ...sportsOrder.map((sportName) =>
-                                    _buildSportCard(sportName, selectedSports[sportName]!)),
+                                    _buildSportCard(
+                                        sportName, selectedSports[sportName]!)),
                                 const SizedBox(height: 32),
 
                                 // Button Row - Add Sport above Continue
@@ -533,9 +556,12 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
               SizedBox(
                 width: 240,
                 child: TextFormField(
-                  initialValue: sportData['experience'] == null
-                      ? null
-                      : sportData['experience'].toString(),
+                  controller: _experienceControllers.putIfAbsent(
+                      sport,
+                      () => TextEditingController(
+                          text: sportData['experience'] == null
+                              ? ''
+                              : sportData['experience'].toString())),
                   decoration: InputDecoration(
                     labelText: 'Years of Experience',
                     hintText: 'Set years of experience',
@@ -571,7 +597,13 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (value) {
-                    sportData['experience'] = value.isEmpty ? null : int.tryParse(value) ?? 0;
+                    final newValue =
+                        value.isEmpty ? null : int.tryParse(value) ?? 0;
+                    sportData['experience'] = newValue;
+                    // Update notifier for any other listeners
+                    if (_experienceNotifiers.containsKey(sport)) {
+                      _experienceNotifiers[sport]!.value = newValue;
+                    }
                   },
                 ),
               ),

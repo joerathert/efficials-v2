@@ -86,7 +86,7 @@ class SchedulerProfile {
 
   // Athletic Director fields
   final String? schoolName;
-  final String? schoolAddress;
+  final AddressData? schoolAddress;
 
   // Team name field - used differently by each type:
   // Athletic Director: full team name (e.g., "Edwardsville Tigers")
@@ -97,7 +97,8 @@ class SchedulerProfile {
   final String? sport;
   final String? levelOfCompetition;
   final String? gender;
-  final String? defaultLocationId;
+  final String? defaultLocationName;
+  final String? defaultLocationAddress;
 
   // Assigner fields
   final String? organizationName;
@@ -114,7 +115,8 @@ class SchedulerProfile {
     this.sport,
     this.levelOfCompetition,
     this.gender,
-    this.defaultLocationId,
+    this.defaultLocationName,
+    this.defaultLocationAddress,
     // Assigner fields
     this.organizationName,
     this.homeAddress,
@@ -124,7 +126,7 @@ class SchedulerProfile {
   factory SchedulerProfile.athleticDirector({
     required String schoolName,
     required String teamName,
-    required String schoolAddress,
+    required AddressData schoolAddress,
   }) {
     return SchedulerProfile(
       type: 'Athletic Director',
@@ -140,7 +142,8 @@ class SchedulerProfile {
     required String sport,
     required String levelOfCompetition,
     required String gender,
-    required String defaultLocationId,
+    String? defaultLocationName,
+    String? defaultLocationAddress,
   }) {
     return SchedulerProfile(
       type: 'Coach',
@@ -148,7 +151,8 @@ class SchedulerProfile {
       sport: sport,
       levelOfCompetition: levelOfCompetition,
       gender: gender,
-      defaultLocationId: defaultLocationId,
+      defaultLocationName: defaultLocationName,
+      defaultLocationAddress: defaultLocationAddress,
     );
   }
 
@@ -173,7 +177,7 @@ class SchedulerProfile {
 
     // Athletic Director fields
     if (schoolName != null) map['schoolName'] = schoolName;
-    if (schoolAddress != null) map['schoolAddress'] = schoolAddress;
+    if (schoolAddress != null) map['schoolAddress'] = schoolAddress!.toMap();
 
     // Team name field (used by both Athletic Directors and Coaches)
     if (teamName != null) map['teamName'] = teamName;
@@ -183,7 +187,10 @@ class SchedulerProfile {
     if (levelOfCompetition != null)
       map['levelOfCompetition'] = levelOfCompetition;
     if (gender != null) map['gender'] = gender;
-    if (defaultLocationId != null) map['defaultLocationId'] = defaultLocationId;
+    if (defaultLocationName != null)
+      map['defaultLocationName'] = defaultLocationName;
+    if (defaultLocationAddress != null)
+      map['defaultLocationAddress'] = defaultLocationAddress;
 
     // Assigner fields
     if (organizationName != null) map['organizationName'] = organizationName;
@@ -199,19 +206,61 @@ class SchedulerProfile {
       type: type,
       // Athletic Director fields
       schoolName: map['schoolName'],
-      schoolAddress: map['schoolAddress'],
+      schoolAddress: map['schoolAddress'] != null
+          ? map['schoolAddress'] is String
+              ? _parseAddressString(
+                  map['schoolAddress']) // Handle legacy string format
+              : AddressData.fromMap(map['schoolAddress'])
+          : null,
       // Team name (both Athletic Directors and Coaches)
       teamName: map['teamName'],
       // Coach fields
       sport: map['sport'],
       levelOfCompetition: map['levelOfCompetition'],
       gender: map['gender'],
-      defaultLocationId: map['defaultLocationId'],
+      defaultLocationName: map['defaultLocationName'] ??
+          map['defaultLocationId']?.split(' - ')?.first,
+      defaultLocationAddress: map['defaultLocationAddress'] ??
+          map['defaultLocationId']?.split(' - ')?.last,
       // Assigner fields
       organizationName: map['organizationName'],
       homeAddress: map['homeAddress'] != null
           ? AddressData.fromMap(map['homeAddress'])
           : null,
+    );
+  }
+
+  /// Helper method to parse legacy address strings
+  static AddressData? _parseAddressString(String? addressString) {
+    if (addressString == null || addressString.isEmpty) return null;
+
+    // Try to parse common address formats
+    // This is a simple parser for backward compatibility
+    // Format examples: "1300 Beltline Road, Collinsville, IL 62234"
+
+    final parts = addressString.split(',');
+    if (parts.length >= 3) {
+      final streetAddress = parts[0].trim();
+      final city = parts[1].trim();
+      final stateZip = parts[2].trim().split(' ');
+      if (stateZip.length >= 2) {
+        final state = stateZip[0];
+        final zipCode = stateZip[1];
+        return AddressData(
+          address: streetAddress,
+          city: city,
+          state: state,
+          zipCode: zipCode,
+        );
+      }
+    }
+
+    // Fallback: treat entire string as street address
+    return AddressData(
+      address: addressString,
+      city: '',
+      state: '',
+      zipCode: '',
     );
   }
 
@@ -339,7 +388,8 @@ class UserModel {
   final OfficialProfile? officialProfile;
   final List<String> fcmTokens;
   final List<String> dismissedGameIds; // Games dismissed by officials
-  final List<String> pendingGameIds; // Games officials have expressed interest in
+  final List<String>
+      pendingGameIds; // Games officials have expressed interest in
   final DateTime createdAt;
   final DateTime updatedAt;
 

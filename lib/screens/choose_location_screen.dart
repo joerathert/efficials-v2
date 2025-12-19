@@ -93,11 +93,17 @@ class _ChooseLocationScreenState extends State<ChooseLocationScreen> {
           if (userData != null && userData['schedulerProfile'] != null) {
             final profile =
                 userData['schedulerProfile'] as Map<String, dynamic>;
-            final defaultLocationId = profile['defaultLocationId'] as String?;
-            if (defaultLocationId != null && defaultLocationId.isNotEmpty) {
+            final defaultLocationName =
+                profile['defaultLocationName'] as String?;
+            final defaultLocationAddress =
+                profile['defaultLocationAddress'] as String?;
+            if (defaultLocationName != null &&
+                defaultLocationName.isNotEmpty &&
+                defaultLocationAddress != null &&
+                defaultLocationAddress.isNotEmpty) {
               coachDefaultLocation = {
-                'name': defaultLocationId.split(' - ').first,
-                'address': defaultLocationId.split(' - ').last,
+                'name': defaultLocationName,
+                'address': defaultLocationAddress,
                 'id': 'coach_default',
               };
               debugPrint(

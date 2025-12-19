@@ -103,13 +103,19 @@ class _AthleticDirectorProfileScreenState
       );
       print('DEBUG: Profile created successfully');
 
+      // Create school address object
+      final schoolAddress = AddressData(
+        address: _addressController.text.trim(),
+        city: _cityController.text.trim(),
+        state: _stateController.text.trim().toUpperCase(),
+        zipCode: _zipController.text.trim(),
+      );
+
       // Create scheduler profile
-      final fullAddress =
-          '${_addressController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim().toUpperCase()} ${_zipController.text.trim()}';
       final schedulerProfile = SchedulerProfile.athleticDirector(
         schoolName: _schoolNameController.text.trim(),
         teamName: _teamNameController.text.trim(),
-        schoolAddress: fullAddress,
+        schoolAddress: schoolAddress,
       );
       print('DEBUG: Scheduler profile created successfully');
 
@@ -202,288 +208,293 @@ class _AthleticDirectorProfileScreenState
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: 600),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-                Text(
-                  'School Information',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: theme.brightness == Brightness.dark
-                        ? Theme.of(context)
-                            .colorScheme
-                            .primary // Yellow in dark mode
-                        : colorScheme.onBackground, // Dark in light mode
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tell us about your school',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[400],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      'School Information',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: theme.brightness == Brightness.dark
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary // Yellow in dark mode
+                            : colorScheme.onBackground, // Dark in light mode
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // School Name Field
-                      TextFormField(
-                        controller: _schoolNameController,
-                        decoration: InputDecoration(
-                          labelText: 'School Name',
-                          hintText: 'e.g., Edwardsville High School',
-                          prefixIcon:
-                              const Icon(Icons.school, color: Colors.grey),
-                          helperText: 'Official school name for records',
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: (value) =>
-                            _validateRequired(value, 'School name'),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tell us about your school',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[400],
                       ),
-                      const SizedBox(height: 20),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
 
-                      // Address Field
-                      TextFormField(
-                        controller: _addressController,
-                        decoration: InputDecoration(
-                          labelText: 'Address',
-                          hintText: 'Address',
-                          prefixIcon:
-                              const Icon(Icons.home, color: Colors.grey),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: (value) =>
-                            _validateRequired(value, 'Address'),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // City Field
-                      TextFormField(
-                        controller: _cityController,
-                        decoration: InputDecoration(
-                          labelText: 'City',
-                          hintText: 'City',
-                          prefixIcon: const Icon(Icons.location_city,
-                              color: Colors.grey),
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: (value) => _validateRequired(value, 'City'),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // State and Zip Row
-                      Row(
-                        children: [
-                          // State Field
-                          Expanded(
-                            flex: 1,
-                            child: TextFormField(
-                              controller: _stateController,
-                              decoration: InputDecoration(
-                                labelText: 'ST',
-                                hintText: 'ST',
-                                prefixIcon:
-                                    const Icon(Icons.map, color: Colors.grey),
-                              ),
-                              style: const TextStyle(color: Colors.white),
-                              textCapitalization: TextCapitalization.characters,
-                              textInputAction: TextInputAction.next,
-                              maxLength: 2,
-                              buildCounter: (context,
-                                      {required currentLength,
-                                      required isFocused,
-                                      maxLength}) =>
-                                  null, // Hide counter
-                              validator: _validateState,
-                              onChanged: (value) {
-                                // Auto-uppercase state input
-                                if (value != value.toUpperCase()) {
-                                  _stateController.value =
-                                      _stateController.value.copyWith(
-                                    text: value.toUpperCase(),
-                                    selection: TextSelection.collapsed(
-                                        offset: value.length),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Zip Field
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _zipController,
-                              decoration: InputDecoration(
-                                labelText: 'Zip Code',
-                                hintText: 'Zip Code',
-                                prefixIcon: const Icon(Icons.local_post_office,
-                                    color: Colors.grey),
-                              ),
-                              style: const TextStyle(color: Colors.white),
-                              textInputAction: TextInputAction.next,
-                              keyboardType: TextInputType.number,
-                              validator: _validateZip,
-                            ),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-
-                      // Team Name Field with explanation
-                      Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'How would you like your school\'s team name to appear on schedules?',
-                            style: TextStyle(
-                              color: Colors.grey[300],
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Examples: "Edwardsville Tigers", "St. Mary\'s Redbirds"',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
+                          // School Name Field
                           TextFormField(
-                            controller: _teamNameController,
+                            controller: _schoolNameController,
                             decoration: InputDecoration(
-                              labelText: 'Team Name',
-                              hintText: 'e.g., Edwardsville Tigers',
+                              labelText: 'School Name',
+                              hintText: 'e.g., Edwardsville High School',
                               prefixIcon:
-                                  const Icon(Icons.sports, color: Colors.grey),
+                                  const Icon(Icons.school, color: Colors.grey),
+                              helperText: 'Official school name for records',
                             ),
                             style: const TextStyle(color: Colors.white),
                             textCapitalization: TextCapitalization.words,
-                            textInputAction: TextInputAction.done,
+                            textInputAction: TextInputAction.next,
                             validator: (value) =>
-                                _validateRequired(value, 'Team name'),
-                            onChanged: (value) =>
-                                setState(() {}), // Update preview
+                                _validateRequired(value, 'School name'),
                           ),
-                        ],
-                      ),
+                          const SizedBox(height: 20),
 
-                      const SizedBox(height: 24),
+                          // Address Field
+                          TextFormField(
+                            controller: _addressController,
+                            decoration: InputDecoration(
+                              labelText: 'Address',
+                              hintText: 'Address',
+                              prefixIcon:
+                                  const Icon(Icons.home, color: Colors.grey),
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            validator: (value) =>
+                                _validateRequired(value, 'Address'),
+                          ),
+                          const SizedBox(height: 20),
 
-                      // Preview Card
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                          // City Field
+                          TextFormField(
+                            controller: _cityController,
+                            decoration: InputDecoration(
+                              labelText: 'City',
+                              hintText: 'City',
+                              prefixIcon: const Icon(Icons.location_city,
+                                  color: Colors.grey),
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            validator: (value) =>
+                                _validateRequired(value, 'City'),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // State and Zip Row
+                          Row(
+                            children: [
+                              // State Field
+                              Expanded(
+                                flex: 1,
+                                child: TextFormField(
+                                  controller: _stateController,
+                                  decoration: InputDecoration(
+                                    labelText: 'ST',
+                                    hintText: 'ST',
+                                    prefixIcon: const Icon(Icons.map,
+                                        color: Colors.grey),
+                                  ),
+                                  style: const TextStyle(color: Colors.white),
+                                  textCapitalization:
+                                      TextCapitalization.characters,
+                                  textInputAction: TextInputAction.next,
+                                  maxLength: 2,
+                                  buildCounter: (context,
+                                          {required currentLength,
+                                          required isFocused,
+                                          maxLength}) =>
+                                      null, // Hide counter
+                                  validator: _validateState,
+                                  onChanged: (value) {
+                                    // Auto-uppercase state input
+                                    if (value != value.toUpperCase()) {
+                                      _stateController.value =
+                                          _stateController.value.copyWith(
+                                        text: value.toUpperCase(),
+                                        selection: TextSelection.collapsed(
+                                            offset: value.length),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Zip Field
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: _zipController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Zip Code',
+                                    hintText: 'Zip Code',
+                                    prefixIcon: const Icon(
+                                        Icons.local_post_office,
+                                        color: Colors.grey),
+                                  ),
+                                  style: const TextStyle(color: Colors.white),
+                                  textInputAction: TextInputAction.next,
+                                  keyboardType: TextInputType.number,
+                                  validator: _validateZip,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Team Name Field with explanation
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'How would you like your school\'s team name to appear on schedules?',
+                                style: TextStyle(
+                                  color: Colors.grey[300],
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Examples: "Edwardsville Tigers", "St. Mary\'s Redbirds"',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _teamNameController,
+                                decoration: InputDecoration(
+                                  labelText: 'Team Name',
+                                  hintText: 'e.g., Edwardsville Tigers',
+                                  prefixIcon: const Icon(Icons.sports,
+                                      color: Colors.grey),
+                                ),
+                                style: const TextStyle(color: Colors.white),
+                                textCapitalization: TextCapitalization.words,
+                                textInputAction: TextInputAction.done,
+                                validator: (value) =>
+                                    _validateRequired(value, 'Team name'),
+                                onChanged: (value) =>
+                                    setState(() {}), // Update preview
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Preview Card
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
                               color: Theme.of(context)
                                   .colorScheme
                                   .primary
-                                  .withOpacity(0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Schedule Preview',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.3)),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _teamNameController.text.trim().isEmpty
-                                  ? 'Troy Saints @ [Enter your team name]'
-                                  : 'Troy Saints @ ${_teamNameController.text.trim()}',
-                              style: TextStyle(
-                                color: Colors.grey[300],
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // Create Account Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleCreateAccount,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.black,
-                            ),
-                          )
-                        : const Text(
-                            'Create Account',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Schedule Preview',
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _teamNameController.text.trim().isEmpty
+                                      ? 'Troy Saints @ [Enter your team name]'
+                                      : 'Troy Saints @ ${_teamNameController.text.trim()}',
+                                  style: TextStyle(
+                                    color: Colors.grey[300],
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                  ),
-                ),
+                        ],
+                      ),
+                    ),
 
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+                    const SizedBox(height: 30),
+
+                    // Create Account Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleCreateAccount,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Text(
+                                'Create Account',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

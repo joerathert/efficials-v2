@@ -198,11 +198,9 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
       final fullAddress =
           '${_addressController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim().toUpperCase()} ${_zipController.text.trim()}';
 
-      // Create location identifier with name and address
-      final locationName = _locationNameController.text.trim();
-      final defaultLocationId = locationName.isNotEmpty
-          ? '$locationName - $fullAddress'
-          : fullAddress;
+      // Create location name and address separately
+      final rawLocationName = _locationNameController.text.trim();
+      final locationName = rawLocationName.isNotEmpty ? rawLocationName : null;
 
       // Create coach profile
       final coachProfile = SchedulerProfile.coach(
@@ -210,7 +208,8 @@ class _CoachProfileScreenState extends State<CoachProfileScreen> {
         sport: _selectedSport!,
         levelOfCompetition: _selectedGrade!,
         gender: _selectedGender!,
-        defaultLocationId: defaultLocationId,
+        defaultLocationName: locationName,
+        defaultLocationAddress: fullAddress,
       );
       print('DEBUG: Coach profile created successfully');
 
