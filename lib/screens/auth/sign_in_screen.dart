@@ -19,6 +19,34 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _showPassword = false;
   bool _isLoading = false;
 
+  // Quick access test users
+  final List<Map<String, String>> _quickAccessUsers = [
+    {
+      'name': 'Athletic Director',
+      'email': 'bob.mayhew@efficials.com',
+      'password': 'test123',
+      'role': 'AD'
+    },
+    {
+      'name': 'Assigner',
+      'email': 'jason.unverzagt@efficials.com',
+      'password': 'test123',
+      'role': 'Assigner'
+    },
+    {
+      'name': 'Coach',
+      'email': 'jarrod.frey@efficials.com',
+      'password': 'test123',
+      'role': 'Coach'
+    },
+    {
+      'name': 'Official',
+      'email': 'joe.rathert@efficials.com',
+      'password': 'test123',
+      'role': 'Official'
+    },
+  ];
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -78,6 +106,57 @@ class _SignInScreenState extends State<SignInScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('An error occurred: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _quickAccessSignIn(
+      String email, String password, String userName) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authService = AuthService();
+      final result = await authService.signInWithEmailAndPassword(
+        email: email.toLowerCase(),
+        password: password,
+      );
+
+      if (mounted) {
+        if (result.success && result.user != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Quick access: Signed in as $userName'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate to auth wrapper - it will handle showing the correct home screen
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/auth', (route) => false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? 'Quick access sign in failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Quick access error: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -326,7 +405,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(

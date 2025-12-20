@@ -225,7 +225,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool _isSigningIn = false;
   bool _hasResetNavigation = false;
-  bool _showQuickAccess = false;
+  bool _showQuickAccess = false; // Start collapsed
 
   @override
   void didChangeDependencies() {

@@ -44,7 +44,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
   List<String> _confirmedGameIds = []; // Track confirmed game IDs
 
   // Undo dismiss functionality
-  Map<String, Map<String, dynamic>> _recentlyDismissedGames = {}; // Track recently dismissed games with full game data
+  Map<String, Map<String, dynamic>> _recentlyDismissedGames =
+      {}; // Track recently dismissed games with full game data
   Timer? _undoTimer;
   Timer? _countdownTimer; // Timer to update countdown display
   bool _isLoading = true;
@@ -459,8 +460,12 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     try {
       if (_currentUser?.id == null) return;
 
+      print(
+          '🏠 OFFICIAL HOME: Loading pending invitations for user: ${_currentUser!.id}');
       final invitations =
           await _crewRepo.getPendingInvitations(_currentUser!.id);
+      print(
+          '🏠 OFFICIAL HOME: Found ${invitations.length} pending invitations');
       if (mounted) {
         setState(() {
           _pendingInvitationsCount = invitations.length;
@@ -665,8 +670,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
         // Check if this official is included in the game's selection criteria
         if (await _isOfficialIncludedInGameAsync(game, currentOfficialId)) {
           // Check if official is already confirmed for this game
-          final confirmedOfficials = await _gameService
-              .getConfirmedOfficialsForGame(gameId);
+          final confirmedOfficials =
+              await _gameService.getConfirmedOfficialsForGame(gameId);
           final isAlreadyConfirmed = confirmedOfficials
               .any((official) => official['id'] == currentOfficialId);
 
@@ -1357,7 +1362,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   children: [
                     Icon(Icons.visibility_off, color: Colors.orange),
                     SizedBox(width: 8),
-                    Text('View Dismissed Games', style: TextStyle(color: Colors.white)),
+                    Text('View Dismissed Games',
+                        style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -1740,7 +1746,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     return result;
   }
 
-  List<List<Map<String, dynamic>>> _getGroupedGames(List<Map<String, dynamic>> games) {
+  List<List<Map<String, dynamic>>> _getGroupedGames(
+      List<Map<String, dynamic>> games) {
     final linkedGroups = <String, List<Map<String, dynamic>>>{};
     final unlinkedGames = <Map<String, dynamic>>[];
 
@@ -2852,11 +2859,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 // Games List
                 Expanded(
                   child: dismissedAvailableGames.isEmpty
-                      ? _buildEmptyState('No dismissed games available', Icons.visibility_off)
+                      ? _buildEmptyState(
+                          'No dismissed games available', Icons.visibility_off)
                       : ListView.builder(
-                          itemCount: _getGroupedGames(dismissedAvailableGames).length,
+                          itemCount:
+                              _getGroupedGames(dismissedAvailableGames).length,
                           itemBuilder: (context, index) {
-                            final group = _getGroupedGames(dismissedAvailableGames)[index];
+                            final group = _getGroupedGames(
+                                dismissedAvailableGames)[index];
                             if (group.length == 1) {
                               // Single game
                               return _buildDismissedGameCard(group[0]);
@@ -2912,7 +2922,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -2981,32 +2992,32 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
               const SizedBox(height: 12),
 
-                      // Officials needed and action buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${game['officialsHired'] ?? 0} of ${game['officialsRequired'] ?? 0} officials confirmed',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[400],
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              TextButton.icon(
-                                onPressed: () => _reshowGame(game),
-                                icon: const Icon(Icons.visibility, size: 16),
-                                label: const Text('Re-show'),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.green,
-                                  textStyle: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+              // Officials needed and action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${game['officialsHired'] ?? 0} of ${game['officialsRequired'] ?? 0} officials confirmed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[400],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _reshowGame(game),
+                        icon: const Icon(Icons.visibility, size: 16),
+                        label: const Text('Re-show'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.green,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
                       ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -3097,7 +3108,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       Row(
                         children: [
                           Icon(Icons.calendar_today,
-                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                              size: 14,
+                              color: colorScheme.onSurface.withOpacity(0.7)),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -3116,7 +3128,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       Row(
                         children: [
                           Icon(Icons.access_time,
-                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                              size: 14,
+                              color: colorScheme.onSurface.withOpacity(0.7)),
                           const SizedBox(width: 4),
                           Text(
                             _formatGameTime(game),
@@ -3127,7 +3140,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                           ),
                           const SizedBox(width: 12),
                           Icon(Icons.location_on,
-                              size: 14, color: colorScheme.onSurface.withOpacity(0.7)),
+                              size: 14,
+                              color: colorScheme.onSurface.withOpacity(0.7)),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -3249,8 +3263,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
             Builder(
               builder: (context) {
                 // Find the most recently dismissed game
-                final mostRecentEntry = _recentlyDismissedGames.entries
-                    .reduce((a, b) {
+                final mostRecentEntry =
+                    _recentlyDismissedGames.entries.reduce((a, b) {
                   final aTime = a.value['_dismissedAt'] as DateTime;
                   final bTime = b.value['_dismissedAt'] as DateTime;
                   return aTime.isAfter(bTime) ? a : b;
@@ -3258,19 +3272,25 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                 final gameId = mostRecentEntry.key;
                 final dismissedGame = mostRecentEntry.value;
                 final dismissedTime = dismissedGame['_dismissedAt'] as DateTime;
-                final secondsLeft = 4 - DateTime.now().difference(dismissedTime).inSeconds;
+                final secondsLeft =
+                    4 - DateTime.now().difference(dismissedTime).inSeconds;
                 final canUndo = secondsLeft > 0;
 
                 return GestureDetector(
                   onTap: canUndo ? () => _undoDismiss(gameId) : null,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: canUndo ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      color: canUndo
+                          ? Colors.red.withOpacity(0.1)
+                          : Colors.grey.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: canUndo ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+                        color: canUndo
+                            ? Colors.red.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.3),
                       ),
                     ),
                     child: Row(
@@ -3291,7 +3311,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                           ),
                         ),
                         Text(
-                          secondsLeft > 0 ? 'Undo (${secondsLeft}s)' : 'Expired',
+                          secondsLeft > 0
+                              ? 'Undo (${secondsLeft}s)'
+                              : 'Expired',
                           style: TextStyle(
                             color: canUndo ? Colors.red : Colors.grey,
                             fontWeight: FontWeight.bold,
@@ -5363,7 +5385,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
           action: SnackBarAction(
             label: 'Undo',
             textColor: Colors.white,
-            onPressed: () => _undoClaimGame(game, wasInAvailable, currentUser.id),
+            onPressed: () =>
+                _undoClaimGame(game, wasInAvailable, currentUser.id),
           ),
         ),
       );
@@ -5378,12 +5401,14 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     }
   }
 
-  void _undoClaimGame(Map<String, dynamic> game, bool wasInAvailable, String userId) async {
+  void _undoClaimGame(
+      Map<String, dynamic> game, bool wasInAvailable, String userId) async {
     final gameId = game['id'] as String?;
     if (gameId == null) return;
 
     // Remove official from game's confirmed officials list
-    final removeSuccess = await _gameService.removeConfirmedOfficial(gameId, userId);
+    final removeSuccess =
+        await _gameService.removeConfirmedOfficial(gameId, userId);
 
     if (removeSuccess) {
       // Remove from confirmed games in UI
@@ -5416,7 +5441,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Claim undone - ${game['sport']} game returned to Available'),
+          content: Text(
+              'Claim undone - ${game['sport']} game returned to Available'),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
         ),
@@ -5460,7 +5486,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       final gameId = game['id'] as String?;
       if (gameId == null) continue;
 
-      final success = await _gameService.addConfirmedOfficial(gameId, officialData);
+      final success =
+          await _gameService.addConfirmedOfficial(gameId, officialData);
       if (success) {
         // Move game from available to confirmed
         setState(() {
@@ -5493,7 +5520,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully claimed all ${linkedGames.length} linked games!'),
+          content: Text(
+              'Successfully claimed all ${linkedGames.length} linked games!'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -5501,7 +5529,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to claim some games: ${failedGames.join(', ')}. Please try again.'),
+          content: Text(
+              'Failed to claim some games: ${failedGames.join(', ')}. Please try again.'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -5529,7 +5558,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                   Row(
                     children: [
                       Icon(Icons.link,
-                          color: Theme.of(context).colorScheme.primary, size: 24),
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 24),
                       const SizedBox(width: 8),
                       Text(
                         'Claim Linked Games',
@@ -5555,7 +5585,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
-                        height: linkedGames.length > 3 ? 200 : linkedGames.length * 100.0,
+                        height: linkedGames.length > 3
+                            ? 200
+                            : linkedGames.length * 100.0,
                         child: ListView.builder(
                           itemCount: linkedGames.length,
                           itemBuilder: (context, index) {
@@ -5566,7 +5598,8 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                border: Border.all(
+                                    color: Colors.blue.withOpacity(0.3)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -5576,7 +5609,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: Theme.of(context).colorScheme.onSurface,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -5585,7 +5620,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontStyle: FontStyle.italic,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -5621,7 +5658,9 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
                         child: Text(
                           'Cancel',
                           style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -5688,8 +5727,6 @@ class _OfficialHomeScreenState extends State<OfficialHomeScreen> {
       },
     );
   }
-
-
 
   // Calendar helper methods
   Map<DateTime, List<Map<String, dynamic>>> _getGamesByDate() {

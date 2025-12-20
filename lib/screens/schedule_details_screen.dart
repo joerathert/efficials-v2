@@ -23,6 +23,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
   bool _hasInitialized = false; // Track if we've initialized from route args
   String? associatedTemplateName; // Store the associated template name
   bool isLoadingTemplate = false; // Track template loading state
+  DateTime? _initialDate; // Date to initially focus calendar on
+  bool _gameJustPublished = false; // Flag indicating a game was just published
   final GameService _gameService = GameService();
 
   // Helper function to check if two dates are the same day
@@ -41,6 +43,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
       scheduleName = args['scheduleName'] as String?;
       scheduleId = args['scheduleId'] as String?;
+      _initialDate = args['initialDate'] as DateTime?;
+      _gameJustPublished = args['gamePublished'] == true;
 
       // If scheduleId is null but we have a scheduleName, try to look it up
       if (scheduleId == null && scheduleName != null) {
@@ -71,12 +75,35 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
     if (scheduleName == null) return;
 
     try {
-      // Mock implementation - in a real app, this would query a schedule service
-      // For now, we'll just set a default schedule ID
-      scheduleId = "1"; // Mock ID
-      debugPrint('SCHEDULE SCREEN: Using mock scheduleId: $scheduleId');
+      debugPrint(
+          'SCHEDULE SCREEN: Looking up scheduleId for name: $scheduleName');
+
+      // Query Firestore to find the schedule by name
+      final gameService = GameService();
+      final schedules = await gameService.getSchedules();
+
+      // Find the schedule with matching name
+      ScheduleData? matchingSchedule;
+      try {
+        matchingSchedule = schedules.firstWhere(
+          (schedule) => schedule['name'] == scheduleName,
+        );
+      } catch (e) {
+        matchingSchedule = null;
+      }
+
+      if (matchingSchedule != null) {
+        scheduleId = matchingSchedule['id'] as String?;
+        debugPrint(
+            'SCHEDULE SCREEN: Found scheduleId: $scheduleId for name: $scheduleName');
+      } else {
+        debugPrint(
+            'SCHEDULE SCREEN: No schedule found with name: $scheduleName');
+        scheduleId = null;
+      }
     } catch (e) {
       debugPrint('SCHEDULE SCREEN: Error looking up scheduleId: $e');
+      scheduleId = null;
     }
   }
 
@@ -162,18 +189,57 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           '✅ SCHEDULE DETAILS: Found ${templateAssociations.length} template associations');
 
       if (mounted) {
-        setState(() {
-          if (templateAssociations.isNotEmpty) {
-            // Get the most recent association
-            final association = templateAssociations.first;
-            final templateData =
-                association['templateData'] as Map<String, dynamic>?;
-            associatedTemplateName = templateData?['name'] as String?;
+        if (templateAssociations.isNotEmpty) {
+          // Get the most recent association
+          final association = templateAssociations.first;
+          final templateId = association['templateId'] as String?;
+
+          // Verify the template still exists by checking if we can get it
+          if (templateId != null) {
+            try {
+              final template = await _gameService.getTemplate(templateId);
+              if (template != null) {
+                // Template still exists, show it
+                final templateData =
+                    association['templateData'] as Map<String, dynamic>?;
+                setState(() {
+                  associatedTemplateName = templateData?['name'] as String?;
+                  isLoadingTemplate = false;
+                });
+                debugPrint(
+                    '✅ SCHEDULE DETAILS: Template still exists: $associatedTemplateName');
+              } else {
+                // Template no longer exists, clean up the association
+                debugPrint(
+                    '⚠️ SCHEDULE DETAILS: Template $templateId no longer exists, cleaning up association');
+                await _gameService.removeTemplateAssociation(scheduleName!);
+                setState(() {
+                  associatedTemplateName = null;
+                  isLoadingTemplate = false;
+                });
+              }
+            } catch (e) {
+              debugPrint(
+                  '❌ SCHEDULE DETAILS: Error verifying template existence: $e');
+              // If we can't verify, assume it doesn't exist and clean up
+              await _gameService.removeTemplateAssociation(scheduleName!);
+              setState(() {
+                associatedTemplateName = null;
+                isLoadingTemplate = false;
+              });
+            }
           } else {
-            associatedTemplateName = null;
+            setState(() {
+              associatedTemplateName = null;
+              isLoadingTemplate = false;
+            });
           }
-          isLoadingTemplate = false;
-        });
+        } else {
+          setState(() {
+            associatedTemplateName = null;
+            isLoadingTemplate = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint('❌ SCHEDULE DETAILS: Error loading associated template: $e');
@@ -307,14 +373,15 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
               }
             }
 
-            // Focus on the month containing the next upcoming game, or first game if all are past
-            _focusedDay = nextGameDate ?? games.first['date'] as DateTime;
+            // Focus on the initial date (if provided), otherwise next upcoming game, or first game if all are past
+            _focusedDay =
+                _initialDate ?? nextGameDate ?? games.first['date'] as DateTime;
 
             // Don't auto-select any date - let user manually select
             _selectedDay = null;
             _selectedDayGames = [];
           } else {
-            _focusedDay = DateTime.now();
+            _focusedDay = _initialDate ?? DateTime.now();
           }
 
           isLoading = false;
@@ -439,6 +506,13 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
 
   Future<void> _createGame(DateTime selectedDate, bool isAway) async {
     if (!mounted) return;
+
+    // Ensure scheduleId is available before proceeding
+    if (scheduleId == null && scheduleName != null) {
+      debugPrint(
+          'SCHEDULE SCREEN: scheduleId not available, looking it up before game creation');
+      await _lookupScheduleId();
+    }
 
     // Check for associated template in Firestore
     final gameService = GameService();
@@ -596,19 +670,11 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () async {
-            // Check if we can pop back to the previous screen
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              // Fallback to user home screen if navigation stack is empty
-              final authService = AuthService();
-              final homeRoute = await authService.getHomeRoute();
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                homeRoute,
-                (route) => false,
-              );
-            }
+            // Always navigate to assigner home screen instead of popping back to Additional Game Info
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/assigner_home',
+              (route) => false, // Clear navigation stack
+            );
           },
         ),
       ),
@@ -680,7 +746,8 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
                                         await _showTemplateDetails();
                                       },
                                       child: Text(
-                                        associatedTemplateName ?? 'Unknown Template',
+                                        associatedTemplateName ??
+                                            'Unknown Template',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -1224,7 +1291,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
         children: [
           // Template selection button (above)
           Positioned(
-            bottom: 120, // Position above the main FAB
+            bottom: 100, // Position above the main FAB
             right: (MediaQuery.of(context).size.width -
                         (MediaQuery.of(context).size.width > 550
                             ? 550
@@ -1255,7 +1322,7 @@ class _ScheduleDetailsScreenState extends State<ScheduleDetailsScreen> {
           ),
           // Add game button (below)
           Positioned(
-            bottom: 40,
+            bottom: 20,
             right: (MediaQuery.of(context).size.width -
                         (MediaQuery.of(context).size.width > 550
                             ? 550

@@ -417,7 +417,7 @@ class _AdditionalGameInfoCondensedScreenState
                             child: Text(
                               _isAwayGame
                                   ? 'For away games, this will automatically be set to your school name'
-                                  : 'Enter your opponent\'s team name and mascot. Ex - "Greenville Lancers"',
+                                  : 'Enter your opponent\'s team name and mascot.\nEx. - "Greenville Lancers"',
                               style: TextStyle(
                                 color: colorScheme.onSurfaceVariant,
                                 fontSize: 12,

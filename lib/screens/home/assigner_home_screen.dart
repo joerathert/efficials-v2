@@ -81,7 +81,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           _pendingBackoutCount = backouts.length;
         });
       }
-      debugPrint('🔔 ASSIGNER HOME: Loaded $_pendingBackoutCount pending backouts');
+      debugPrint(
+          '🔔 ASSIGNER HOME: Loaded $_pendingBackoutCount pending backouts');
     } catch (e) {
       debugPrint('🔴 ASSIGNER HOME: Error loading pending backouts: $e');
       if (mounted) {
@@ -112,7 +113,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       // Extract sport and league name from scheduler profile
       if (currentUser.schedulerProfile != null) {
         sport = currentUser.schedulerProfile!.sport;
-        leagueName = currentUser.schedulerProfile!.organizationName ?? 'Organization';
+        leagueName =
+            currentUser.schedulerProfile!.organizationName ?? 'Organization';
       }
 
       if (mounted) {
@@ -132,7 +134,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       }
     }
   }
-
 
   Future<void> _loadUnreadNotificationCount() async {
     try {
@@ -163,25 +164,31 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   Future<void> _loadGamesNeedingOfficials() async {
     try {
       final games = await _gameService.getPublishedGames();
+      final unpublishedGames = await _gameService.getUnpublishedGames();
+      debugPrint('🏠 Found ${unpublishedGames.length} unpublished games');
 
       final gamesNeedingOfficials = <Map<String, dynamic>>[];
 
       for (final game in games) {
-        debugPrint('🏠 CHECKING game ${game['id']}: sport=${game['sport']}, status=${game['status']}');
+        debugPrint(
+            '🏠 CHECKING game ${game['id']}: sport=${game['sport']}, status=${game['status']}');
 
         final officialsHired = game['officialsHired'] as int? ?? 0;
         final officialsRequired = game['officialsRequired'] as int? ?? 0;
         final needsOfficials = officialsHired < officialsRequired;
         final hasDate = game['date'] != null;
 
-        debugPrint('🏠 GAME ${game['id']}: hired=$officialsHired, required=$officialsRequired, needsOfficials=$needsOfficials, hasDate=$hasDate');
+        debugPrint(
+            '🏠 GAME ${game['id']}: hired=$officialsHired, required=$officialsRequired, needsOfficials=$needsOfficials, hasDate=$hasDate');
 
         // Parse date properly - it comes from Firestore as a string
         DateTime? gameDate;
         if (hasDate) {
           try {
             final dateValue = game['date'];
-            gameDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+            gameDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
             debugPrint('🏠 GAME ${game['id']}: parsed date = $gameDate');
           } catch (e) {
             debugPrint('🏠 ERROR parsing game date: $e');
@@ -192,69 +199,43 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
         final isFuture = gameDate != null && gameDate.isAfter(DateTime.now());
         debugPrint('🏠 GAME ${game['id']}: isFuture = $isFuture');
 
-        final hasScheduleId = game['scheduleId'] != null && game['scheduleId'].toString().isNotEmpty;
-        debugPrint('🏠 GAME ${game['id']}: scheduleId = ${game['scheduleId']}, hasScheduleId = $hasScheduleId');
+        final hasScheduleId = game['scheduleId'] != null &&
+            game['scheduleId'].toString().isNotEmpty;
+        debugPrint(
+            '🏠 GAME ${game['id']}: scheduleId = ${game['scheduleId']}, hasScheduleId = $hasScheduleId');
 
         // Debug: Check time field and link data
-        debugPrint('🏠 GAME ${game['id']}: time = ${game['time']}, linkGroupId = ${game['linkGroupId']}, scheduleId = ${game['scheduleId']}, scheduleName = ${game['scheduleName']}');
+        debugPrint(
+            '🏠 GAME ${game['id']}: time = ${game['time']}, linkGroupId = ${game['linkGroupId']}, scheduleId = ${game['scheduleId']}, scheduleName = ${game['scheduleName']}');
 
         // Include games that need officials and are in the future
         if (needsOfficials && hasDate && isFuture) {
-          // If game has a scheduleId, validate that the schedule exists
+          // Validate that the schedule exists using scheduleId
           if (hasScheduleId) {
             try {
-              debugPrint('🏠 VALIDATING schedule for game ${game['id']}: scheduleId = ${game['scheduleId']}');
-              final schedule = await _gameService.getSchedule(game['scheduleId']);
+              debugPrint(
+                  '🏠 VALIDATING schedule for game ${game['id']}: scheduleId = ${game['scheduleId']}');
+              final schedule =
+                  await _gameService.getSchedule(game['scheduleId']);
               if (schedule != null) {
-                debugPrint('🏠 SCHEDULE EXISTS for game ${game['id']} - including in list');
+                debugPrint(
+                    '🏠 SCHEDULE EXISTS for game ${game['id']} - including in list');
                 gamesNeedingOfficials.add(game); // Include if schedule exists
               } else {
-                debugPrint('🏠 SCHEDULE DOES NOT EXIST for game ${game['id']} - excluding orphaned game');
+                debugPrint(
+                    '🏠 SCHEDULE DOES NOT EXIST for game ${game['id']} - excluding orphaned game');
               }
             } catch (e) {
-              debugPrint('🏠 ERROR validating schedule for game ${game['id']}: $e');
+              debugPrint(
+                  '🏠 ERROR validating schedule for game ${game['id']}: $e');
             }
           } else {
-            // Game has no scheduleId - try to find schedule by name
-            final scheduleName = game['scheduleName'] as String?;
-            if (scheduleName != null && scheduleName.isNotEmpty) {
-              try {
-                debugPrint('🏠 LOOKING UP schedule by name "${scheduleName}" for game ${game['id']}');
-                // Try to find schedule by name (this is a fallback for legacy games)
-                final userSchedules = await _gameService.getSchedules();
-                debugPrint('🏠 USER HAS ${userSchedules.length} schedules');
-
-                // Check each schedule name for debugging
-                for (final schedule in userSchedules) {
-                  debugPrint('🏠 AVAILABLE SCHEDULE: "${schedule['name']}" (id: ${schedule['id']})');
-                }
-
-                ScheduleData? matchingSchedule;
-                try {
-                  matchingSchedule = userSchedules.firstWhere(
-                    (schedule) => schedule['name'] == scheduleName,
-                  );
-                } catch (e) {
-                  // No matching schedule found
-                  matchingSchedule = null;
-                }
-
-                if (matchingSchedule != null) {
-                  debugPrint('🏠 FOUND SCHEDULE by name "${scheduleName}" for game ${game['id']} - including in list');
-                  gamesNeedingOfficials.add(game); // Include if we found the schedule by name
-                } else {
-                  debugPrint('🏠 NO SCHEDULE found by name "${scheduleName}" for game ${game['id']} - excluding as orphaned');
-                  debugPrint('🏠 Expected to find schedule with name: "${scheduleName}"');
-                }
-              } catch (e) {
-                debugPrint('🏠 ERROR looking up schedule by name for game ${game['id']}: $e');
-              }
-            } else {
-              debugPrint('🏠 GAME ${game['id']} has no scheduleId or scheduleName - excluding as orphaned');
-            }
+            debugPrint(
+                '🏠 GAME ${game['id']} has no scheduleId - excluding as orphaned');
           }
         } else {
-          debugPrint('🏠 GAME ${game['id']} excluded: needsOfficials=$needsOfficials, hasDate=$hasDate, isFuture=$isFuture');
+          debugPrint(
+              '🏠 GAME ${game['id']} excluded: needsOfficials=$needsOfficials, hasDate=$hasDate, isFuture=$isFuture');
         }
       }
 
@@ -262,14 +243,21 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
         try {
           final aDateValue = a['date'];
           final bDateValue = b['date'];
-          final aDate = aDateValue is DateTime ? aDateValue : DateTime.parse(aDateValue.toString());
-          final bDate = bDateValue is DateTime ? bDateValue : DateTime.parse(bDateValue.toString());
+          final aDate = aDateValue is DateTime
+              ? aDateValue
+              : DateTime.parse(aDateValue.toString());
+          final bDate = bDateValue is DateTime
+              ? bDateValue
+              : DateTime.parse(bDateValue.toString());
           return aDate.compareTo(bDate);
         } catch (e) {
           debugPrint('🏠 ERROR sorting games by date: $e');
           return 0;
         }
       });
+
+      debugPrint(
+          '🏠 FINAL RESULT: ${gamesNeedingOfficials.length} games needing officials out of ${games.length} total published games');
 
       if (mounted) {
         setState(() {
@@ -343,7 +331,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
     if (isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.darkBackground,
-        body: Center(child: CircularProgressIndicator(color: AppColors.efficialsYellow)),
+        body: Center(
+            child: CircularProgressIndicator(color: AppColors.efficialsYellow)),
       );
     }
 
@@ -372,8 +361,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   color: AppColors.efficialsYellow,
                 ),
                 onPressed: () {
-                  Navigator.pushNamed(context, '/notifications')
-                      .then((_) {
+                  Navigator.pushNamed(context, '/notifications').then((_) {
                     // Refresh the backout count when returning
                     _loadPendingBackoutCount();
                   });
@@ -436,7 +424,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.sports, color: AppColors.efficialsYellow),
+              leading:
+                  const Icon(Icons.sports, color: AppColors.efficialsYellow),
               title: const Text('Officials Assignment',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -449,7 +438,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.schedule, color: AppColors.efficialsYellow),
+              leading:
+                  const Icon(Icons.schedule, color: AppColors.efficialsYellow),
               title: const Text('Manage Schedules',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -462,7 +452,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.unpublished, color: AppColors.efficialsYellow),
+              leading: const Icon(Icons.unpublished,
+                  color: AppColors.efficialsYellow),
               title: Row(
                 children: [
                   const Text('Unpublished Games',
@@ -470,7 +461,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   if (_unpublishedGamesCount > 0) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.orange,
                         borderRadius: BorderRadius.circular(10),
@@ -498,7 +490,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
             ListTile(
               leading: Stack(
                 children: [
-                  const Icon(Icons.notification_important, color: AppColors.efficialsYellow),
+                  const Icon(Icons.notification_important,
+                      color: AppColors.efficialsYellow),
                   if (_pendingBackoutCount > 0)
                     Positioned(
                       right: -2,
@@ -538,7 +531,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.people, color: AppColors.efficialsYellow),
+              leading:
+                  const Icon(Icons.people, color: AppColors.efficialsYellow),
               title: const Text('Manage Officials',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -562,7 +556,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.location_on, color: AppColors.efficialsYellow),
+              leading: const Icon(Icons.location_on,
+                  color: AppColors.efficialsYellow),
               title: const Text('Manage Locations',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -571,9 +566,10 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.settings, color: AppColors.efficialsYellow),
-              title: const Text('Settings',
-                  style: TextStyle(color: Colors.white)),
+              leading:
+                  const Icon(Icons.settings, color: AppColors.efficialsYellow),
+              title:
+                  const Text('Settings', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
@@ -589,7 +585,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.upload_file, color: AppColors.efficialsYellow),
+              leading: const Icon(Icons.upload_file,
+                  color: AppColors.efficialsYellow),
               title: const Text('Bulk Import Games',
                   style: TextStyle(color: Colors.white)),
               onTap: () {
@@ -689,14 +686,16 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                                                   style: const TextStyle(
                                                     fontSize: 18,
                                                     fontWeight: FontWeight.bold,
-                                                    color: AppColors.efficialsBlack,
+                                                    color: AppColors
+                                                        .efficialsBlack,
                                                   ),
                                                 ),
                                                 Text(
                                                   '${sport ?? 'Unknown'} Assigner',
                                                   style: const TextStyle(
                                                     fontSize: 14,
-                                                    color: AppColors.efficialsBlack,
+                                                    color: AppColors
+                                                        .efficialsBlack,
                                                   ),
                                                 ),
                                               ],
@@ -764,7 +763,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
   }
 
   Widget _buildGamesNeedingOfficialsSection() {
-    debugPrint('🏠 _buildGamesNeedingOfficialsSection called with ${_gamesNeedingOfficials.length} games');
+    debugPrint(
+        '🏠 _buildGamesNeedingOfficialsSection called with ${_gamesNeedingOfficials.length} games');
     if (_gamesNeedingOfficials.isEmpty) {
       debugPrint('🏠 Games list is empty, showing empty state');
       // Check if there are any schedules at all
@@ -796,7 +796,9 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
           if (game['date'] == null) return false;
           try {
             final dateValue = game['date'];
-            final gameDate = dateValue is DateTime ? dateValue : DateTime.parse(dateValue.toString());
+            final gameDate = dateValue is DateTime
+                ? dateValue
+                : DateTime.parse(dateValue.toString());
             return gameDate.isAfter(now);
           } catch (e) {
             debugPrint('🏠 ERROR parsing date in empty state check: $e');
@@ -806,15 +808,22 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       }).catchError((_) => false);
 
       // Also check for unpublished games
-      final hasUnpublishedGames = _gameService.getUnpublishedGames().then((games) {
+      final hasUnpublishedGames =
+          _gameService.getUnpublishedGames().then((games) {
         return games.isNotEmpty;
       }).catchError((_) => false);
 
       return FutureBuilder<List<bool>>(
-        future: Future.wait([hasAnySchedules, hasAnyGamesAtAll, hasAnyUpcomingGames, hasUnpublishedGames]),
+        future: Future.wait([
+          hasAnySchedules,
+          hasAnyGamesAtAll,
+          hasAnyUpcomingGames,
+          hasUnpublishedGames
+        ]),
         builder: (context, snapshot) {
           // Show loading state while waiting for all futures to complete
-          if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting ||
+              !snapshot.hasData) {
             return Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -884,7 +893,7 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Get started by creating your first team schedule. Build schedules to organize your games and assign officials.',
+                    'Get started by creating your first team schedule to organize your games and hire officials.',
                     style: TextStyle(
                       fontSize: 14,
                       color: secondaryTextColor,
@@ -894,7 +903,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/assigner_manage_schedules');
+                      Navigator.pushNamed(
+                          context, '/assigner_manage_schedules');
                     },
                     icon: const Icon(Icons.schedule),
                     label: const Text('Create Schedule'),
@@ -948,7 +958,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/assigner_manage_schedules');
+                      Navigator.pushNamed(
+                          context, '/assigner_manage_schedules');
                     },
                     icon: const Icon(Icons.schedule),
                     label: const Text('Go to Schedule'),
@@ -1033,8 +1044,12 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
             child: Column(
               children: [
                 Icon(
-                  hasUpcomingGames && !hasUnpublished ? Icons.check_circle : Icons.calendar_today,
-                  color: hasUpcomingGames && !hasUnpublished ? Colors.green : AppColors.efficialsYellow,
+                  hasUpcomingGames && !hasUnpublished
+                      ? Icons.check_circle
+                      : Icons.calendar_today,
+                  color: hasUpcomingGames && !hasUnpublished
+                      ? Colors.green
+                      : AppColors.efficialsYellow,
                   size: 48,
                 ),
                 const SizedBox(height: 12),
@@ -1071,7 +1086,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/unpublished-games').then((_) {
+                      Navigator.pushNamed(context, '/unpublished-games')
+                          .then((_) {
                         _loadUnpublishedGamesCount();
                         _loadGamesNeedingOfficials();
                       });
@@ -1090,7 +1106,8 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       );
     }
 
-    debugPrint('🏠 Games list is NOT empty, showing ${_gamesNeedingOfficials.length} games');
+    debugPrint(
+        '🏠 Games list is NOT empty, showing ${_gamesNeedingOfficials.length} games');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1149,7 +1166,6 @@ class _AssignerHomeScreenState extends State<AssignerHomeScreen>
       }
     });
   }
-
 
   void _handleLogout() {
     showDialog(

@@ -45,6 +45,8 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
   Map<String, Map<String, dynamic>> selectedSports = {};
   // Maintain order of sports (most recently added first)
   List<String> sportsOrder = [];
+  // Track which sports are expanded (only most recently added by default)
+  Set<String> expandedSports = {};
 
   // Experience notifiers for reactive updates
   final Map<String, SportExperienceNotifier> _experienceNotifiers = {};
@@ -88,6 +90,11 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
         selectedSports = Map<String, Map<String, dynamic>>.from(previousSports);
         // Initialize order with existing sports (most recently added first)
         sportsOrder = previousSports.keys.toList().reversed.toList();
+        // Only expand the most recently added sport (first in the order list)
+        expandedSports.clear();
+        if (sportsOrder.isNotEmpty) {
+          expandedSports.add(sportsOrder.first);
+        }
       });
       // Scroll to top after initialization
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -114,6 +121,9 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
         _experienceNotifiers[sport] = SportExperienceNotifier(null);
         // Add to the beginning of the order list so it appears at the top
         sportsOrder.insert(0, sport);
+        // Collapse all existing sports and expand only the newly added sport
+        expandedSports.clear();
+        expandedSports.add(sport);
       });
       // Scroll to top to show the new sport
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -132,6 +142,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
     setState(() {
       selectedSports.remove(sport);
       sportsOrder.remove(sport);
+      expandedSports.remove(sport);
       _experienceNotifiers[sport]?.dispose();
       _experienceNotifiers.remove(sport);
       _experienceControllers[sport]?.dispose();
@@ -508,6 +519,7 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
   Widget _buildSportCard(String sport, Map<String, dynamic> sportData) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isExpanded = expandedSports.contains(sport);
 
     return Card(
       color: theme.brightness == Brightness.dark
@@ -522,215 +534,296 @@ class _OfficialStep3ScreenState extends State<OfficialStep3Screen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+              // Collapsed view - just sport name and expand/collapse controls
+              if (!isExpanded)
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      expandedSports.add(sport);
+                    });
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        sport,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: theme.brightness == Brightness.dark
-                              ? colorScheme.primary // Yellow in dark mode
-                              : colorScheme.onBackground, // Dark in light mode
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            sport,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.brightness == Brightness.dark
+                                  ? colorScheme.primary // Yellow in dark mode
+                                  : colorScheme
+                                      .onBackground, // Dark in light mode
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.expand_more,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => _removeSport(sport),
+                            icon: Icon(
+                              Icons.delete,
+                              color: theme.brightness == Brightness.dark
+                                  ? Colors.red[400]
+                                  : Colors.red,
+                              size: 20,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  IconButton(
-                    onPressed: () => _removeSport(sport),
-                    icon: Icon(
-                      Icons.delete,
-                      color: theme.brightness == Brightness.dark
-                          ? Colors.red[400]
-                          : Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Years of Experience Field (moved up)
-              SizedBox(
-                width: 240,
-                child: TextFormField(
-                  controller: _experienceControllers.putIfAbsent(
-                      sport,
-                      () => TextEditingController(
-                          text: sportData['experience'] == null
-                              ? ''
-                              : sportData['experience'].toString())),
-                  decoration: InputDecoration(
-                    labelText: 'Years of Experience',
-                    hintText: 'Set years of experience',
-                    labelStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: theme.brightness == Brightness.dark
-                            ? colorScheme.primary // Yellow for dark mode
-                            : Colors.black, // Black for light mode
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: theme.brightness == Brightness.dark
-                        ? Colors.grey[700]
-                        : colorScheme.surface,
-                  ),
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 16,
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    final newValue =
-                        value.isEmpty ? null : int.tryParse(value) ?? 0;
-                    sportData['experience'] = newValue;
-                    // Update notifier for any other listeners
-                    if (_experienceNotifiers.containsKey(sport)) {
-                      _experienceNotifiers[sport]!.value = newValue;
-                    }
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Certification Level Dropdown
-              SizedBox(
-                width: 240,
-                child: DropdownButtonFormField<String>(
-                  value: sportData['certification'],
-                  decoration: InputDecoration(
-                    labelText: 'Certification Level',
-                    labelStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: theme.brightness == Brightness.dark
-                            ? colorScheme.primary // Yellow for dark mode
-                            : Colors.black, // Black for light mode
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: theme.brightness == Brightness.dark
-                        ? Colors.grey[700]
-                        : colorScheme.surface,
-                  ),
-                  hint: Text(
-                    'Select certification level',
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  dropdownColor: colorScheme.surface,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 16,
-                  ),
-                  items: certificationLevels.map((level) {
-                    return DropdownMenuItem(
-                      value: level,
-                      child: Text(level),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      sportData['certification'] = value;
-                    });
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Competition Levels
-              Text(
-                'Competition Levels:',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: competitionLevels.map((level) {
-                  final isSelected =
-                      (sportData['competitionLevels'] as List<String>)
-                          .contains(level);
-                  return Container(
-                    width: 240,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: FilterChip(
-                      label: SizedBox(
-                        width: double.infinity,
-                        child: Text(
-                          level,
-                          textAlign: TextAlign.left,
+                )
+              // Expanded view - full form fields
+              else
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              sport,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: theme.brightness == Brightness.dark
+                                    ? colorScheme.primary // Yellow in dark mode
+                                    : colorScheme
+                                        .onBackground, // Dark in light mode
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.expand_less,
+                              color: colorScheme.onSurfaceVariant,
+                              size: 20,
+                            ),
+                          ],
                         ),
-                      ),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            (sportData['competitionLevels'] as List<String>)
-                                .add(level);
-                          } else {
-                            (sportData['competitionLevels'] as List<String>)
-                                .remove(level);
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  expandedSports.remove(sport);
+                                });
+                              },
+                              icon: Icon(
+                                Icons.expand_less,
+                                color: colorScheme.onSurfaceVariant,
+                                size: 20,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => _removeSport(sport),
+                              icon: Icon(
+                                Icons.delete,
+                                color: theme.brightness == Brightness.dark
+                                    ? Colors.red[400]
+                                    : Colors.red,
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Years of Experience Field (moved up)
+                    SizedBox(
+                      width: 240,
+                      child: TextFormField(
+                        controller: _experienceControllers.putIfAbsent(
+                            sport,
+                            () => TextEditingController(
+                                text: sportData['experience'] == null
+                                    ? ''
+                                    : sportData['experience'].toString())),
+                        decoration: InputDecoration(
+                          labelText: 'Years of Experience',
+                          hintText: 'Set years of experience',
+                          labelStyle: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: theme.brightness == Brightness.dark
+                                  ? colorScheme.primary // Yellow for dark mode
+                                  : Colors.black, // Black for light mode
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: theme.brightness == Brightness.dark
+                              ? Colors.grey[700]
+                              : colorScheme.surface,
+                        ),
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 16,
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          final newValue =
+                              value.isEmpty ? null : int.tryParse(value) ?? 0;
+                          sportData['experience'] = newValue;
+                          // Update notifier for any other listeners
+                          if (_experienceNotifiers.containsKey(sport)) {
+                            _experienceNotifiers[sport]!.value = newValue;
                           }
-                        });
-                      },
-                      selectedColor: theme.brightness == Brightness.dark
-                          ? colorScheme.primary
-                          : Colors.black,
-                      backgroundColor: theme.brightness == Brightness.dark
-                          ? Colors.grey[700]
-                          : Colors.grey[200],
-                      checkmarkColor: theme.brightness == Brightness.dark
-                          ? Colors.black
-                          : Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? (theme.brightness == Brightness.dark
-                                ? Colors.black
-                                : Colors.white)
-                            : colorScheme.onSurface,
+                        },
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
+
+                    const SizedBox(height: 16),
+
+                    // Certification Level Dropdown
+                    SizedBox(
+                      width: 240,
+                      child: DropdownButtonFormField<String>(
+                        value: sportData['certification'],
+                        decoration: InputDecoration(
+                          labelText: 'Certification Level',
+                          labelStyle: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: theme.brightness == Brightness.dark
+                                  ? colorScheme.primary // Yellow for dark mode
+                                  : Colors.black, // Black for light mode
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: theme.brightness == Brightness.dark
+                              ? Colors.grey[700]
+                              : colorScheme.surface,
+                        ),
+                        hint: Text(
+                          'Select certification level',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        dropdownColor: colorScheme.surface,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 16,
+                        ),
+                        items: certificationLevels.map((level) {
+                          return DropdownMenuItem(
+                            value: level,
+                            child: Text(level),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            sportData['certification'] = value;
+                          });
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Competition Levels
+                    Text(
+                      'Competition Levels:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: competitionLevels.map((level) {
+                        final isSelected =
+                            (sportData['competitionLevels'] as List<String>)
+                                .contains(level);
+                        return Container(
+                          width: 240,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: FilterChip(
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Text(
+                                level,
+                                textAlign: TextAlign.left,
+                              ),
+                            ),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  (sportData['competitionLevels']
+                                          as List<String>)
+                                      .add(level);
+                                } else {
+                                  (sportData['competitionLevels']
+                                          as List<String>)
+                                      .remove(level);
+                                }
+                              });
+                            },
+                            selectedColor: theme.brightness == Brightness.dark
+                                ? colorScheme.primary
+                                : Colors.black,
+                            backgroundColor: theme.brightness == Brightness.dark
+                                ? Colors.grey[700]
+                                : Colors.grey[200],
+                            checkmarkColor: theme.brightness == Brightness.dark
+                                ? Colors.black
+                                : Colors.white,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? (theme.brightness == Brightness.dark
+                                      ? Colors.black
+                                      : Colors.white)
+                                  : colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

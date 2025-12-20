@@ -207,7 +207,8 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
-    debugPrint('🎯 ADDITIONAL_GAME_INFO: Original homeTeam: ${args['homeTeam']}');
+    debugPrint(
+        '🎯 ADDITIONAL_GAME_INFO: Original homeTeam: ${args['homeTeam']}');
 
     final updatedArgs = {
       ...args,
@@ -225,15 +226,18 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
       'template': template,
     };
 
-    debugPrint('🎯 ADDITIONAL_GAME_INFO: Updated homeTeam: ${updatedArgs['homeTeam']}');
+    debugPrint(
+        '🎯 ADDITIONAL_GAME_INFO: Updated homeTeam: ${updatedArgs['homeTeam']}');
 
     if (_isFromEdit) {
       // Check if officialsRequired has changed - if so, we need to reset selection method
       final originalOfficialsRequired = args['officialsRequired'];
-      final officialsRequiredChanged = _officialsRequired != originalOfficialsRequired;
+      final officialsRequiredChanged =
+          _officialsRequired != originalOfficialsRequired;
 
       if (officialsRequiredChanged) {
-        debugPrint('🎯 ADDITIONAL_GAME_INFO: Officials required changed from $originalOfficialsRequired to $_officialsRequired, resetting selection method');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Officials required changed from $originalOfficialsRequired to $_officialsRequired, resetting selection method');
 
         // Clear any existing selection method data since it may no longer be valid
         updatedArgs.addAll({
@@ -325,8 +329,10 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           template!.selectedLists!.isNotEmpty) {
         debugPrint(
             '🎯 ADDITIONAL_GAME_INFO: Template has pre-configured multiple lists, navigating to review');
-        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
-        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template selectedLists: ${template!.selectedLists}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template selectedLists: ${template!.selectedLists}');
 
         final reviewArgs = {
           ...updatedArgs,
@@ -349,8 +355,10 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
           template!.selectedCrews!.isNotEmpty) {
         debugPrint(
             '🎯 ADDITIONAL_GAME_INFO: Template has pre-selected crew, navigating to review');
-        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
-        debugPrint('🎯 ADDITIONAL_GAME_INFO: Template selectedCrews: ${template!.selectedCrews}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template method: ${template!.method}');
+        debugPrint(
+            '🎯 ADDITIONAL_GAME_INFO: Template selectedCrews: ${template!.selectedCrews}');
 
         final reviewArgs = {
           ...updatedArgs,
@@ -738,7 +746,7 @@ class _AdditionalGameInfoScreenState extends State<AdditionalGameInfoScreen> {
                           const SizedBox(height: 8),
                           Center(
                             child: Text(
-                              'Enter your opponent\'s team name and mascot. Ex - "Greenville Lancers"',
+                              'Enter your opponent\'s team name and mascot.\nEx. - "Greenville Lancers"',
                               style: TextStyle(
                                 color: colorScheme.onSurfaceVariant,
                                 fontSize: 12,

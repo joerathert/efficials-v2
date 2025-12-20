@@ -108,7 +108,8 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
     if (!selectedSports.containsKey(sport)) {
       selectedSports[sport] = {
         'certification': null,
-        'experience': null, // Changed from 0 to null for proper empty field handling
+        'experience':
+            null, // Changed from 0 to null for proper empty field handling
         'competitionLevels': <String>[],
       };
 
@@ -501,7 +502,8 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         final sportName = entry.key;
         final sportData = entry.value;
         sportsData[sportName] = {
-          'certificationLevel': sportData['certification'] ?? 'No Certification',
+          'certificationLevel':
+              sportData['certification'] ?? 'No Certification',
           'yearsExperience': sportData['experience'] ?? 0,
           'competitionLevels': sportData['competitionLevels'] ?? [],
         };
@@ -527,7 +529,8 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
       // Parse work preferences
       double? ratePerGame;
       if (previousData['minRatePerGame'] != null) {
-        final rateString = previousData['minRatePerGame'].toString().replaceAll('\$', '');
+        final rateString =
+            previousData['minRatePerGame'].toString().replaceAll('\$', '');
         ratePerGame = double.tryParse(rateString);
       }
       // Handle maxTravelDistance which might come as int or double
@@ -585,8 +588,7 @@ class _OfficialStep4ScreenState extends State<OfficialStep4Screen> {
         if (result.success && result.user != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Official account created successfully! Welcome to Efficials!'),
+              content: Text('Welcome to Efficials!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),

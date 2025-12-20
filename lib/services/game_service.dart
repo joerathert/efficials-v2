@@ -140,9 +140,98 @@ class GameService extends BaseService {
     }
   }
 
+  Future<GameTemplateModel?> getTemplate(String templateId) async {
+    try {
+      // Get the current authenticated user
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId == null) {
+        debugPrint('⚠️ GAME SERVICE: No authenticated user found');
+        return null;
+      }
+
+      debugPrint('🔍 GAME SERVICE: Fetching template: $templateId');
+
+      // Get the template document directly by ID
+      final docSnapshot = await firestore
+          .collection(FirebaseCollections.gameTemplates)
+          .doc(templateId)
+          .get();
+
+      if (!docSnapshot.exists) {
+        debugPrint('⚠️ GAME SERVICE: Template $templateId does not exist');
+        return null;
+      }
+
+      final data = docSnapshot.data()!;
+
+      // Verify the template belongs to the current user
+      final docCreatedBy = data[FirebaseFields.createdBy];
+      if (docCreatedBy != currentUserId) {
+        debugPrint(
+            '⚠️ GAME SERVICE: Template $templateId does not belong to current user');
+        return null;
+      }
+
+      // Handle createdAt field - could be Timestamp or already a string
+      final rawCreatedAt = data[FirebaseFields.createdAt];
+      String createdAtString;
+
+      if (rawCreatedAt is Timestamp) {
+        createdAtString = rawCreatedAt.toDate().toIso8601String();
+      } else if (rawCreatedAt is String) {
+        createdAtString = rawCreatedAt;
+      } else {
+        throw Exception(
+            'Invalid createdAt format for template $templateId: ${rawCreatedAt.runtimeType}');
+      }
+
+      final templateData = <String, dynamic>{
+        'id': docSnapshot.id,
+        ...data,
+        'createdAt': createdAtString,
+      };
+
+      final template = GameTemplateModel.fromJson(templateData);
+      debugPrint(
+          '✅ GAME SERVICE: Successfully retrieved template: ${template.name}');
+      return template;
+    } catch (e) {
+      debugPrint('🔴 GAME SERVICE: Failed to fetch template $templateId: $e');
+      return null;
+    }
+  }
+
   Future<bool> deleteTemplate(String templateId) async {
     try {
       debugPrint('🗑️ GAME SERVICE: Deleting template: $templateId');
+
+      // First, clean up any template associations that reference this template
+      final authService = AuthService();
+      final currentUserId = authService.currentUser?.uid;
+
+      if (currentUserId != null) {
+        debugPrint(
+            '🧹 GAME SERVICE: Cleaning up template associations for template: $templateId');
+
+        // Query for all associations that reference this templateId
+        final associationsQuery = await firestore
+            .collection('template_associations')
+            .where('userId', isEqualTo: currentUserId)
+            .where('templateId', isEqualTo: templateId)
+            .get();
+
+        // Delete all found associations
+        for (final doc in associationsQuery.docs) {
+          await doc.reference.delete();
+          debugPrint(
+              '🗑️ GAME SERVICE: Deleted association ${doc.id} for template $templateId');
+        }
+
+        debugPrint(
+            '✅ GAME SERVICE: Cleaned up ${associationsQuery.docs.length} template associations');
+      }
 
       // Delete the template from Firestore
       await firestore

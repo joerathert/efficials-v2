@@ -212,7 +212,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
       gameData['officialsHired'] = gameData['officialsHired'] ?? 0;
       gameData['status'] = 'Published';
 
-      debugPrint('🎯 PUBLISH_GAME: Game data prepared: ${gameData['method']}, crew: ${gameData['selectedCrew']?.name ?? 'none'}');
+      debugPrint(
+          '🎯 PUBLISH_GAME: Game data prepared: ${gameData['method']}, crew: ${gameData['selectedCrew']?.name ?? 'none'}');
 
       // Get current user ID and profile
       final authService = AuthService();
@@ -286,7 +287,9 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
           'selectedCrews': gameData['selectedCrews'] is List<Crew>
               ? gameData['selectedCrews'].map((crew) => crew.id).toList()
               : gameData['selectedCrews'],
-          'selectedCrew': gameData['selectedCrew'] is Crew ? gameData['selectedCrew'].id : gameData['selectedCrew'],
+          'selectedCrew': gameData['selectedCrew'] is Crew
+              ? gameData['selectedCrew'].id
+              : gameData['selectedCrew'],
           'selectedListName': gameData['selectedListName'],
           'selectedLists': gameData['selectedLists'],
           'officialsHired': gameData['officialsHired'],
@@ -303,7 +306,8 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
         final firestore = FirebaseFirestore.instance;
         final gameRef = await firestore.collection('games').add(gameDataForDB);
 
-        debugPrint('🎯 PUBLISH_GAME: Game saved to Firestore with ID: ${gameRef.id}');
+        debugPrint(
+            '🎯 PUBLISH_GAME: Game saved to Firestore with ID: ${gameRef.id}');
       } catch (e) {
         debugPrint('🎯 PUBLISH_GAME: Error saving game to Firestore: $e');
         throw Exception('Failed to save game: $e');
@@ -349,10 +353,7 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
               arguments: templateData,
             ).then((result) {
               if (result == true && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Game Template created successfully!')),
-                );
+                // Template created successfully
               }
               _navigateBack();
             });
@@ -507,11 +508,16 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
     debugPrint(
         '_navigateBack called. fromScheduleDetails: $fromScheduleDetails');
     if (fromScheduleDetails) {
-      Navigator.of(context).pushReplacementNamed(
+      // Navigate back to schedule details (calendar view) showing the month of the published game
+      Navigator.of(context).pushNamedAndRemoveUntil(
         '/schedule_details',
+        (route) => false, // Clear navigation stack
         arguments: {
           'scheduleName': args['scheduleName'],
           'scheduleId': scheduleId,
+          'initialDate':
+              args['date'], // Pass the game date to focus the calendar
+          'gamePublished': true, // Flag to indicate a game was just published
         },
       );
     } else {
@@ -749,10 +755,10 @@ class _ReviewGameInfoScreenState extends State<ReviewGameInfoScreen> {
                                               'Unknown Crew'
                                           : (crewData as dynamic).name ??
                                               'Unknown Crew';
-                                  final memberCount =
-                                      crewData is Map<String, dynamic>
-                                          ? crewData['memberCount'] as int? ?? 0
-                                          : (crewData as Crew).members?.length ?? 0;
+                                  final memberCount = crewData
+                                          is Map<String, dynamic>
+                                      ? crewData['memberCount'] as int? ?? 0
+                                      : (crewData as Crew).members?.length ?? 0;
 
                                   return Padding(
                                     padding:

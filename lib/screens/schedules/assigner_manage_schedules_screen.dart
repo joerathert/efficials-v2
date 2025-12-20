@@ -22,7 +22,8 @@ class _AssignerManageSchedulesScreenState
   List<Map<String, dynamic>> games = [];
   bool isLoading = true;
   DateTime _focusedDay = DateTime.now();
-  final TextEditingController _deleteConfirmationController = TextEditingController();
+  final TextEditingController _deleteConfirmationController =
+      TextEditingController();
   DateTime? _selectedDay;
   List<Map<String, dynamic>> _selectedDayGames = [];
   String? assignerSport;
@@ -37,6 +38,21 @@ class _AssignerManageSchedulesScreenState
   bool isSameDay(DateTime? a, DateTime? b) {
     if (a == null || b == null) return false;
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Handle route arguments for focusing on a specific date (e.g., after publishing a game)
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      final initialDate = args['initialDate'] as DateTime?;
+      if (initialDate != null) {
+        _dateToFocus = initialDate;
+      }
+    }
   }
 
   Future<void> _showDeleteScheduleDialog() async {
@@ -116,7 +132,8 @@ class _AssignerManageSchedulesScreenState
               _deleteConfirmationController.clear();
               Navigator.pop(context, false);
             },
-            child: const Text('Cancel', style: TextStyle(color: secondaryTextColor)),
+            child: const Text('Cancel',
+                style: TextStyle(color: secondaryTextColor)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -431,8 +448,9 @@ class _AssignerManageSchedulesScreenState
       final fetchedSchedules = await _gameService.getSchedules();
       setState(() {
         schedules = fetchedSchedules;
-        teams =
-            fetchedSchedules.map((schedule) => schedule['name'] as String).toList();
+        teams = fetchedSchedules
+            .map((schedule) => schedule['name'] as String)
+            .toList();
       });
     } catch (e) {
       debugPrint('Error fetching schedules: $e');
@@ -449,17 +467,52 @@ class _AssignerManageSchedulesScreenState
       final templateAssociations =
           await _gameService.getTemplateAssociations(selectedTeam!);
       if (mounted) {
-        setState(() {
-          if (templateAssociations.isNotEmpty) {
-            // Get the most recent association
-            final association = templateAssociations.first;
-            final templateData =
-                association['templateData'] as Map<String, dynamic>?;
-            associatedTemplateName = templateData?['name'] as String?;
+        if (templateAssociations.isNotEmpty) {
+          // Get the most recent association
+          final association = templateAssociations.first;
+          final templateId = association['templateId'] as String?;
+
+          // Verify the template still exists by checking if we can get it
+          if (templateId != null) {
+            try {
+              final template = await _gameService.getTemplate(templateId);
+              if (template != null) {
+                // Template still exists, show it
+                final templateData =
+                    association['templateData'] as Map<String, dynamic>?;
+                setState(() {
+                  associatedTemplateName = templateData?['name'] as String?;
+                });
+                debugPrint(
+                    '✅ ASSIGNER MANAGE: Template still exists: $associatedTemplateName');
+              } else {
+                // Template no longer exists, clean up the association
+                debugPrint(
+                    '⚠️ ASSIGNER MANAGE: Template $templateId no longer exists, cleaning up association');
+                await _gameService.removeTemplateAssociation(selectedTeam!);
+                setState(() {
+                  associatedTemplateName = null;
+                });
+              }
+            } catch (e) {
+              debugPrint(
+                  '❌ ASSIGNER MANAGE: Error verifying template existence: $e');
+              // If we can't verify, assume it doesn't exist and clean up
+              await _gameService.removeTemplateAssociation(selectedTeam!);
+              setState(() {
+                associatedTemplateName = null;
+              });
+            }
           } else {
-            associatedTemplateName = null;
+            setState(() {
+              associatedTemplateName = null;
+            });
           }
-        });
+        } else {
+          setState(() {
+            associatedTemplateName = null;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading associated template: $e');
@@ -467,6 +520,34 @@ class _AssignerManageSchedulesScreenState
         setState(() {
           associatedTemplateName = null;
         });
+      }
+    }
+  }
+
+  Future<void> _removeAssociatedTemplate() async {
+    if (selectedTeam == null) return;
+
+    try {
+      final success =
+          await _gameService.removeTemplateAssociation(selectedTeam!);
+      if (success && mounted) {
+        // Refresh template information from server to ensure UI consistency
+        await _loadAssociatedTemplate();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template association removed')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to remove template association')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error removing associated template: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error removing template association')),
+        );
       }
     }
   }
@@ -573,28 +654,31 @@ class _AssignerManageSchedulesScreenState
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Manage Schedules', style: appBarTextStyle),
-        actions: selectedTeam != null ? [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _showDeleteScheduleDialog();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete Schedule', style: TextStyle(color: Colors.red)),
+        actions: selectedTeam != null
+            ? [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _showDeleteScheduleDialog();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete Schedule',
+                              style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ] : null,
+              ]
+            : null,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -750,17 +834,19 @@ class _AssignerManageSchedulesScreenState
                               ),
                               if (associatedTemplateName != null) ...[
                                 const SizedBox(height: 8),
-                                Center(
-                                  child: Tooltip(
-                                    message: 'This schedule uses the "$associatedTemplateName" template for new games',
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      constraints: const BoxConstraints(maxWidth: 300),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: AppColors.efficialsYellow.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(12),
+                                        color: AppColors.efficialsYellow
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(16),
                                         border: Border.all(
-                                          color: AppColors.efficialsYellow.withOpacity(0.5),
+                                          color: AppColors.efficialsYellow
+                                              .withOpacity(0.3),
                                           width: 1,
                                         ),
                                       ),
@@ -768,26 +854,43 @@ class _AssignerManageSchedulesScreenState
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            Icons.link,
-                                            size: 14,
+                                            Icons.content_copy,
+                                            size: 16,
                                             color: AppColors.efficialsYellow,
                                           ),
-                                          const SizedBox(width: 4),
-                                          Flexible(
-                                            child: Text(
-                                              'Template: $associatedTemplateName',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.efficialsYellow,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            associatedTemplateName ??
+                                                'Unknown Template',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.efficialsYellow,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: _removeAssociatedTemplate,
+                                      icon: Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: Colors.red.shade600,
+                                      ),
+                                      style: IconButton.styleFrom(
+                                        backgroundColor:
+                                            Colors.red.withOpacity(0.1),
+                                        padding: const EdgeInsets.all(6),
+                                        shape: const CircleBorder(),
+                                        side: BorderSide(
+                                          color: Colors.red.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ],
@@ -911,7 +1014,8 @@ class _AssignerManageSchedulesScreenState
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                             border: Border.all(
-                                                color: AppColors.efficialsYellow,
+                                                color:
+                                                    AppColors.efficialsYellow,
                                                 width: 2),
                                             boxShadow: hasEvents
                                                 ? [
@@ -1017,8 +1121,8 @@ class _AssignerManageSchedulesScreenState
                                                 BorderRadius.circular(4),
                                             border: isSelected
                                                 ? Border.all(
-                                                    color:
-                                                        AppColors.efficialsYellow,
+                                                    color: AppColors
+                                                        .efficialsYellow,
                                                     width: 2)
                                                 : isToday &&
                                                         backgroundColor == null
@@ -1334,8 +1438,9 @@ class _AssignerManageSchedulesScreenState
                                 final templateData = await _gameService
                                     .getTemplateAssociations(selectedTeam!);
                                 if (templateData.isNotEmpty) {
-                                  rawTemplate = templateData.first['templateData']
-                                      as Map<String, dynamic>?;
+                                  rawTemplate =
+                                      templateData.first['templateData']
+                                          as Map<String, dynamic>?;
                                 }
                               }
                             } catch (e) {
@@ -1348,9 +1453,11 @@ class _AssignerManageSchedulesScreenState
                             GameTemplateModel? gameTemplateModel;
                             if (rawTemplate != null) {
                               try {
-                                gameTemplateModel = GameTemplateModel.fromJson(rawTemplate);
+                                gameTemplateModel =
+                                    GameTemplateModel.fromJson(rawTemplate);
                               } catch (e) {
-                                debugPrint('Error converting template Map to GameTemplateModel: $e');
+                                debugPrint(
+                                    'Error converting template Map to GameTemplateModel: $e');
                               }
                             }
 
@@ -1365,23 +1472,30 @@ class _AssignerManageSchedulesScreenState
                             // Handle schedules that don't have homeTeamName set yet
                             // Temporary mapping for existing schedules
                             String homeTeamName;
-                            final scheduleHomeTeamName = selectedSchedule['homeTeamName'];
-                            if (scheduleHomeTeamName is String && scheduleHomeTeamName.isNotEmpty) {
+                            final scheduleHomeTeamName =
+                                selectedSchedule['homeTeamName'];
+                            if (scheduleHomeTeamName is String &&
+                                scheduleHomeTeamName.isNotEmpty) {
                               homeTeamName = scheduleHomeTeamName;
                             } else if (selectedTeam == 'Edwardsville Varsity') {
-                              homeTeamName = 'Edwardsville Tigers'; // Temporary fix
+                              homeTeamName =
+                                  'Edwardsville Tigers'; // Temporary fix
                             } else {
-                              homeTeamName = selectedTeam ?? 'Unknown Team'; // Fallback to schedule name
+                              homeTeamName = selectedTeam ??
+                                  'Unknown Team'; // Fallback to schedule name
                             }
 
                             Map<String, dynamic> routeArgs = {
                               'scheduleName': selectedTeam,
+                              'scheduleId': selectedSchedule['id'],
                               'date': _selectedDay,
                               'fromScheduleDetails': true,
                               'template': gameTemplateModel,
                               'isAssignerFlow': true,
-                              'homeTeam': homeTeamName, // Use the actual team name, not schedule name
-                              'opponent': '', // Opponent will be filled in by user
+                              'homeTeam':
+                                  homeTeamName, // Use the actual team name, not schedule name
+                              'opponent':
+                                  '', // Opponent will be filled in by user
                               'sport': assignerSport,
                             };
 
@@ -1397,7 +1511,8 @@ class _AssignerManageSchedulesScreenState
                                 gameTemplateModel.includeLocation &&
                                 gameTemplateModel.location != null &&
                                 gameTemplateModel.location!.isNotEmpty) {
-                              routeArgs['location'] = gameTemplateModel.location;
+                              routeArgs['location'] =
+                                  gameTemplateModel.location;
                             }
 
                             // Determine the navigation flow based on template settings

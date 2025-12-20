@@ -104,7 +104,7 @@ class Crew {
           ? (map['competition_levels'] is String
               ? (map['competition_levels'] as String).split(',')
               : List<String>.from(map['competition_levels'] as List<dynamic>))
-          : null,
+          : [],
     );
   }
 
@@ -123,7 +123,7 @@ class Crew {
       'coach_endorsements': coachEndorsements,
       'assigner_endorsements': assignerEndorsements,
       'total_endorsements': totalEndorsements,
-      'competition_levels': competitionLevels?.join(','),
+      'competition_levels': competitionLevels,
     };
   }
 
@@ -252,7 +252,11 @@ class CrewInvitation {
       gamePosition: map['game_position'] as String?,
       sportName: map['sport_name'] as String?,
       competitionLevels: map['competition_levels'] != null
-          ? List<String>.from(jsonDecode(map['competition_levels'] ?? '[]'))
+          ? (map['competition_levels'] is List
+              ? List<String>.from(map['competition_levels'])
+              : map['competition_levels'] is String
+                  ? (map['competition_levels'] as String).split(',')
+                  : [])
           : null,
       status: map['status'] as String? ?? 'pending',
       invitedAt: map['invited_at'] != null
@@ -565,16 +569,57 @@ class CrewRepository {
   // Get pending invitations for an official
   Future<List<CrewInvitation>> getPendingInvitations(String officialId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection('crew_invitations')
-          .where('invited_official_id', isEqualTo: officialId)
-          .where('status', isEqualTo: 'pending')
-          .orderBy('invited_at', descending: true)
-          .get();
+      print(
+          '🔍 CREW INVITATIONS: Looking for pending invitations for officialId: $officialId');
+      // Try the composite index query first
+      List<QueryDocumentSnapshot> documents;
+      try {
+        final querySnapshot = await _firestore
+            .collection('crew_invitations')
+            .where('invited_official_id', isEqualTo: officialId)
+            .where('status', isEqualTo: 'pending')
+            .orderBy('invited_at', descending: true)
+            .get();
+        documents = querySnapshot.docs;
+        print(
+            '✅ CREW INVITATIONS: Composite index query succeeded, returned ${documents.length} documents');
+      } catch (e) {
+        print('⚠️ CREW INVITATIONS: Composite index query failed: $e');
+        print('🔄 CREW INVITATIONS: Falling back to in-memory filtering');
+        // Fallback: query by invited_official_id only, then filter by status and sort in memory
+        final querySnapshot = await _firestore
+            .collection('crew_invitations')
+            .where('invited_official_id', isEqualTo: officialId)
+            .get();
+
+        // Filter by status in memory
+        documents = querySnapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['status'] == 'pending';
+        }).toList();
+
+        // Sort by invited_at in memory
+        documents.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+          final aTime = aData['invited_at'] as Timestamp?;
+          final bTime = bData['invited_at'] as Timestamp?;
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          return bTime.compareTo(aTime);
+        });
+
+        print(
+            '✅ CREW INVITATIONS: Fallback query returned ${documents.length} documents');
+      }
 
       final invitations = <CrewInvitation>[];
-      for (final doc in querySnapshot.docs) {
-        final invitationData = {...doc.data(), 'id': doc.id};
+      for (final doc in documents) {
+        final invitationData = <String, dynamic>{
+          ...doc.data() as Map<String, dynamic>,
+          'id': doc.id
+        };
 
         // Get crew details
         final crewId = invitationData['crew_id'] as String;
@@ -809,6 +854,8 @@ class CrewRepository {
   // Create crew invitation
   Future<bool> createCrewInvitation(CrewInvitation invitation) async {
     try {
+      print(
+          '📝 CREATING CREW INVITATION: crewId=${invitation.crewId}, invitedOfficialId=${invitation.invitedOfficialId}, status=${invitation.status}');
       // Check for existing pending invitation
       final existingQuery = await _firestore
           .collection('crew_invitations')

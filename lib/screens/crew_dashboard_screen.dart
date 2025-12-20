@@ -92,10 +92,21 @@ class _CrewDashboardScreenState extends State<CrewDashboardScreen> {
       backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
         backgroundColor: AppColors.efficialsBlack,
-        title: const Text(
-          'My Crews',
-          style: TextStyle(color: AppColors.efficialsWhite),
+        title: GestureDetector(
+          onTap: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/official_home',
+              (route) => false,
+            );
+          },
+          child: Icon(
+            Icons.sports,
+            color: AppColors.efficialsYellow,
+            size: 32,
+          ),
         ),
+        centerTitle: true,
         iconTheme: const IconThemeData(color: AppColors.efficialsWhite),
         elevation: 0,
         actions: [
